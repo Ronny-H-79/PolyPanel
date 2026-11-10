@@ -4,6 +4,12 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.4] — 2026-11-10
+
+### Geändert
+- **Kopfzeilen-Knopf heißt jetzt „Englische Website" / „English website"** statt nur „English". Der
+  Knopf öffnet die englische README auf GitHub — ohne das Wort war nicht erkennbar, was er tut.
+
 ## [0.7.3] — 2026-11-10
 
 ### Behoben
