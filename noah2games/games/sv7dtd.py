@@ -70,42 +70,61 @@ class SevenDaysProfile(GameProfile):
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8", "replace"))
 
-    def mods_search(self, inst, query: str) -> dict:
-        """Offizielle API: POST /mods/search (Filter nach Spiel, Sortierung nach Downloads).
+    NEXUS_API = "https://api.nexusmods.com/v3/mods/search"
 
-        Die API kennt keinen Suchbegriff - deshalb lokal nach Namen filtern.
-        """
-        treffer, key = [], self.nexus_key()
-        if key:
-            body = {"filters": {"games": ["7daystodie"]},
-                    "sort": {"field": "downloads", "direction": "desc"},
-                    "pagination": {"size": 50}}
-            req = urllib.request.Request(
-                "https://api.nexusmods.com/mods/search", data=json.dumps(body).encode(),
-                headers={"apikey": key, "User-Agent": "noah2games",
-                         "Content-Type": "application/json", "accept": "application/json"},
-                method="POST")
+    def _nexus_top(self, limit: int = 50):
+        """Top-Mods des Spiels nach Downloads (die API kennt keinen Suchbegriff)."""
+        key = self.nexus_key()
+        if not key:
+            return []
+        body = {"filters": {"games": ["7daystodie"]},
+                "sort": {"field": "downloads", "direction": "desc"},
+                "pagination": {"type": "page", "page": 1, "page_size": min(limit, 100)}}
+        req = urllib.request.Request(self.NEXUS_API, data=json.dumps(body).encode(),
+                                     headers={"apikey": key, "User-Agent": "noah2games",
+                                              "Content-Type": "application/json",
+                                              "accept": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            daten = json.loads(resp.read().decode("utf-8", "replace"))
+        return ((daten.get("data") or {}).get("mods")) or []
+
+    def mods_search(self, inst, query: str) -> dict:
+        treffer, fehler = [], ""
+        if self.nexus_key():
             try:
-                with urllib.request.urlopen(req, timeout=25) as resp:
-                    daten = json.loads(resp.read().decode("utf-8", "replace"))
-                mods = daten.get("mods") or daten.get("data") or []
-                for m in mods:
-                    name = m.get("name") or m.get("title") or ""
-                    if query.lower() in name.lower():
+                for m in self._nexus_top():
+                    name = m.get("name") or ""
+                    if query.lower() in name.lower() or query.lower() in (m.get("summary") or "").lower():
                         treffer.append({
-                            "id": m.get("mod_id") or m.get("id"),
+                            "id": m.get("game_scoped_id") or m.get("id"),
                             "name": name,
-                            "description": (m.get("summary") or m.get("description") or "")[:160],
-                            "downloads": m.get("downloads") or m.get("mod_downloads") or 0,
+                            "description": (m.get("summary") or "")[:160],
+                            "downloads": m.get("downloads") or 0,
+                            "url": "https://www.nexusmods.com/7daystodie/mods/%s"
+                                   % (m.get("game_scoped_id") or ""),
                         })
             except Exception as exc:            # noqa: BLE001 - Suche darf nicht scheitern
-                return {"provider": "nexusmods", "results": [], "has_key": True,
-                        "error": "Nexus: %s" % exc.__class__.__name__,
-                        "search_url": "https://www.nexusmods.com/7daystodie/search/?gsearch=%s"
-                                      % urllib.parse.quote(query)}
-        return {"provider": "nexusmods", "results": treffer, "has_key": bool(key),
-                "note": ("Top-Mods nach Downloads, lokal nach Namen gefiltert - Nexus bietet "
-                         "keine Volltextsuche. Mod als Ordner nach Mods/."),
+                fehler = "Nexus: %s" % exc.__class__.__name__
+        if not treffer:
+            # Rueckfall: 7D2D-Mods liegen oft auf GitHub (offene API, ohne Key)
+            try:
+                url = ("https://api.github.com/search/repositories?q=%s&sort=stars&order=desc&per_page=15"
+                       % urllib.parse.quote("%s 7d2d in:name,description" % query))
+                req = urllib.request.Request(url, headers={"User-Agent": "noah2games",
+                                                           "accept": "application/vnd.github+json"})
+                with urllib.request.urlopen(req, timeout=20) as resp:
+                    daten = json.loads(resp.read().decode("utf-8", "replace"))
+                for m in (daten.get("items") or []):
+                    treffer.append({"id": m.get("full_name"), "name": m.get("name") or "",
+                                    "description": (m.get("description") or "")[:160],
+                                    "downloads": m.get("stargazers_count") or 0,
+                                    "url": m.get("html_url") or ""})
+            except Exception:                   # noqa: BLE001
+                pass
+        return {"provider": "nexus+github" if self.nexus_key() else "github",
+                "results": treffer, "has_key": bool(self.nexus_key()), "error": fehler,
+                "note": ("Top-Mods (Nexus, nach Downloads) plus GitHub-Treffer - lokal nach "
+                         "Eingabe gefiltert. Mod-Ordner nach Mods/ legen."),
                 "search_url": "https://www.nexusmods.com/7daystodie/search/?gsearch=%s"
                               % urllib.parse.quote(query)}
 

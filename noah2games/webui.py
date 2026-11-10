@@ -1141,7 +1141,9 @@ async function searchLocalMods(){
     }
     box.innerHTML=d.results.map(function(m,i){
       return '<div class="setrow"><label><b>'+m.name+'</b><small>'+(m.description||'')+'</small></label>'
-        + '<button class="modinstall" data-id="'+m.id+'">'+(L['mods.install']||'Installieren')+'</button></div>';
+        + (m.url
+            ? '<a href="'+m.url+'" target="_blank" rel="noopener"><button type="button">'+(L['mods.open_site']||'Öffnen')+'</button></a></div>'
+            : '<button class="modinstall" data-id="'+m.id+'">'+(L['mods.install']||'Installieren')+'</button></div>');
     }).join('');
     box.querySelectorAll('.modinstall').forEach(function(b){
       b.onclick=function(){ installLocalMod(b.dataset.id); };
