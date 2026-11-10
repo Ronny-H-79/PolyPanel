@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 
 from .paths import SETTINGS_PATH as CONFIG_PATH
 LANGS = ("de", "en")
@@ -201,6 +202,7 @@ T: dict[str, dict[str, str]] = {
     "setg.welt": {"de": "Welt", "en": "World"},
     "setg.spieler": {"de": "Spieler & Fortschritt", "en": "Players & progression"},
     "setg.weitere": {"de": "Weitere", "en": "Other"},
+    "setg.not_set": {"de": "Standard, noch nicht gesetzt", "en": "default, not set yet"},
     "set.save_changes": {"de": "Änderungen speichern", "en": "Save changes"},
     "set.no_changes": {"de": "keine Änderungen", "en": "no changes"},
     # ---------------------------------------------------------------- Whitelist
@@ -628,10 +630,40 @@ ARG_EN = {
 }
 
 
+_ABKUERZUNG = {"PvP", "PvE", "PCU", "NPC", "HUD", "MOTD", "CPU", "GPU", "API", "ID", "IP", "URL"}
+
+
+def huebsch(key: str) -> str:
+    """Schluesselname lesbar machen: ``EnableResearch`` -> ``Enable research``."""
+    # Gemischt geschriebene Abkuerzungen schuetzen, sonst zerlegt der Trenner "PvP" in "Pv P"
+    marken = {}
+    for i, kurz in enumerate(("PvP", "PvE")):
+        if kurz in key:
+            marke = "Acr%d" % i
+            key = key.replace(kurz, marke)
+            marken[marke] = kurz
+    worte = re.sub(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", key).split()
+    worte = [marken.get(w, w) for w in worte]
+    if not worte:
+        return key
+    aus = [worte[0]]
+    for wort in worte[1:]:
+        aus.append(wort if (wort in _ABKUERZUNG or (wort.isupper() and len(wort) <= 4)) else wort.lower())
+    return " ".join(aus)
+
+
 def setting(ini_key: str, label: str, hint: str) -> tuple[str, str]:
-    """Label und Hinweis eines Formularfelds in der aktuellen Sprache."""
-    if lang() == "en" and ini_key in SET_EN:
-        return SET_EN[ini_key]
+    """Label und Hinweis eines Formularfelds in der aktuellen Sprache.
+
+    Deutsch kommt aus den Profilen (``*_labels.py``). Englisch: erst die kuratierte
+    Tabelle ``SET_EN``, sonst der lesbar gemachte Schluesselname - damit in der
+    englischen Oberflaeche keine deutschen Feldnamen stehen (Space Engineers, 7D2D
+    und die nicht uebersetzten ARK-Schluessel hatten genau das).
+    """
+    if lang() == "en":
+        if ini_key in SET_EN:
+            return SET_EN[ini_key]
+        return huebsch(ini_key), ""
     return label, hint
 
 

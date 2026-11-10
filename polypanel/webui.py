@@ -1764,6 +1764,25 @@ def _translate_hits(data: dict, field: str, limit: int = 24) -> dict:
     return data
 
 
+def _uebersetzte_settings(inst) -> list:
+    """Einstellungen mit Label und Hinweis in der aktuellen Sprache.
+
+    Je Spiel kommen die Labels deutsch aus dem Profil (``*_labels.py``); fuer Englisch
+    uebersetzt ``i18n.setting()`` sie (kuratierte Tabelle, sonst lesbarer Schluesselname).
+    """
+    from . import i18n as _i18n
+    if inst.game == "ark":
+        felder = cfgfile.read_values(inst)
+    else:
+        felder = inst.profile.settings(inst)
+    for feld in felder:
+        if not isinstance(feld, dict):
+            continue
+        label, hint = _i18n.setting(feld.get("key", ""), feld.get("label", ""), feld.get("hint", ""))
+        feld["label"], feld["hint"] = label, hint
+    return felder
+
+
 def _dirs_mb(rel: list, basis: str) -> float:
     """Groesse mehrerer Unterordner (relativ zu basis) in MB."""
     total = 0
@@ -2097,9 +2116,9 @@ class Handler(BaseHTTPRequestHandler):
             })
         elif path == "/api/settings":
             if inst.game != "ark":
-                self._json(inst.profile.settings(inst))     # nur die Felder dieses Spiels
+                self._json(_uebersetzte_settings(inst))     # nur die Felder dieses Spiels
             else:
-                self._json(cfgfile.read_values(inst))
+                self._json(_uebersetzte_settings(inst))
         elif path == "/api/backups":
             self._json(bk.listing(inst))
         elif path == "/api/schedule":

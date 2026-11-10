@@ -4,6 +4,17 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.3] — 2026-11-10
+
+### Behoben
+- **Englische Oberfläche zeigte deutsche Feldnamen.** `i18n.setting()` war vorhanden, wurde aber
+  nirgends aufgerufen — die Einstellungen kamen immer mit den deutschen Labels aus den Profilen.
+  Jetzt laufen alle Spiele durch `_uebersetzte_settings()`: Englisch nutzt die kuratierte Tabelle
+  `SET_EN`, sonst den lesbar gemachten Schlüsselnamen (`EnableResearch` → „Enable research",
+  `EnablePvPStructureDecay` → „Enable PvP structure decay"). Deutsch bleibt unverändert.
+- Hinweis „Standard, noch nicht gesetzt" kommt aus dem Sprachkatalog (`setg.not_set`) statt fest
+  deutsch im Profil zu stehen.
+
 ## [0.7.2] — 2026-11-10
 
 ### Geändert

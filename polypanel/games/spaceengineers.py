@@ -296,8 +296,9 @@ class SpaceEngineersProfile(GameProfile):
         for name, (label, hint) in LABELS.items():
             if name in vorhanden:
                 continue
+            from .. import i18n as _i18n
             out.append({"file": "instance", "section": "", "key": name, "label": label,
-                        "hint": (hint + " · " if hint else "") + "Standard, noch nicht gesetzt",
+                        "hint": (hint + " · " if hint else "") + _i18n.get("setg.not_set"),
                         "type": "text", "value": "", "group": _group_of(name)})
         return out
 
