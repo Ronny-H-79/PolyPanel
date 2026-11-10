@@ -159,13 +159,14 @@ class SatisfactoryProfile(GameProfile):
         # order_by/order sind GraphQL-Enums - unquoted, sonst lehnt ficsit die Abfrage ab.
         # Ohne Sortierung liefert die API beliebige Treffer, das wirkt wie "findet nichts".
         data = self._gql("{getMods(filter:{search:%s,limit:25,order_by:popularity,order:desc})"
-                         "{count mods{id name short_description downloads}}}" % q)
+                         "{count mods{id name short_description downloads logo}}}" % q)
         mods = (data.get("getMods") or {}).get("mods") or []
         return {"provider": "ficsit.app",
                 "search_url": "https://ficsit.app/mods?q=%s" % urllib.parse.quote(query),
                 "results": [{"id": m["id"], "name": m["name"],
                              "description": (m.get("short_description") or "")[:160],
-                             "downloads": m.get("downloads") or 0} for m in mods]}
+                             "downloads": m.get("downloads") or 0,
+                             "thumbnail": m.get("logo") or ""} for m in mods]}
 
     def mods_install(self, inst, mod_id: str, log=print) -> str:
         data = self._gql('{getMod(modId:%s){name versions(filter:{limit:1}){version link}}}'

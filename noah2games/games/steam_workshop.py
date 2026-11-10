@@ -71,6 +71,7 @@ def hits(app_id: str, query: str, limit: int = 24) -> dict:
             "name": str(it.get("title") or "Mod %s" % pid),
             "description": clean(it.get("short_description")),
             "downloads": int(it.get("subscriptions") or 0),
+            "thumbnail": str(it.get("preview_url") or ""),
             "url": "https://steamcommunity.com/sharedfiles/filedetails/?id=%s" % pid,
             "source": "steam",
             "installable": True,

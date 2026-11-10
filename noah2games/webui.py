@@ -1254,7 +1254,8 @@ async function searchLocalMods(){
         : (m.source==='steam' ? '<small class="badge" style="margin-left:6px">Steam</small>' : ''));
       const fertig = m.installed ? '<small class="badge on" style="margin-left:6px">'+(L['mods.already']||'eingetragen')+'</small>' : '';
       const zahlen = m.downloads ? (m.downloads.toLocaleString('de-DE')+' '+(L['mods.subs']||'Abonnenten')+' · ') : '';
-      return '<div class="setrow"><label><b>'+m.name+'</b>'+quelle+fertig+'<small>'+zahlen+(m.description||'')+'</small></label>'
+      const bild = m.thumbnail ? '<img class="thumb" src="'+m.thumbnail+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '<div class="thumb"></div>';
+      return '<div class="setrow"><span class="mrow">'+bild+'<label><b>'+m.name+'</b>'+quelle+fertig+'<small>'+zahlen+(m.description||'')+'</small></label></span>'
         + (m.installable && m.id
             ? '<span style="display:flex;gap:6px"><button class="modinstall" data-id="'+m.id+'"'
               + (m.installed?' disabled style="opacity:.5"':'')+'>'+(m.installed?(L['mods.already']||'eingetragen'):(L['mods.install']||'Installieren'))+'</button>'
