@@ -460,7 +460,8 @@ async function load(){
              <button onclick="updInst('${i.name}')">${L['common.update']}</button>
              <button class="danger" onclick="act('${i.name}','stop')">${L['common.stop']}</button>
              <button class="danger" onclick="delInst('${i.name}',${i.size_gb||0})">${L['common.delete']}</button>`
-          : `<button class="primary" onclick="install('${i.name}')">${L['dash.install']}</button>`}
+          : `<button class="primary" onclick="install('${i.name}')">${L['dash.install']}</button>
+             <button class="danger" onclick="delInst('${i.name}',0)">${L['common.delete']}</button>`}
       </div>
       </div>${i.running?`<div class="logwrap"><div class="loghead">${L['dash.log']}</div><pre class="cardlog" data-inst="${i.name}">…</pre></div>`:''}
       </div>
@@ -560,8 +561,9 @@ async function updInst(name){
 }
 async function delInst(name, sizeGb){
   if(!confirm(L['msg.confirm_instance_delete'].replace('{n}', name))) return;
-  let files = 0;
-  if(confirm(L['msg.confirm_instance_files'].replace('{n}', name).replace('{size}', sizeGb))){
+  // ohne Installation gibt es keine Serverdaten - dann faellt die Rueckfrage weg
+  let files = sizeGb ? 0 : 1;
+  if(sizeGb && confirm(L['msg.confirm_instance_files'].replace('{n}', name).replace('{size}', sizeGb))){
     files = 1;
   }
   const msg = document.getElementById('instmsg');

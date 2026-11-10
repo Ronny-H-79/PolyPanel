@@ -4,6 +4,16 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.10] — 2026-11-10
+
+### Behoben
+- **Nicht installierte Instanzen ließen sich nicht löschen.** Die Dashboard-Karte zeigte nur
+  „Installieren" — wer eine Instanz anlegt und es sich anders überlegt, kam nicht mehr davon weg.
+  Jetzt steht dort auch `Löschen`; die Rückfrage nach den Serverdateien entfällt, weil es keine gibt
+  (der leere Instanzordner wird mit entfernt).
+- **`delInst()` in noah prüfte `r.ok` auf einer Textantwort** (siehe 0.6.8er-Reihe) — nach dem
+  Löschen lud die Karte nie neu. Jetzt `JSON.parse` mit Rückfall und Meldung mit freigegebenen GB/MB.
+
 ## [0.6.9] — 2026-11-10
 
 ### Neu
