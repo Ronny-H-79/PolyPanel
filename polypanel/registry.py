@@ -122,6 +122,8 @@ def save(inst: Instance) -> None:
 
 def _free_port(start: int, udp: bool = True) -> int:
     """Erstes freies Port-Paar ab start finden (Spiel-Port und Port+1)."""
+    if start <= 0:
+        return 0
     kind = socket.SOCK_DGRAM if udp else socket.SOCK_STREAM
     port = start
     while port < start + 400:
@@ -151,7 +153,10 @@ def create(name: str, map_name: str = "", port: int | None = None,
         raise ValueError("Instanz '%s' existiert bereits" % name)
     prof = games.get(game)
     game_port = port or _free_port(prof.default_game_port)
-    ctrl_port = _free_port(prof.default_control_port, udp=False)
+    # Spiele ohne Steuerkanal (Space Engineers, kein RCON) haben keinen Control-Port - 0 bleibt 0.
+    # Vorher lief _free_port(0) in die Schleife 0/1, 10/11, ... und scheiterte an den
+    # privilegierten Ports < 1024 ("kein freier Port gefunden").
+    ctrl_port = _free_port(prof.default_control_port, udp=False) if prof.default_control_port else 0
     inst = Instance(
         name=name,
         directory=os.path.expanduser("~/polypanel-instances/%s" % name),

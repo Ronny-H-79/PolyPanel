@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.1] — 2026-11-10
+
+### Behoben
+- **Space-Engineers-Instanz anlegen scheiterte mit „kein freier Port gefunden".** Das Profil hat keinen
+  Steuerkanal (`default_control_port = 0`, kein RCON); `_free_port(0)` probierte 0/1, 10/11 … und lief
+  an den privilegierten Ports < 1024 gegen die Wand. Jetzt wird bei einem Profil ohne Control-Port
+  schlicht `0` eingetragen, und `_free_port()` gibt für `start <= 0` sofort `0` zurück.
+
 ## [0.7.0] — 2026-11-10
 
 ### Geändert
