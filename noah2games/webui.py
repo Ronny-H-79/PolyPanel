@@ -697,7 +697,8 @@ body[data-game="ark"] #mods-nonark{display:none !important}
       <div id="mods-local-list">…</div>
       <div id="nexusbox" style="display:none;margin-top:14px">
         <div class="setrow"><label><b>NexusMods-API-Key</b>
-          <small data-t="mods.nexus_hint">optional</small></label>
+          <small><span data-t="mods.nexus_hint">Persönlicher Key — ganz unten auf dieser Seite:</span>
+            <a href="https://www.nexusmods.com/settings/api-keys" target="_blank" rel="noopener">nexusmods.com/settings/api-keys</a></small></label>
           <input id="nexuskey" type="password" placeholder="…"></div>
         <div class="row"><button onclick="saveNexusKey()" data-t="common.save">Speichern</button></div>
       </div>
