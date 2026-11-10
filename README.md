@@ -57,7 +57,8 @@ noah2games --name factory start
 **ARK: Survival Evolved** is the older ARK generation and needs no Wine: SteamCMD ships a Linux
 server. Configuration lives in `ShooterGame/Saved/Config/LinuxServer/` (`GameUserSettings.ini` and
 `Game.ini`), the manager writes ports, name, admin password and workshop mods there, and the map
-plus cluster arguments go into the launch line. Mods are Steam Workshop IDs (`-automanagedmods`);
+plus cluster arguments go into the launch line. Mods are Steam Workshop IDs, searched directly in
+the workshop from the UI and loaded on start (`-automanagedmods`);
 the settings tab reads **every** property from both INI files — 262 values, all with German labels.
 
 The web UI accepts the extra `game` parameter on `POST /api/instances`. Ports: Satisfactory needs

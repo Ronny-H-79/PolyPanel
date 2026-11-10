@@ -4,6 +4,18 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.0] — 2026-11-10
+
+### Neu
+- **Mod-Suche für ARK Evolved direkt im Steam-Workshop** — echte Volltextsuche (kein API-Key,
+  kein Login), Treffer mit Abonnentenzahl, Beschreibung und Steam-Link. „Installieren“ trägt die
+  Workshop-ID in die Mod-Liste ein (`ActiveMods` in der `GameUserSettings.ini`), der Server lädt
+  sie beim nächsten Start selbst (`-automanagedmods`). Bereits eingetragene Mods sind markiert
+  und der Knopf ist gesperrt.
+- **Eingetragene Workshop-IDs im Mods-Reiter sichtbar** (Liste mit Hinweis „lädt beim nächsten
+  Start“) — vorher war nur der Ordnerinhalt zu sehen, die IDs standen nur in der INI.
+- Eigene Hinweistexte für ARK Evolved im Mods-Reiter (statt der Nexus/GitHub-Erklärung).
+
 ## [0.5.1] — 2026-11-10
 
 ### Neu

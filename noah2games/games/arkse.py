@@ -346,16 +346,100 @@ class ArkSeProfile(GameProfile):
         return steps
 
     # ------------------------------------------------------------- Mods
-    def mods_search(self, inst, query: str) -> dict:
-        """ASE-Mods sind Workshop-IDs - Suche nur auf der Webseite."""
+    WORKSHOP_APP = "346110"       # Steam-Workshop von ARK: Survival Evolved
+    WORKSHOP_URL = "https://steamcommunity.com/workshop/browse/"
+
+    def _workshop(self, query: str, page: int = 1) -> dict:
+        """Steam-Workshop durchsuchen (Volltext) und die Trefferliste liefern.
+
+        Die Workshop-Seite bettet ihren Zustand als JSON in `valve-ssr-data` ein;
+        darin steht unter `renderContext.queryData` die Antwort von Steam. Kein
+        API-Key nötig, kein Login - deshalb der kleine Umweg über das HTML.
+        """
+        import json as _json
+        import re as _re
         import urllib.parse
-        return {
-            "provider": "steam",
-            "results": [],
-            "has_key": True,
-            "note": ("ARK: Survival Evolved laedt Mods ueber Steam-Workshop-IDs. ID im Workshop "
-                     "heraussuchen und in das Feld „Mods\" eintragen - der Server laedt sie beim "
-                     "Start (-automanagedmods)."),
-            "search_url": ("https://steamcommunity.com/workshop/browse/?appid=346110&searchtext=%s"
-                           % urllib.parse.quote(query)),
-        }
+        import urllib.request
+
+        url = (self.WORKSHOP_URL + "?appid=%s&searchtext=%s&browsesort=textsearch"
+               "&section=readytouseitems&p=%d"
+               % (self.WORKSHOP_APP, urllib.parse.quote_plus(query), max(1, page)))
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) noah2games",
+            "Accept-Language": "de,en;q=0.8"})
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            html = resp.read().decode("utf-8", "replace")
+        m = _re.search(r'id="valve-ssr-data"[^>]*>(.*?)</script>', html, _re.S)
+        if not m:
+            raise RuntimeError("Workshop-Seite ohne Daten (Steam liefert eine andere Seite)")
+        ssr = _json.loads(m.group(1))
+        raw = ssr.get("renderContext", {}).get("queryData")
+        if not raw:
+            raise RuntimeError("Workshop-Antwort ohne Trefferliste")
+        qd = _json.loads(raw)
+        for q in qd.get("queries") or []:
+            data = (q.get("state") or {}).get("data")
+            if isinstance(data, dict) and isinstance(data.get("results"), list):
+                return data
+        return {"results": [], "total_count": 0}
+
+    @staticmethod
+    def _clean(text: str, limit: int = 150) -> str:
+        """BBCode/HTML/Markdown-Reste aus der Workshop-Beschreibung entfernen."""
+        import re as _re
+        text = _re.sub(r"\[/?[a-zA-Z0-9=*#;:,\.\s\"'\-]+\]", " ", str(text or ""))
+        text = _re.sub(r"<[^>]+>", " ", text)
+        text = _re.sub(r"\*{1,3}|_{2,}|`{1,3}", "", text)     # **fett**, __unterstrichen__, `code`
+        text = _re.sub(r"https?://\S+", "", text)             # nackte Links weg
+        text = _re.sub(r"\s+", " ", text).strip()
+        return text[:limit]
+
+    def mods_search(self, inst, query: str) -> dict:
+        import urllib.parse
+        try:
+            data = self._workshop(query)
+        except Exception as exc:                      # noqa: BLE001
+            return {"provider": "steam", "results": [], "has_key": True,
+                    "error": "Steam-Workshop: %s" % exc.__class__.__name__,
+                    "note": "Die Suche im Steam-Workshop ist gerade nicht erreichbar.",
+                    "search_url": ("https://steamcommunity.com/workshop/browse/?appid=%s&searchtext=%s"
+                                   % (self.WORKSHOP_APP, urllib.parse.quote(query)))}
+        vorhanden = {int(m) for m in inst.mods}
+        treffer = []
+        for it in (data.get("results") or [])[:24]:
+            pid = str(it.get("publishedfileid") or "")
+            if not pid:
+                continue
+            treffer.append({
+                "id": pid,
+                "name": str(it.get("title") or "Mod %s" % pid),
+                "description": self._clean(it.get("short_description")),
+                "downloads": int(it.get("subscriptions") or 0),
+                "url": "https://steamcommunity.com/sharedfiles/filedetails/?id=%s" % pid,
+                "source": "steam",
+                "installable": True,
+                "installed": int(pid) in vorhanden,
+            })
+        return {"provider": "steam", "results": treffer,
+                "total": int(data.get("total_count") or len(treffer)),
+                "has_key": True,
+                "note": ("Volltextsuche im Steam-Workshop (ARK Evolved). „Installieren\" trägt die "
+                         "Workshop-ID ein, der Server lädt sie beim nächsten Start selbst "
+                         "(Startparameter -automanagedmods)."),
+                "search_url": ("https://steamcommunity.com/workshop/browse/?appid=%s&searchtext=%s"
+                               % (self.WORKSHOP_APP, urllib.parse.quote(query)))}
+
+    def mods_install(self, inst, mod_id: str, log=print) -> str:
+        """Workshop-ID eintragen (ASE lädt die Mod beim Start selbst)."""
+        from ..control import ControlError
+        mid = str(mod_id).strip()
+        if not mid.isdigit():
+            raise ControlError("Das ist keine Workshop-ID (nur Ziffern)")
+        nummer = int(mid)
+        if nummer in inst.mods:
+            return "Mod %s ist bereits eingetragen." % mid
+        inst.mods.append(nummer)
+        self.write_config(inst)
+        log("Workshop-ID %s eingetragen" % mid)
+        return ("Workshop-ID %s eingetragen - ARK Evolved lädt die Mod beim nächsten Start "
+                "(-automanagedmods)." % mid)

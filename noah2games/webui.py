@@ -1180,6 +1180,12 @@ async function loadLocalMods(){
   const liste=document.getElementById('mods-local-list');
   const pfad=document.getElementById('mods-local-path');
   if(!liste) return;
+  const steam = document.body.dataset.game==='arkse';
+  [['mods.local_hint','mods.local_hint_steam'],['mods.search_how','mods.search_how_steam']].forEach(function(paar){
+    const el=document.querySelector('[data-t="'+paar[0]+'"]'); if(!el) return;
+    const key = steam ? paar[1] : paar[0];
+    el.dataset.t = key; if(L[key]) el.textContent = L[key];
+  });
   try{
     const d=JSON.parse(await api('/api/mods/local'));
     if(pfad) pfad.textContent=d.path||'—';
@@ -1188,11 +1194,17 @@ async function loadLocalMods(){
       st.textContent = d.nexus_key ? (L['mods.api_on']||'API aktiv') : (L['mods.api_off']||'kein Key');
       st.className = 'badge ' + (d.nexus_key ? 'on' : 'off');
     }
+    const ids = d.workshop_ids || [];
+    const idsBlock = ids.length
+      ? '<div class="setrow"><label><b>'+(L['mods.workshop_ids']||'Eingetragene Workshop-Mods')+'</b>'
+        + '<small>'+ids.join(', ')+'</small></label>'
+        + '<span class="meta">'+(L['mods.workshop_note']||'geladen beim nächsten Start')+'</span></div>'
+      : '';
     if(!d.entries || !d.entries.length){
-      liste.innerHTML='<p class="hint">'+(L['mods.local_empty']||'keine Mods im Ordner')+'</p>';
+      liste.innerHTML = idsBlock || '<p class="hint">'+(L['mods.local_empty']||'keine Mods im Ordner')+'</p>';
       return;
     }
-    liste.innerHTML='<div class="setrow">'+d.entries.map(function(e){
+    liste.innerHTML = idsBlock + '<div class="setrow">'+d.entries.map(function(e){
       return '<label><b>'+e.name+'</b><small>'+(e.size_mb||0)+' MB'+(e.workshop?' · Workshop':'')+'</small></label>';
     }).join('')+'</div>';
   }catch(e){ liste.textContent='Fehler: '+e; }
@@ -1215,10 +1227,15 @@ async function searchLocalMods(){
       return;
     }
     box.innerHTML=d.results.map(function(m,i){
-      const quelle = m.source==='nexus' ? '<small class="badge" style="margin-left:6px">Nexus</small>' : (m.source==='github' ? '<small class="badge" style="margin-left:6px">GitHub</small>' : '');
-      return '<div class="setrow"><label><b>'+m.name+'</b>'+quelle+'<small>'+(m.description||'')+'</small></label>'
+      const quelle = m.source==='nexus' ? '<small class="badge" style="margin-left:6px">Nexus</small>'
+        : (m.source==='github' ? '<small class="badge" style="margin-left:6px">GitHub</small>'
+        : (m.source==='steam' ? '<small class="badge" style="margin-left:6px">Steam</small>' : ''));
+      const fertig = m.installed ? '<small class="badge on" style="margin-left:6px">'+(L['mods.already']||'eingetragen')+'</small>' : '';
+      const zahlen = m.downloads ? (m.downloads.toLocaleString('de-DE')+' '+(L['mods.subs']||'Abonnenten')+' · ') : '';
+      return '<div class="setrow"><label><b>'+m.name+'</b>'+quelle+fertig+'<small>'+zahlen+(m.description||'')+'</small></label>'
         + (m.installable && m.id
-            ? '<span style="display:flex;gap:6px"><button class="modinstall" data-id="'+m.id+'">'+(L['mods.install']||'Installieren')+'</button>'
+            ? '<span style="display:flex;gap:6px"><button class="modinstall" data-id="'+m.id+'"'
+              + (m.installed?' disabled style="opacity:.5"':'')+'>'+(m.installed?(L['mods.already']||'eingetragen'):(L['mods.install']||'Installieren'))+'</button>'
               + (m.url?'<a href="'+m.url+'" target="_blank" rel="noopener"><button type="button">↗</button></a>':'')+'</span></div>'
             : (m.url
               ? '<a href="'+m.url+'" target="_blank" rel="noopener"><button type="button">'+(L['mods.open_site']||'Öffnen')+'</button></a></div>'
@@ -1669,6 +1686,7 @@ def _local_mods(inst) -> dict:
         except Exception:                       # noqa: BLE001
             hat_key = False
     return {"path": pfad, "entries": eintraege,
+            "workshop_ids": [int(m) for m in inst.mods] if inst.game == "arkse" else None,
             "nexus_key": hat_key if inst.game == "7d2d" else None}
 
 
@@ -1950,6 +1968,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             try:
                 msg = inst_m.profile.mods_install(inst_m, mid, log=lambda m: None)
+                if inst_m.game == "arkse":          # Mod-Liste steht in der Instanz-Config
+                    registry.save(inst_m)
+                    inst_m.write_ini()
                 self._send(200, msg.encode())
             except Exception as exc:              # noqa: BLE001 - Fehler an die UI
                 self._send(400, str(exc).encode())
