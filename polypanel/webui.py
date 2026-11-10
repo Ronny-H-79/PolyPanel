@@ -410,6 +410,16 @@ function applyLang(){
   const lb=document.getElementById('langbtn'); if(lb) lb.textContent=(L.lang==='de')?'EN':'DE';
 }
 const T=new URLSearchParams(location.search).get('token')||'';
+
+// Klicks nicht verlieren: waehrend der Knopf gedrueckt ist, den DOM nicht neu bauen.
+// Ohne das ersetzt der 3-5-s-Poll die Karten/Listen genau unter dem Mauszeiger und der
+// Klick landet im Nichts - das Symptom "reagiert erst beim zweiten Klick".
+document.addEventListener('pointerdown', () => { window.__pressed = 1; }, true);
+['pointerup', 'pointercancel'].forEach(function (t) {
+  document.addEventListener(t, () => { window.__pressed = 0; }, true);
+});
+window.addEventListener('blur', () => { window.__pressed = 0; });
+
 const api=(p,o)=>fetch(p+(p.includes('?')?'&':'?')+'token='+encodeURIComponent(T),o).then(r=>r.text());
 let DATA=[];
 let LOGTIMER=null, LOGS={};   // Karten-Log: Timer und letzte Zeilen je Instanz
@@ -430,6 +440,7 @@ function spark(cv, a, b, amax, bmax){
   line(a, amax, 'rgba(37,230,164,.95)');
 }
 async function load(){
+  if(window.__pressed){ setTimeout(load, 400); return; }   // Klick laeuft noch
   const _b=document.getElementById('actbanner'); if(_b && _b.dataset.done==='1'){ _b.style.display='none'; }
   const list=JSON.parse(await api('/api/instances'));
   DATA=list;
@@ -490,6 +501,7 @@ async function load(){
   }
 }
 async function loadHost(){
+  if(window.__pressed){ setTimeout(loadHost, 400); return; }   // Klick laeuft noch
   try{ const h=JSON.parse(await api('/api/host'));
     document.getElementById('hostcpu').textContent='CPU '+h.cpu.toFixed(1)+'%';
     document.getElementById('hostram').textContent='RAM '+h.ram_used_gb+'/'+h.ram_total_gb+' GB ('+h.ram_pct+'%)';
@@ -927,8 +939,19 @@ function applyLang(){
   const lb=document.getElementById('langbtn'); if(lb) lb.textContent=(L.lang==='de')?'EN':'DE';
 }
 const T=new URLSearchParams(location.search).get('token')||'';
+
+// Klicks nicht verlieren: waehrend der Knopf gedrueckt ist, den DOM nicht neu bauen.
+// Ohne das ersetzt der 3-5-s-Poll die Karten/Listen genau unter dem Mauszeiger und der
+// Klick landet im Nichts - das Symptom "reagiert erst beim zweiten Klick".
+document.addEventListener('pointerdown', () => { window.__pressed = 1; }, true);
+['pointerup', 'pointercancel'].forEach(function (t) {
+  document.addEventListener(t, () => { window.__pressed = 0; }, true);
+});
+window.addEventListener('blur', () => { window.__pressed = 0; });
+
 const api=(p,o)=>fetch(p+(p.includes('?')?'&':'?')+'token='+encodeURIComponent(T)+'&name='+NAME,o).then(r=>r.text());
 async function refresh(){
+  if(window.__pressed){ setTimeout(refresh, 400); return; }   // Klick laeuft noch
   try{
     const s=JSON.parse(await api('/api/status'));
     const st=document.getElementById('st'); st.textContent=s.running?L['status.running']:L['status.off'];
