@@ -117,6 +117,8 @@ T: dict[str, dict[str, str]] = {
     "mods.inactive": {"de": "Inaktiv / auf Platte", "en": "Inactive / on disk"},
     "common.refresh": {"de": "Aktualisieren", "en": "Refresh"},
     "common.save": {"de": "Speichern", "en": "Save"},
+    "mods.nexus_manual": {"de": "Nexus-Mods: kein API-Download (nur mit Premium) – über ↗ herunterladen und den Ordner nach Mods/ legen. GitHub-Mods lassen sich direkt installieren.",
+                          "en": "Nexus mods: no API download (premium only) – use ↗ to download and put the folder into Mods/. GitHub mods install directly."},
     "mods.nexus_hint": {"de": "Persönlicher Key — ganz unten auf dieser Seite:",
                         "en": "Personal key — at the very bottom of this page:"},
     "mods.open_site": {"de": "Suche auf der Webseite öffnen", "en": "Open search on the website"},

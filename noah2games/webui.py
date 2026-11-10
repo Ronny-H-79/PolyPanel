@@ -1140,8 +1140,12 @@ async function searchLocalMods(){
         : '<p class="hint">'+(d.error||L['mods.none_active']||'keine Treffer')+'</p>');
       return;
     }
-    box.innerHTML=d.results.map(function(m,i){
-      return '<div class="setrow"><label><b>'+m.name+'</b><small>'+(m.description||'')+'</small></label>'
+    const kopf = (d.has_key
+      ? '<div class="hint" style="margin-bottom:6px">'+(L['mods.nexus_manual']||'Nexus-Mods: kein API-Download (Premium) – über ↗ herunterladen und Ordner nach Mods/ legen. GitHub-Mods lassen sich direkt installieren.')+'</div>'
+      : '');
+    box.innerHTML=kopf+d.results.map(function(m,i){
+      const quelle = m.source==='nexus' ? '<small class="badge" style="margin-left:6px">Nexus</small>' : (m.source==='github' ? '<small class="badge" style="margin-left:6px">GitHub</small>' : '');
+      return '<div class="setrow"><label><b>'+m.name+'</b>'+quelle+'<small>'+(m.description||'')+'</small></label>'
         + (m.installable && m.id
             ? '<span style="display:flex;gap:6px"><button class="modinstall" data-id="'+m.id+'">'+(L['mods.install']||'Installieren')+'</button>'
               + (m.url?'<a href="'+m.url+'" target="_blank" rel="noopener"><button type="button">↗</button></a>':'')+'</span></div>'

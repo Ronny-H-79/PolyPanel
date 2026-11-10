@@ -102,6 +102,7 @@ class SevenDaysProfile(GameProfile):
                             "downloads": m.get("downloads") or 0,
                             "url": "https://www.nexusmods.com/7daystodie/mods/%s"
                                    % (m.get("game_scoped_id") or ""),
+                            "source": "nexus",
                         })
             except Exception as exc:            # noqa: BLE001 - Suche darf nicht scheitern
                 fehler = "Nexus: %s" % exc.__class__.__name__
@@ -119,7 +120,7 @@ class SevenDaysProfile(GameProfile):
                                     "description": (m.get("description") or "")[:160],
                                     "downloads": m.get("stargazers_count") or 0,
                                     "url": m.get("html_url") or "",
-                                    "installable": True})
+                                    "source": "github", "installable": True})
             except Exception:                   # noqa: BLE001
                 pass
         return {"provider": "nexus+github" if self.nexus_key() else "github",
