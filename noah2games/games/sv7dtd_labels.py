@@ -75,4 +75,5 @@ LABELS: dict[str, tuple[str, str]] = {
     "DynamicMeshMaxItemCache": ("Dynamisches Mesh Cache", "gleichzeitig verarbeitete Objekte"),
     "TwitchServerPermission": ("Twitch-Berechtigung", "0-1000, Admin-Level fuer Twitch-Aktionen"),
     "TwitchBloodMoonAllowed": ("Twitch waehrend Blutmond", "true = Zuschauer duerfen im Blutmond eingreifen"),
+    "Region": ("Region", "Serverregion fuer Matchmaking (z. B. Europe, NorthAmericaEast)"),
 }
