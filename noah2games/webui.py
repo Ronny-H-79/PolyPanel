@@ -755,7 +755,7 @@ body[data-game="ark"] #mods-nonark{display:none !important}
       <p class="hint" data-t="mods.search_how">So funktioniert die Suche: sie filtert die 50 meistgeladenen Mods (Nexus) und passende GitHub-Repos nach deinem Begriff – kurze Wörter genügen, z. B. „ui", „trader", „vehicle". Eine echte Volltextsuche bietet nur die Nexus-Webseite.</p>
       <div class="row" style="margin:10px 0">
         <input id="modq" data-tp="mods.search_ph" placeholder="Mod suchen" style="flex:1"
-          onkeydown="if(event.key==='Enter')searchLocalMods()" autocomplete="off">
+          oninput="suggestLocalMods()" onkeydown="if(event.key==='Enter'){clearTimeout(_modTimer);searchLocalMods()}" autocomplete="off">
         <button onclick="searchLocalMods()" data-t="mods.search">Suchen</button>
         <button onclick="loadLocalMods()" data-t="common.refresh">Aktualisieren</button>
       </div>
@@ -1211,14 +1211,24 @@ async function loadLocalMods(){
 }
 
 
+let _modTimer=null, _modSeq=0;
+function suggestLocalMods(){          // Vorschlaege beim Tippen, ohne Enter
+  clearTimeout(_modTimer);
+  const box=document.getElementById('modhits-local');
+  const q=((document.getElementById('modq')||{}).value||'').trim();
+  if(q.length<2){ _modSeq++; if(box) box.innerHTML=''; return; }
+  _modTimer=setTimeout(searchLocalMods, 450);
+}
 async function searchLocalMods(){
   const box=document.getElementById('modhits-local');
   const q=(document.getElementById('modq')||{}).value||'';
   if(!box) return;
   if(!q.trim()){ box.innerHTML=''; return; }
+  const seq=++_modSeq;
   box.innerHTML='<p class="hint">…</p>';
   try{
     const d=JSON.parse(await api('/api/mods/search?q='+encodeURIComponent(q)));
+    if(seq!==_modSeq) return;                     // veraltete Antwort verwerfen
     if(!d.results || !d.results.length){
       box.innerHTML = (d.search_url
         ? '<div class="hint">'+(d.note||'')+'<br><a href="'+d.search_url+'" target="_blank" rel="noopener">'
@@ -1377,8 +1387,11 @@ function suggestMods(){
     const sum=document.getElementById('modhitsum');
     if(sum) sum.textContent=hits.length? (hits.length+' '+L['mods.suggestions']) : '';
     if(!hits.length){
-      box.innerHTML='<div class="meta">'+L['mods.search_empty']+
-        (data.needs_key?(' · <a href="https://console.curseforge.com" target="_blank">'+L['mods.key']+'</a>'):'')+'</div>';
+      box.innerHTML = (data.needs_key && q.length>=2)
+        ? '<div class="meta">'+(L['mods.suggest_needs_key']||'Vorschläge beim Tippen brauchen einen CurseForge-API-Key.')+
+          ' · <a href="https://console.curseforge.com" target="_blank" rel="noopener">'+L['mods.key']+'</a></div>'
+        : '<div class="meta">'+L['mods.search_empty']+
+          (data.needs_key?(' · <a href="https://console.curseforge.com" target="_blank">'+L['mods.key']+'</a>'):'')+'</div>';
       return;
     }
     box.innerHTML=hits.map(m=>`<div class="p" style="cursor:pointer" onclick="addModId('${m.id}')">

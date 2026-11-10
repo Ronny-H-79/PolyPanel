@@ -338,6 +338,8 @@ T: dict[str, dict[str, str]] = {
     "notify.url_hint": {"de": "leer = keine Meldungen", "en": "empty = no notifications"},
     "notify.url_ph": {"de": "https://discord.com/api/webhooks/…", "en": "https://discord.com/api/webhooks/…"},
     "mods.already": {"de": "eingetragen", "en": "added"},
+    "mods.suggest_needs_key": {"de": "Vorschläge beim Tippen brauchen einen CurseForge-API-Key (Feld weiter unten)",
+                               "en": "Suggestions while typing need a CurseForge API key (field below)"},
     "mods.subs": {"de": "Abonnenten", "en": "subscribers"},
     "mods.workshop_ids": {"de": "Eingetragene Workshop-Mods", "en": "Workshop mods entered"},
     "mods.workshop_note": {"de": "lädt der Server beim nächsten Start", "en": "downloaded on the next start"},
