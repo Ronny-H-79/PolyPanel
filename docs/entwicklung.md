@@ -28,3 +28,7 @@ zuordnen lassen. Eine neue Version setzen, taggen und pushen:
 - Nach `kill -9` braucht der Neustart 90–100 s (Welt wird repariert), deshalb `hang_seconds ≥ 180`.
 
 </details>
+
+---
+
+© 2026 Ronny H. · Free to use, all rights reserved — [Licence](../LICENSE)

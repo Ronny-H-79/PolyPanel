@@ -146,3 +146,7 @@ repository.
 
 **Reset the token:** delete `~/.config/noah2games/token` — a new one is created on the next start. Note that old
 bookmarks and shared links stop working. Backups and instances are unaffected.
+
+---
+
+© 2026 Ronny H. · Free to use, all rights reserved — [Licence](../LICENSE)

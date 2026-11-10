@@ -4,6 +4,22 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.4.3] — 2026-11-10
+
+### Neu
+- **Lizenz, Copyright, PayPal und Discord in der Oberfläche.** Jede Seite trägt unten einen Fuß
+  mit `noah2games <Version> · © 2026 Ronny H. · alle Rechte vorbehalten` und drei Links:
+  **Lizenz** (öffnet die neue Seite `/license` mit dem Lizenztext in der eingestellten Sprache),
+  **PayPal** (Spendenlink) und **Discord-Community** (Ark-ASA-ASE-Hilfe). Oben rechts bleiben die
+  beiden Marken-Icons.
+- **Lizenzseite `/license`** (auch `/lizenz`): zeigt den Text aus `LICENSE` in Deutsch oder
+  Englisch, je nach eingestellter Sprache, mit Rückweg zum Dashboard.
+
+### Behoben
+- **Der Installer kopiert die `LICENSE` jetzt mit** (bisher fehlte sie in `~/.local/share/noah2games`,
+  damit auch der Copyright-Hinweis in der ausgelieferten Installation). README und INSTALL werden
+  zusätzlich in beiden Sprachen mitkopiert.
+
 ## [0.4.2] — 2026-11-10
 
 ### Neu

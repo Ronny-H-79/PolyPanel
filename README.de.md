@@ -7,6 +7,7 @@ jederzeit umschalten (Knopf oben rechts, `noah2games lang en` in der Konsole).
 
 [![Spenden](https://img.shields.io/badge/Spenden-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=ronnyhase%40fn.de&item_name=noah2games%20Servermanager&currency_code=EUR)
 [![Discord](https://img.shields.io/badge/Discord-Ark--ASA--ASE--Hilfe-5865F2?logo=discord&logoColor=white)](https://discord.gg/ark-ase-asa-hilfe)
+[![Lizenz](https://img.shields.io/badge/Lizenz-kostenlos%20nutzbar%2C%20alle%20Rechte%20beim%20Autor-25e6a4)](LICENSE)
 
 [![Ubuntu 24.04](docs/badges/ubuntu.svg)](#installation)
 [![Arch](docs/badges/arch.svg)](#installation)

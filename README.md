@@ -7,6 +7,7 @@ any time (button in the top right, `noah2games lang en` on the console).
 
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=ronnyhase%40fn.de&item_name=noah2games%20Servermanager&currency_code=EUR)
 [![Discord](https://img.shields.io/badge/Discord-Ark--ASA--ASE--Hilfe-5865F2?logo=discord&logoColor=white)](https://discord.gg/ark-ase-asa-hilfe)
+[![Licence](https://img.shields.io/badge/Licence-free%20to%20use%2C%20all%20rights%20reserved-25e6a4)](LICENSE)
 
 [![Ubuntu 24.04](docs/badges/en/ubuntu.svg)](#installation)
 [![Arch](docs/badges/en/arch.svg)](#installation)

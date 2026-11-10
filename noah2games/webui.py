@@ -10,6 +10,7 @@ import ssl
 import threading
 import time
 import urllib.parse
+from html import escape as html_escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .instance import Instance
@@ -151,6 +152,18 @@ border:1px solid #1d3a32;border-radius:6px;background:#0b1116;transition:filter 
 .iconlink svg{width:22px;height:22px;display:block}
 .iconlink.discord svg{fill:#5865F2}
 .iconlink.paypal svg{fill:#003087}
+.sitefoot{position:relative;z-index:2;width:100%;box-sizing:border-box;margin:26px 0 0;padding:16px 24px 22px;
+border-top:1px solid rgba(64,255,199,.14);display:flex;flex-wrap:wrap;gap:8px 20px;
+align-items:center;justify-content:center;font-size:11.5px;letter-spacing:.04em;color:var(--dim)}
+.sitefoot .flinks{display:inline-flex;flex-wrap:wrap;gap:16px;align-items:center}
+.sitefoot a{color:#a8d8c8;text-decoration:none;border-bottom:1px solid rgba(64,255,199,.28);
+padding-bottom:1px;transition:color .12s,border-color .12s}
+.sitefoot a:hover{color:#e6fff5;border-color:var(--acc)}
+.lic{padding:24px}
+.lictext{margin:0;white-space:pre-wrap;max-height:none;font-size:12px;line-height:1.65;color:#b9d6cc}
+.lichead{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;margin:0 0 12px}
+.lichead h2{margin:0}
+.lichead .meta{color:var(--dim);font-size:11.5px}
 .settabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;border-bottom:1px solid #16302a;padding-bottom:8px}
 .settabs button small{opacity:.55;font-size:10px;margin-left:4px}
 .settabs button.on{border-color:var(--acc);color:var(--acc)}
@@ -283,16 +296,43 @@ if(cv){
 }
 """
 
+PAYPAL_URL = ("https://www.paypal.com/donate/?business=ronnyhase%40fn.de"
+              "&item_name=noah2games%20Servermanager&currency_code=EUR")
+DISCORD_URL = "https://discord.gg/ark-ase-asa-hilfe"
+
 HEADER_ICONS = """
 <span class="hdr-icons">
-<a class="iconlink discord" href="https://discord.gg/ark-ase-asa-hilfe" target="_blank" rel="noopener"
+<a class="iconlink discord" href="__DISCORD_URL__" target="_blank" rel="noopener"
    data-tp="ui.discord" data-ttitle="ui.discord" title="Discord: Ark-ASA-ASE-Hilfe" aria-label="Discord">
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg></a>
-<a class="iconlink paypal" href="https://www.paypal.com/donate/?business=ronnyhase%40fn.de&item_name=noah2games%20Servermanager&currency_code=EUR"
+<a class="iconlink paypal" href="__PAYPAL_URL__"
    target="_blank" rel="noopener" data-ttitle="ui.donate" title="Spenden via PayPal" aria-label="PayPal">
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.607 4.653H8.941L6.645 19.251H1.82L4.862 0h7.995c3.754 0 6.375 2.294 6.473 5.513-.648-.478-2.105-.86-3.722-.86m6.57 5.546c0 3.41-3.01 6.853-6.958 6.853h-2.493L11.595 24H6.74l1.845-11.538h3.592c4.208 0 7.346-3.634 7.153-6.949a5.24 5.24 0 0 1 2.848 4.686M9.653 5.546h6.408c.907 0 1.942.222 2.363.541-.195 2.741-2.655 5.483-6.441 5.483H8.714Z"/></svg></a>
 </span>
 """
+HEADER_ICONS = (HEADER_ICONS.replace("__PAYPAL_URL__", PAYPAL_URL)
+                            .replace("__DISCORD_URL__", DISCORD_URL))
+
+# Gemeinsamer Fuß: Copyright, Lizenz-Seite, Spenden- und Community-Link.
+# Der Lizenz-Link bekommt das Token per Skript, damit er auf jeder Seite funktioniert.
+FOOTER = """<footer class="sitefoot">
+<span class="fmeta">noah2games __VERSION__ · © 2026 Ronny H. ·
+  <span data-t="foot.rights">alle Rechte vorbehalten</span></span>
+<span class="flinks">
+  <a data-tok="/license" data-t="foot.license" title="Lizenz">Lizenz</a>
+  <a href="__PAYPAL_URL__" target="_blank" rel="noopener" data-t="foot.donate"
+     data-ttitle="ui.donate" title="Spenden via PayPal">PayPal</a>
+  <a href="__DISCORD_URL__" target="_blank" rel="noopener" data-t="foot.discord"
+     data-ttitle="ui.discord" title="Discord: Ark-ASA-ASE-Hilfe">Discord-Community</a>
+</span>
+</footer>
+<script>(function(){var t=new URLSearchParams(location.search).get('token')||'';
+document.querySelectorAll('a[data-tok]').forEach(function(a){
+  a.href=a.dataset.tok+(t?'?token='+encodeURIComponent(t):'');});
+/* Der Fuß steht nach dem Hauptskript: Texte hier noch einmal in der aktiven Sprache setzen. */
+if(typeof applyLang==='function') applyLang();})();</script>"""
+FOOTER = (FOOTER.replace("__PAYPAL_URL__", PAYPAL_URL)
+                .replace("__DISCORD_URL__", DISCORD_URL))
 
 DASH = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>noah2games</title>
@@ -639,8 +679,7 @@ async function noah2gamesUpdate(){
   setTimeout(()=>location.reload(), 4000);
 }
 applyLang(); load(); loadHost(); checkNoah2Games(); setInterval(load,3000); setInterval(loadHost,3000);
-</script><footer style="text-align:center;padding:16px 0 10px;font-size:11.5px;color:var(--dim);
-letter-spacing:.04em">noah2games __VERSION__ · © 2026 Ronny H.</footer>
+</script>""" + FOOTER + """
 </body></html>"""
 
 INST = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
@@ -1500,9 +1539,57 @@ async function give(sid){ const bp=prompt('Blueprint','PrimalItemResource_Stone_
   document.getElementById('out').textContent=await api('/api/player/give?steamid='+sid+'&bp='+encodeURIComponent(bp)+'&qty='+q,{method:'POST'}); }
 applyLang(); restoreTab(); setTimeout(restoreTab, 250); refresh(); updCheck(); renderCmds(); loadMods(); loadKeyState(); loadCfg(); loadWl(); loadSettings(); loadCluster(); loadSnaps(); loadBackups(); loadSchedule(); loadHooks();
 setInterval(refresh,5000); setInterval(updCheck,60000);
-</script><footer style="text-align:center;padding:16px 0 10px;font-size:11.5px;color:var(--dim);
-letter-spacing:.04em">noah2games __VERSION__ · © 2026 Ronny H.</footer>
+</script>""" + FOOTER + """
 </body></html>"""
+
+LICENSE_PAGE = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>noah2games · __TITLE__</title>
+<style>""" + SHARED_CSS + """</style></head><body>
+<canvas id="bg"></canvas>
+<header><h1>noah2games</h1><span class="badge" data-t="license.title">__TITLE__</span>
+<span class="hostbar"><a href="/?token=__TOK__"><button>← Dashboard</button></a></span>""" + HEADER_ICONS + """</header>
+<main>
+  <section class="lic">
+    <div class="lichead"><h2>__TITLE__</h2>
+      <span class="meta">__SHORT__</span></div>
+    <pre class="lictext">__TEXT__</pre>
+    <p class="meta" style="margin:14px 0 0;color:var(--dim);font-size:11.5px">__HINT__</p>
+  </section>
+</main>""" + FOOTER + """
+<script>const L=__LANGJSON__;
+function applyLang(){document.querySelectorAll('[data-t]').forEach(function(e){
+  var k=e.dataset.t; if(L[k]) e.textContent=L[k]; });}
+applyLang();</script>
+<script>""" + BG_JS + """</script>
+</body></html>"""
+
+
+def license_text() -> str:
+    """Lizenztext in der aktiven Sprache aus der Datei LICENSE neben dem Paket."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for path in (os.path.join(root, "LICENSE"),
+                 os.path.expanduser("~/.local/share/noah2games/LICENSE")):
+        if not os.path.isfile(path):
+            continue
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            raw = fh.read().strip()
+        parts = raw.split("\n---\n")
+        if len(parts) >= 2:
+            return (parts[0] if i18n.lang() == "de" else parts[1]).strip()
+        return raw
+    return ("Copyright (c) 2026 Ronny H. (https://github.com/Ronny-H-79)\n\n"
+            + i18n.t("license.short"))
+
+
+def license_page(tok: str) -> str:
+    title = i18n.t("license.title")
+    return _render(LICENSE_PAGE
+                   .replace("__TITLE__", title)
+                   .replace("__SHORT__", i18n.t("license.short"))
+                   .replace("__HINT__", i18n.t("license.hint"))
+                   .replace("__TEXT__", html_escape(license_text()))
+                   .replace("__TOK__", urllib.parse.quote(tok)))
+
 
 PLAYER_ACTIONS = {
     "kick": "KickPlayer %s",
@@ -1648,6 +1735,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._html(_render(INST.replace("__NAME__", inst.name).replace("__TOK__", tok)
                                    .replace("__GAME__", inst.game)))
+            return
+        if path in ("/license", "/lizenz"):
+            self._html(license_page(tok))
             return
 
         if path.startswith("/static/maps/"):

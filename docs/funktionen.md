@@ -98,3 +98,7 @@ few tricks are needed — noah2games does that automatically, you do not have to
   the game's official admin interface.
 - **The anti-cheat service stays off.** It blocks startup on Linux, so noah2games starts the server without it —
   the usual way on your own server.
+
+---
+
+© 2026 Ronny H. · Free to use, all rights reserved — [Licence](../LICENSE)

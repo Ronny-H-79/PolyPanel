@@ -155,3 +155,6 @@ alternativ als Header senden (`X-Token: <schlüssel>`), praktisch ist aber der Q
 Achtung: danach sind alte Lesezeichen und geteilte Links tot. Backups und Instanzen sind davon
 nicht betroffen, die liegen woanders.
 
+---
+
+© 2026 Ronny H. · Kostenlos nutzbar, alle Rechte beim Autor — [Lizenz](../LICENSE)

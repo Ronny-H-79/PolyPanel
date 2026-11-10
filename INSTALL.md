@@ -164,3 +164,7 @@ backups (`~/noah2games-backups`), snapshots (`~/noah2games-snapshots`).
 | `~/arkserver-<name>` | server files of the instance |
 | `~/noah2games-backups/<name>` | world backups (tar.gz) |
 | `~/noah2games-snapshots/<name>` | full instance snapshots (rollback after an update) |
+
+---
+
+© 2026 Ronny H. · Free to use, all rights reserved — [Licence](LICENSE)

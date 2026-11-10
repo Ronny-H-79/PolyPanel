@@ -102,3 +102,6 @@ musst davon nichts wissen:
 - **Der Anti-Cheat-Dienst bleibt aus.** Er blockiert unter Linux den Start; noah2games startet den
   Server deshalb ohne ihn — auf einem eigenen Server ist das der übliche Weg.
 
+---
+
+© 2026 Ronny H. · Kostenlos nutzbar, alle Rechte beim Autor — [Lizenz](../LICENSE)

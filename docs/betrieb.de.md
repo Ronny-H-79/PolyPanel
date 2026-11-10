@@ -46,3 +46,6 @@ Alle Beschriftungen, Formularfelder, Befehlsschaltflächen, Rückfragen und Meld
 
 ![Dashboard englisch](screenshot-dashboard-de.png)
 
+---
+
+© 2026 Ronny H. · Kostenlos nutzbar, alle Rechte beim Autor — [Lizenz](../LICENSE)

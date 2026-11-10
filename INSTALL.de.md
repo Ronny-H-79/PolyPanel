@@ -165,3 +165,7 @@ Entfernt Programm und Launcher. **Bleiben:** Instanzen (`~/arkserver-*`), Einste
 | `~/arkserver-<name>` | Serverdateien der Instanz |
 | `~/noah2games-backups/<name>` | Welt-Backups (tar.gz) |
 | `~/noah2games-snapshots/<name>` | vollständige Instanz-Snapshots (Rollback nach Update) |
+
+---
+
+© 2026 Ronny H. · Kostenlos nutzbar, alle Rechte beim Autor — [Lizenz](LICENSE)

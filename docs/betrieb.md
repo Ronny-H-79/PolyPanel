@@ -36,3 +36,7 @@ Every label, form field, command button, prompt and message lives in `noah2games
 New text only needs one more entry in the catalogue.
 
 ![Dashboard English](screenshot-dashboard.png)
+
+---
+
+© 2026 Ronny H. · Free to use, all rights reserved — [Licence](../LICENSE)

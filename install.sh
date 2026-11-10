@@ -392,7 +392,12 @@ mkdir -p "$DEST" "$BIN" "$HOME/.config/noah2games"
 cp -a "$SRC/noah2games" "$DEST/"
 cp -a "$SRC/README.md" "$DEST/" 2>/dev/null || true
 cp -a "$SRC/INSTALL.md" "$DEST/" 2>/dev/null || true
+cp -a "$SRC/README.de.md" "$DEST/" 2>/dev/null || true
+cp -a "$SRC/INSTALL.de.md" "$DEST/" 2>/dev/null || true
 cp -a "$SRC"/CHANGELOG*.md "$DEST/" 2>/dev/null || true
+# Lizenz mitkopieren: die Web-UI zeigt sie unter /license, und der Copyright-Hinweis
+# muss beim Kunden mit dem Programm ausgeliefert werden.
+cp -a "$SRC/LICENSE" "$DEST/" 2>/dev/null || true
 find "$DEST" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
 say "$(t copied "$DEST")"
 

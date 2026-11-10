@@ -38,3 +38,7 @@ noah2games supervise --all   # auto-restart, schedule, backups
 4. `SIGKILL`
 
 A `kill` without step 1 costs everything since the last autosave.
+
+---
+
+© 2026 Ronny H. · Free to use, all rights reserved — [Licence](../LICENSE)

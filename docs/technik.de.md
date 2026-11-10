@@ -40,3 +40,7 @@ noah2games supervise --all   # Auto-Restart, Zeitplan, Backups
 Ein `kill` ohne Schritt 1 kostet den Fortschritt seit dem letzten Autosave.
 
 Hinweise für Mitentwickler: [entwicklung.md](entwicklung.md)
+
+---
+
+© 2026 Ronny H. · Kostenlos nutzbar, alle Rechte beim Autor — [Lizenz](../LICENSE)
