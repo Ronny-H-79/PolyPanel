@@ -7,17 +7,55 @@ ueber die HTTPS-API (`/api/v1`, Bearer-Token).
 from __future__ import annotations
 
 import configparser
+import hashlib
 import io
 import json
 import os
+import shutil
+import tempfile
+import time
 import urllib.parse
 import urllib.request
 import zipfile
 
 from .base import GameProfile
+from ..control import ControlError
 
 CONFIG_REL = os.path.join("FactoryGame", "Saved", "Config", "LinuxServer")
 LOG_REL = os.path.join("FactoryGame", "Saved", "Logs", "FactoryGame.log")
+
+
+def _safe_extract(z: zipfile.ZipFile, ziel: str) -> None:
+    """Archiv entpacken, ohne ausserhalb von ``ziel`` zu schreiben."""
+    basis = os.path.realpath(ziel)
+    for name in z.namelist():
+        voll = os.path.realpath(os.path.join(ziel, name))
+        if voll != basis and not voll.startswith(basis + os.sep):
+            raise ControlError("Archiv enthaelt unsichere Pfade: %s" % name)
+    z.extractall(ziel)
+
+
+def _archiv_info(z: zipfile.ZipFile) -> tuple[str, str, bool, str]:
+    """Referenz, Wrapper-Ordner, GameFeature-Flag und Version aus dem .uplugin lesen.
+
+    Die ficsit-Archive legen ihren Inhalt auf der Wurzel ab (kein Mod-Ordner);
+    kommt doch ein einzelner Wrapper-Ordner, wird er beim Verschieben entfernt.
+    """
+    upl = sorted((n for n in z.namelist() if n.lower().endswith(".uplugin")),
+                 key=lambda n: n.count("/"))
+    if not upl:
+        raise ControlError("Archiv enthaelt keine .uplugin - das ist keine Mod")
+    teile = upl[0].split("/")
+    ref = teile[-1][: -len(".uplugin")]
+    if not ref or not all(c.isalnum() or c in "._-" for c in ref):
+        raise ControlError("unbrauchbarer Mod-Name im Archiv: %r" % ref)
+    wrapper = teile[0] if len(teile) > 1 else ""
+    try:
+        daten = json.loads(z.read(upl[0]).decode("utf-8-sig", "replace"))
+    except (ValueError, OSError):
+        daten = {}
+    return (ref, wrapper, bool(daten.get("GameFeature")),
+            str(daten.get("SemVersion") or daten.get("VersionName") or ""))
 
 
 class SatisfactoryProfile(GameProfile):
@@ -29,7 +67,7 @@ class SatisfactoryProfile(GameProfile):
     default_game_port = 7777
     default_query_port = 15777
     default_control_port = 7777      # API laeuft auf dem Spielport
-    supports_mods = False
+    supports_mods = True
     install_note = "nativ, kein Wine; Beacon-Port 15000 zusaetzlich freigeben"
     settings_fields = (
         ("session_name", "Spieleserver-Name", "erscheint in der Serverliste", "text"),
@@ -157,37 +195,83 @@ class SatisfactoryProfile(GameProfile):
         begriff = translate.query_english(query)      # ficsit.app ist englisch indexiert
         q = json.dumps(begriff if begriff else query)
         # order_by/order sind GraphQL-Enums - unquoted, sonst lehnt ficsit die Abfrage ab.
-        # Ohne Sortierung liefert die API beliebige Treffer, das wirkt wie "findet nichts".
-        data = self._gql("{getMods(filter:{search:%s,limit:25,order_by:popularity,order:desc})"
+        # Sortiert wird nach "downloads": "popularity" ist ein interner Score, damit
+        # kamen die Treffer unsortiert zurueck und relevante Mods fehlten oben.
+        data = self._gql("{getMods(filter:{search:%s,limit:30,order_by:downloads,order:desc})"
                          "{count mods{id name short_description downloads logo}}}" % q)
         mods = (data.get("getMods") or {}).get("mods") or []
+        # Die ficsit-Suche matcht auch Beschreibungen ("train" trifft "Follow Terrain").
+        # Treffer mit dem Begriff im Namen zuerst, danach nach Downloads.
+        wort = (begriff or query).strip().lower()
+        mods.sort(key=lambda m: (0 if wort and wort in (m.get("name") or "").lower() else 1,
+                                 -(m.get("downloads") or 0)))
         return {"provider": "ficsit.app",
                 "search_url": "https://ficsit.app/mods?q=%s" % urllib.parse.quote(query),
                 "results": [{"id": m["id"], "name": m["name"],
                              "description": (m.get("short_description") or "")[:160],
                              "downloads": m.get("downloads") or 0,
-                             "thumbnail": m.get("logo") or ""} for m in mods]}
+                             "thumbnail": m.get("logo") or ""} for m in mods[:25]]}
 
     def mods_install(self, inst, mod_id: str, log=print) -> str:
-        data = self._gql('{getMod(modId:%s){name versions(filter:{limit:1}){version link}}}'
+        data = self._gql("{getMod(modId:%s){name versions{id version hash created_at link}}}"
                          % json.dumps(mod_id))
         mod = data.get("getMod") or {}
-        versionen = mod.get("versions") or []
+        versionen = [v for v in (mod.get("versions") or []) if v.get("link")]
         if not versionen:
             raise ControlError("keine Version gefunden")
+        # Die API liefert die Versionen nicht garantiert in Reihenfolge - neueste nehmen.
+        versionen.sort(key=lambda v: v.get("created_at") or "", reverse=True)
         ver = versionen[0]
-        pfad = "https://api.ficsit.app" + ver["link"]
+        pfad = ver["link"]
+        if not pfad.startswith("http"):
+            pfad = "https://api.ficsit.app" + pfad
 
-        ziel = self.mods_path(inst)
-        os.makedirs(ziel, exist_ok=True)
         log("lade %s %s" % (mod.get("name"), ver.get("version")))
         req = urllib.request.Request(pfad, headers={"User-Agent": "noah2games"})
         with urllib.request.urlopen(req, timeout=120) as resp:
             rohdaten = resp.read()
+        if ver.get("hash") and hashlib.sha256(rohdaten).hexdigest() != ver["hash"]:
+            raise ControlError("Download unvollstaendig (Pruefsumme passt nicht)")
         log("%.1f MB geladen" % (len(rohdaten) / 1024 / 1024))
+
+        # Die Archive haben ihren Inhalt auf der Wurzel (Binaries/, Content/,
+        # <Name>.uplugin). Direkt nach Mods/ entpackt ueberschreiben sich die Mods
+        # gegenseitig und SML findet keine Mod - deshalb immer in einen eigenen
+        # Ordner, GameFeatures zusaetzlich unter Mods/GameFeatures/.
         with zipfile.ZipFile(io.BytesIO(rohdaten)) as z:
-            z.extractall(ziel)
-        return "%s %s nach %s entpackt" % (mod.get("name"), ver.get("version"), ziel)
+            ref, wrapper, gamefeature, semver = _archiv_info(z)
+            ziel = self.mods_path(inst)
+            if gamefeature:
+                ziel = os.path.join(ziel, "GameFeatures")
+            os.makedirs(ziel, exist_ok=True)
+            tmp = tempfile.mkdtemp(prefix=".mod-install-", dir=inst.directory)
+            try:
+                _safe_extract(z, tmp)
+            except Exception:
+                shutil.rmtree(tmp, ignore_errors=True)
+                raise
+
+        quelle = os.path.join(tmp, wrapper) if wrapper else tmp
+        ziel_dir = os.path.join(ziel, ref)
+        # Alte Fassung ausserhalb von Mods/ sichern: eine Kopie mit .uplugin im
+        # Mod-Ordner waere fuer SML eine zweite Mod mit derselben Referenz.
+        if os.path.isdir(ziel_dir):
+            bdir = os.path.join(inst.directory, ".mods-backup")
+            os.makedirs(bdir, exist_ok=True)
+            alt = os.path.join(bdir, "%s-%s" % (ref, time.strftime("%Y%m%d-%H%M%S")))
+            shutil.move(ziel_dir, alt)
+            log("alte Fassung gesichert: %s" % alt)
+        shutil.move(quelle, ziel_dir)
+        shutil.rmtree(tmp, ignore_errors=True)
+        if ver.get("hash"):                 # Markierung, die der Mod Manager erwartet
+            try:
+                with open(os.path.join(ziel_dir, ".smm"), "w", encoding="utf-8") as fh:
+                    fh.write(ver["hash"])
+            except OSError:
+                pass
+        return "%s %s installiert (%s)" % (mod.get("name"),
+                                           semver or ver.get("version"),
+                                           os.path.relpath(ziel_dir, inst.directory))
 
     def graceful_stop(self, inst) -> list[str]:
         """Die API kann den Server sauber herunterfahren (Save inklusive)."""

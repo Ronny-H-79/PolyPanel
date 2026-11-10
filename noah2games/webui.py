@@ -1706,10 +1706,20 @@ def _local_mods(inst) -> dict:
     pfad = inst.profile.mods_path(inst)
     eintraege = []
     if pfad and os.path.isdir(pfad):
+        # SML legt GameFeatures-Mods eine Ebene tiefer ab (Mods/GameFeatures/<Name>) -
+        # ohne Aufloesen stuende in der Liste nur ein Eintrag "GameFeatures".
+        kandidaten = []
         for name in sorted(os.listdir(pfad)):
             voll = os.path.join(pfad, name)
             if not os.path.isdir(voll):
                 continue
+            if name == "GameFeatures":
+                for sub in sorted(os.listdir(voll)):
+                    if os.path.isdir(os.path.join(voll, sub)):
+                        kandidaten.append((sub, os.path.join(voll, sub)))
+            else:
+                kandidaten.append((name, voll))
+        for name, voll in kandidaten:
             try:
                 mb = sum(os.path.getsize(os.path.join(w, f))
                          for w, _, fs in os.walk(voll) for f in fs) / 1024 / 1024

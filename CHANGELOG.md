@@ -4,6 +4,31 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.7] — 2026-11-10
+
+### Behoben
+- **Mod-Installation für Satisfactory legte die Dateien flach in `Mods/` ab.** Die ficsit-Archive
+  haben ihren Inhalt auf der Wurzel (`Binaries/`, `Content/`, `<Name>.uplugin`) — ein blankes
+  `extractall(Mods/)` mischte zwei Mods in denselben Ordner, überschrieb `Content`/`Binaries`
+  gegenseitig und SML fand überhaupt keine Mod (Symptom: „installiert“, aber im Spiel nichts da).
+  Jetzt wird in **`Mods/<Ref>/`** bzw. für GameFeature-Mods in **`Mods/GameFeatures/<Ref>/`**
+  entpackt (erkannt am `"GameFeature": true` im `.uplugin`), die alte Fassung wandert nach
+  `<Instanz>/.mods-backup/<Ref>-<Zeitstempel>` (außerhalb von `Mods/`, sonst sieht SML zwei Mods
+  mit derselben Referenz). Dazu `.smm`-Marker mit dem Versions-Hash, sha256-Prüfung des Downloads,
+  Pfad-Prüfung beim Entpacken (Zip-Slip) und Entpacken in ein temporäres Verzeichnis mit
+  anschließendem `move` — ein kaputter Download hinterlässt keinen halben Mod-Ordner.
+- **Download der neuesten Version war Glückssache.** Die API liefert die Versionen nicht sortiert;
+  die Abfrage `versions(filter:{limit:1})` nahm einfach die erste. Jetzt alle Versionen holen und
+  nach `created_at` absteigend sortieren.
+- **`ControlError` war in `games/satisfactory.py` nicht importiert.** Im Fehlerfall der
+  ficsit-Abfrage kam statt der API-Meldung `NameError: name 'ControlError' is not defined` in der
+  Oberfläche an.
+- **Mods-Liste zeigte für Satisfactory nur einen Eintrag „GameFeatures“.** `_local_mods()` löst den
+  SML-Unterordner jetzt auf und listet die einzelnen Mods mit ihrer Größe.
+- **Suche sortiert nach Downloads statt nach dem internen `popularity`-Score.** Treffer mit dem
+  Suchbegriff im Namen stehen zuerst (die ficsit-Suche matcht auch Beschreibungen, „train“ traf
+  sonst „Follow Terrain“).
+
 ## [0.6.5] — 2026-11-10
 
 ### Behoben
