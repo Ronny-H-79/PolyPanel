@@ -687,6 +687,7 @@ body[data-game="ark"] #mods-nonark{display:none !important}
     <div id="mods-nonark" style="display:none">
       <p class="hint" data-t="mods.local_hint">Dieses Spiel wird nicht über CurseForge verwaltet. Mods legst du direkt im Ordner ab – noah2games zeigt dir, was dort liegt.</p>
       <div class="setrow"><label><b data-t="mods.local_dir">Mod-Ordner</b><small id="mods-local-path">…</small></label></div>
+      <p class="hint" data-t="mods.search_how">So funktioniert die Suche: sie filtert die 50 meistgeladenen Mods (Nexus) und passende GitHub-Repos nach deinem Begriff – kurze Wörter genügen, z. B. „ui", „trader", „vehicle". Eine echte Volltextsuche bietet nur die Nexus-Webseite.</p>
       <div class="row" style="margin:10px 0">
         <input id="modq" data-tp="mods.search_ph" placeholder="Mod suchen" style="flex:1"
           onkeydown="if(event.key==='Enter')searchLocalMods()" autocomplete="off">
@@ -1140,10 +1141,7 @@ async function searchLocalMods(){
         : '<p class="hint">'+(d.error||L['mods.none_active']||'keine Treffer')+'</p>');
       return;
     }
-    const kopf = (d.has_key
-      ? '<div class="hint" style="margin-bottom:6px">'+(L['mods.nexus_manual']||'Nexus-Mods: kein API-Download (Premium) – über ↗ herunterladen und Ordner nach Mods/ legen. GitHub-Mods lassen sich direkt installieren.')+'</div>'
-      : '');
-    box.innerHTML=kopf+d.results.map(function(m,i){
+    box.innerHTML=d.results.map(function(m,i){
       const quelle = m.source==='nexus' ? '<small class="badge" style="margin-left:6px">Nexus</small>' : (m.source==='github' ? '<small class="badge" style="margin-left:6px">GitHub</small>' : '');
       return '<div class="setrow"><label><b>'+m.name+'</b>'+quelle+'<small>'+(m.description||'')+'</small></label>'
         + (m.installable && m.id
