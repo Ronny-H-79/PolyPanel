@@ -369,7 +369,6 @@ T: dict[str, dict[str, str]] = {
 # Befehls- und Einstellungsnamen (Katalog der Klick-Buttons / Formularfelder)
 LABELS: dict[str, dict[str, str]] = {
     "save": {"de": "Welt speichern", "en": "Save world"},
-    "save_all_dinos": {"de": "Dinos speichern", "en": "Save dinos"},
     "broadcast": {"de": "Broadcast", "en": "Broadcast"},
     "chat": {"de": "Chat-Nachricht", "en": "Chat message"},
     "motd": {"de": "MOTD zeigen", "en": "Show MOTD"},
@@ -607,7 +606,6 @@ SET_EN: dict[str, tuple[str, str]] = {
 
 CMD_EN: dict[str, tuple[str, str]] = {
     "save": ("Save world", "immediate save - wise before every restart"),
-    "save_all_dinos": ("Save dinos", "alias for SaveWorld (includes dino state)"),
     "broadcast": ("Broadcast", "message shown in the middle of every player's screen"),
     "chat": ("Chat message", "appears as a server message in chat"),
     "motd": ("Show MOTD", "message of the day"),

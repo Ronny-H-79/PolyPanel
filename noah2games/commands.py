@@ -17,12 +17,7 @@ COMMANDS: list[dict] = [
     {
         "id": "save", "label": "Welt speichern", "group": "Wartung",
         "cmd": "SaveWorld", "args": [], "confirm": False, "danger": False,
-        "note": "sofortiger Save - vor jedem Neustart sinnvoll",
-    },
-    {
-        "id": "save_all_dinos", "label": "Dinos speichern", "group": "Wartung",
-        "cmd": "SaveWorld", "args": [], "confirm": False, "danger": False,
-        "note": "Alias fuer SaveWorld (Dino-Zustand inklusive)",
+        "note": "sofortiger Save inkl. aller gezahmten Dinos - vor jedem Neustart sinnvoll",
     },
     # ---------------------------------------------------------- Kommunikation
     {

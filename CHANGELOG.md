@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.11] — 2026-11-10
+
+### Geändert
+- **Knopf „Dinos speichern" entfernt.** Er sendete exakt denselben Befehl wie „Welt speichern"
+  (`SaveWorld`), ARK kennt keinen eigenen Save für Dinos. Der Hinweis an „Welt speichern" sagt jetzt,
+  dass alle gezähmten Dinos mitgespeichert werden (wilde Dinos sind nicht Teil des Saves, sie werden
+  beim Laden neu erzeugt).
+
 ## [0.6.10] — 2026-11-10
 
 ### Behoben
