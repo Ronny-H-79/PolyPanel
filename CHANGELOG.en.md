@@ -4,6 +4,17 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.5] — 2026-11-10
+
+### Fixed
+- **Satisfactory mod search returned arbitrary hits.** The ficsit.app query had no ordering — now
+  `order_by:popularity,order:desc` (GraphQL enum **without** quotes, otherwise the API rejects it
+  with "cannot represent non-enum value"). Hits now come sorted by popularity.
+- **The hint text in the mods tab was the Nexus/GitHub text for every game.** Now per game: Steam
+  Workshop (ARK Evolved, Space Engineers), ficsit.app (Satisfactory), Nexus/GitHub (7D2D).
+- **German search terms in English portals.** `query_english()` translates the term (glossary first:
+  "förder" → conveyor, "lager" → storage, "zug" → train; otherwise the translation service).
+
 ## [0.6.4] — 2026-11-10
 
 ### Added

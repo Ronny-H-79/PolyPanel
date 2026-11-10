@@ -153,8 +153,12 @@ class SatisfactoryProfile(GameProfile):
         return data.get("data") or {}
 
     def mods_search(self, inst, query: str) -> dict:
-        q = json.dumps(query)
-        data = self._gql("{getMods(filter:{search:%s,limit:25})"
+        from .. import translate
+        begriff = translate.query_english(query)      # ficsit.app ist englisch indexiert
+        q = json.dumps(begriff if begriff else query)
+        # order_by/order sind GraphQL-Enums - unquoted, sonst lehnt ficsit die Abfrage ab.
+        # Ohne Sortierung liefert die API beliebige Treffer, das wirkt wie "findet nichts".
+        data = self._gql("{getMods(filter:{search:%s,limit:25,order_by:popularity,order:desc})"
                          "{count mods{id name short_description downloads}}}" % q)
         mods = (data.get("getMods") or {}).get("mods") or []
         return {"provider": "ficsit.app",

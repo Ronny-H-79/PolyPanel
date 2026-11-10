@@ -1189,10 +1189,13 @@ async function loadLocalMods(){
   const liste=document.getElementById('mods-local-list');
   const pfad=document.getElementById('mods-local-path');
   if(!liste) return;
-  const steam = ['arkse','spaceengineers'].includes(document.body.dataset.game);
-  [['mods.local_hint','mods.local_hint_steam'],['mods.search_how','mods.search_how_steam']].forEach(function(paar){
+  const spiel = document.body.dataset.game;
+  const variante = ['arkse','spaceengineers'].includes(spiel) ? 'steam'
+                 : (spiel === 'satisfactory' ? 'ficsit' : '');
+  [['mods.local_hint','mods.local_hint_'+variante],['mods.search_how','mods.search_how_'+variante]].forEach(function(paar){
+    if(!variante) return;
     const el=document.querySelector('[data-t="'+paar[0]+'"]'); if(!el) return;
-    const key = steam ? paar[1] : paar[0];
+    const key = paar[1];
     el.dataset.t = key; if(L[key]) el.textContent = L[key];
   });
   try{

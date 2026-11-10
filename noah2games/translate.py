@@ -81,6 +81,70 @@ def _eins(text: str) -> str:
     return ergebnis
 
 
+def _eins_en(text: str) -> str:
+    """Deutsch -> Englisch (fuer Suchbegriffe in englischsprachigen Mod-Portalen)."""
+    text = (text or "").strip()
+    if not text:
+        return text
+    schluessel = "en:" + text
+    zwischengespeichert = _aus_cache(schluessel)
+    if zwischengespeichert:
+        return zwischengespeichert
+    url = ENDPOINT.replace("sl=en&tl=de", "sl=de&tl=en") + urllib.parse.quote(text[:MAX_CHARS])
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 noah2games"})
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+            daten = json.loads(resp.read().decode("utf-8", "replace"))
+        ergebnis = "".join(t[0] for t in (daten[0] or []) if t and t[0]).strip()
+    except Exception:                     # noqa: BLE001
+        return text
+    if not ergebnis:
+        return text
+    _in_cache(schluessel, ergebnis)
+    return ergebnis
+
+
+# Kleines Fachglossar: Einzelworte uebersetzt der Dienst zu schlecht ("foerder" -> "promote").
+GLOSSAR = {
+    "förder": "conveyor", "förderband": "conveyor", "förderer": "conveyor",
+    "lager": "storage", "container": "storage", "kiste": "container",
+    "bergbau": "mining", "erz": "ore", "kohle": "coal", "öl": "oil", "wasser": "water",
+    "strom": "power", "energie": "power", "generator": "generator", "reaktor": "reactor",
+    "raffinerie": "refinery", "schmelze": "smelter", "fabrik": "factory", "maschine": "machine",
+    "pumpe": "pump", "rohr": "pipe", "röhre": "pipe", "kabel": "wire", "bahn": "train",
+    "zug": "train", "züge": "train", "bahnhof": "station", "fahrzeug": "vehicle",
+    "aufzug": "lift", "verteiler": "splitter", "sortierer": "sorter", "schredder": "shredder",
+    "blaupause": "blueprint", "blaupausen": "blueprints", "tür": "door", "tor": "gate",
+    "wand": "wall", "fundament": "foundation", "treppe": "stairs", "licht": "light",
+    "beleuchtung": "lighting", "sensor": "sensor", "schalter": "switch", "tank": "tank",
+    "biomasse": "biomass", "brennstoff": "fuel", "batterie": "battery", "turm": "tower",
+    "waffe": "weapon", "waffen": "weapons", "verteidigung": "defense", "mauer": "wall",
+    "landwirtschaft": "farming", "farm": "farm", "pflanzen": "plants", "dünger": "fertilizer",
+}
+
+
+def query_english(query: str) -> str:
+    """Deutschen Suchbegriff auf Englisch bringen, wenn er deutsch aussieht.
+
+    Mod-Portale (ficsit.app, Nexus) sind englisch indexiert - "Foerderband" findet dort
+    nichts, "conveyor" dagegen viele Treffer.
+    """
+    q = (query or "").strip()
+    if not q:
+        return q
+    klein = q.lower()
+    if klein in GLOSSAR:                      # Fachbegriff: Glossar ist zuverlaessiger
+        return GLOSSAR[klein]
+    if _schon_deutsch(" %s " % klein) or any(z in klein for z in ("ä", "ö", "ü", "ß")):
+        uebersetzt = _eins_en(q)
+        # Einzelwort-Uebersetzungen sind oft daneben ("foerder" -> "promote"): nur nehmen,
+        # wenn das Ergebnis wie ein sinnvoller Begriff aussieht.
+        if uebersetzt and uebersetzt.lower() != klein and " " not in q:
+            return uebersetzt if len(uebersetzt) <= len(q) + 6 else klein
+        return uebersetzt or q
+    return q
+
+
 def to_german(texts: list[str], workers: int = 6) -> list[str]:
     """Liste uebersetzen; Reihenfolge bleibt, Fehler liefern den Originaltext."""
     if not texts:
