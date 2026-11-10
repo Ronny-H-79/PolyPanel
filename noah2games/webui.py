@@ -969,6 +969,8 @@ function showTab(name, btn){
   if(btn) btn.classList.add('on');
   try{ localStorage.setItem('noah2games.tab', name); if(history.replaceState) history.replaceState(null,'','#'+name); }catch(e){}
   if(name==='mods' && document.body.dataset.game!=='ark'){
+    const pane=document.getElementById('mods-nonark');
+    if(pane) pane.style.display='';
     loadLocalMods();
     const nb=document.getElementById('nexusbox');
     if(nb) nb.style.display = (document.body.dataset.game==='7d2d') ? '' : 'none';
