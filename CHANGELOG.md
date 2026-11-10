@@ -4,6 +4,24 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.5.1] — 2026-11-10
+
+### Neu
+- **Alle ARK-Evolved-Einstellungen im Formular.** Statt der 51 Kernfelder zeigt der Reiter jetzt
+  **262 Werte**: 156 aus `GameUserSettings.ini` (ServerSettings, SessionSettings, MOTD) und 100 aus
+  `Game.ini` — inklusive Zucht-, Prägnungs-, PvP-, Turm-, Cryo-, Tribute- und Genesis-Optionen.
+  Jede Eigenschaft hat eine deutsche Beschriftung und einen Hinweis.
+- **Vollständige ASE-Vorlage mitgeliefert** (`games/arkse_template_gus.ini`, `..._game.ini`):
+  Default-Werte der offiziellen ASE-Konfiguration, damit das Formular schon vor dem ersten Start
+  vollständig ist. ASE ergänzt beim Start eigene Werte, die Oberfläche liest danach weiterhin alles
+  aus den Dateien.
+- **Schlüssel werden unabhängig von der Schreibweise erkannt** — ASE schreibt `serverPVE` und
+  `globalVoiceChat` klein/gemischt, die Beschriftungen greifen trotzdem.
+
+### Behoben
+- **`ActiveMods` gehört in die `GameUserSettings.ini`** (Sektion `ServerSettings`), nicht in die
+  `Game.ini` — dort hat ASE die Mod-Liste ignoriert.
+
 ## [0.5.0] — 2026-11-10
 
 ### Neu

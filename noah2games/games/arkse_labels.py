@@ -1,110 +1,315 @@
 """Deutsche Beschriftungen fuer ARK: Survival Evolved (GameUserSettings.ini / Game.ini).
 
-LABELS: Eigenschaft -> (Beschriftung, Hinweis)
-GROUPS: Eigenschaft -> Reiter (SETGROUP_ORDER der Oberflaeche)
-Unbekannte Eigenschaften fallen auf den Schluesselnamen zurueck.
+Grundlage: die offiziellen ASE-Eigenschaften (Default-Vorlage, aus der ARK-Wiki erzeugt).
+Eintrag: Schluessel, Beschriftung, Hinweis, Reiter.
+
+Die Reiter folgen SETGROUP_ORDER der Oberflaeche (srv play pvp struct dino transfer hud
+motd game server). Unbekannte Eigenschaften (z. B. aus Mods) fallen auf den
+Schluesselnamen zurueck und landen unter "weitere".
 """
 from __future__ import annotations
 
 LABELS: dict[str, tuple[str, str]] = {}
-
 GROUPS: dict[str, str] = {}
 
+# (Schluessel, Label, Hinweis, Reiter)
+EINTRAEGE: list[tuple[str, str, str, str]] = [
+    # ------------------------------------------------------------ Server/Zugang
+    ("SessionName", "Spieleserver-Name", "Name in der Serverliste", "srv"),
+    ("ServerPassword", "Server-Passwort", "leer = jeder darf joinen", "srv"),
+    ("ServerAdminPassword", "Admin-Passwort", "auch das Passwort für RCON", "srv"),
+    ("SpectatorPassword", "Zuschauer-Passwort", "für den Spectator-Modus", "srv"),
+    ("MaxPlayers", "Max. Spieler", "gleichzeitige Spieler (Standard 70)", "srv"),
+    ("Port", "Spiel-Port", "UDP, Spielverbindung", "srv"),
+    ("QueryPort", "Query-Port", "UDP, Serverliste (Steam)", "srv"),
+    ("MultiHome", "Bind-Adresse", "leer = alle Netzwerkkarten", "srv"),
+    ("RCONEnabled", "RCON aktiv", "muss True sein, sonst kein Steuerkanal", "srv"),
+    ("RCONPort", "RCON-Port", "TCP-Port des Steuerkanals", "srv"),
+    ("RCONServerGameLogBuffer", "RCON-Logpuffer", "Zeilen Spiel-Log über RCON", "srv"),
+    ("AdminLogging", "Admin-Befehle loggen", "schreibt Admin-Befehle in den Chat", "srv"),
+    ("AutoSavePeriodMinutes", "Autosave (Minuten)", "0 = ständiges Speichern", "srv"),
+    ("KickIdlePlayersPeriod", "Idle-Kick (Sekunden)", "AFK-Spieler nach dieser Zeit kicken", "srv"),
+    ("EnableAFKKickPlayerCountPercent", "Idle-Kick ab Spielerzahl (%)", "0 = immer aktiv", "srv"),
+    ("AllowSharedConnections", "Family-Sharing erlauben", "Steam-Familiensharing darf joinen", "srv"),
+    ("UseExclusiveList", "Nur erlaubte Spieler", "wie der Startparameter -exclusivejoin", "srv"),
+    ("UpdateAllowedCheatersInterval", "Cheater-Liste aktualisieren", "Sekunden zwischen Abrufen", "srv"),
+    ("ServerAutoForceRespawnWildDinosInterval", "Wilddinos neu erzwingen", "Sekunden zwischen Respawns (0 = aus)", "srv"),
+    ("MaxTributeCharacters", "Tribute: Charakter-Slots", "wie viele Charaktere hochgeladen werden dürfen", "srv"),
+    ("MaxTributeDinos", "Tribute: Dino-Slots", "wie viele Dinos hochgeladen werden dürfen", "srv"),
+    ("MaxTributeItems", "Tribute: Item-Slots", "wie viele Items hochgeladen werden dürfen", "srv"),
+    ("ListenServerTetherDistanceMultiplier", "Leine (Non-Dedicated)", "nur für Nicht-Dedicated-Sessions", "srv"),
+    ("ChatLogFlushIntervalSeconds", "Chat-Log: Schreibintervall", "Sekunden bis zum Schreiben", "srv"),
+    ("ChatLogFileSplitIntervalSeconds", "Chat-Log: neue Datei", "Sekunden bis zur nächsten Datei", "srv"),
+    ("ChatLogMaxAgeInDays", "Chat-Log: Aufbewahrung", "Tage, negative Werte = unbegrenzt", "srv"),
+    ("LogChatMessages", "Chat mitschreiben", "Chat-Logs unter ShooterGame/Saved/Logs", "srv"),
+    ("DontRestoreBackup", "Backup nicht zurückspielen", "verhindert automatische Wiederherstellung", "srv"),
+    ("Message", "MOTD-Text", "Nachricht beim Beitreten", "motd"),
+    ("Duration", "MOTD-Dauer (Sekunden)", "wie lange die Nachricht steht", "motd"),
 
-def _add(schluessel: str, label: str, hinweis: str, gruppe: str) -> None:
-    LABELS[schluessel] = (label, hinweis)
-    GROUPS[schluessel] = gruppe
+    # ------------------------------------------------------------ Anzeige
+    ("ServerCrosshair", "Fadenkreuz", "Zielkreuz einblenden", "hud"),
+    ("ShowMapPlayerLocation", "Eigene Position auf Karte", "eigener Marker auf der Karte", "hud"),
+    ("ServerForceNoHUD", "HUD für fremde Dinos aus", "kein HUD bei nicht eigenen Dinos", "hud"),
+    ("ShowFloatingDamageText", "Schadenszahlen anzeigen", "RPG-Zahlen beim Treffer", "hud"),
+    ("AlwaysNotifyPlayerLeft", "Verlassen immer melden", "Meldung wenn jemand geht", "hud"),
+    ("DontAlwaysNotifyPlayerJoined", "Beitritt nicht melden", "unterdrückt Join-Meldungen", "hud"),
+    ("AllowHideDamageSourceFromLogs", "Schadensquelle im Tribe-Log verstecken", "False = Quelle sichtbar", "hud"),
+    ("AllowThirdPersonPlayer", "Third-Person", "Kamera in der dritten Person", "hud"),
+    ("GlobalVoiceChat", "Globaler Sprachchat", "alle hören alle", "hud"),
+    ("ProximityChat", "Nähe-Chat", "Chat nur in Hörweite", "hud"),
+    ("DisablePvEGamma", "Gamma-Sperre (PvE)", "kein gamma-Befehl im PvE", "hud"),
+    ("EnablePvPGamma", "Gamma erlauben (PvP)", "gamma-Befehl im PvP erlaubt", "hud"),
+    ("DisableWeatherFog", "Nebel aus", "deaktiviert Wetternebel", "hud"),
+    ("PreventSpawnAnimations", "Spawn-Animation aus", "kein Aufwach-Effekt", "hud"),
+    ("bFilterCharacterNames", "Charakternamen filtern", "Badword-Liste für Spielernamen", "hud"),
+    ("bFilterChat", "Chat filtern", "Badword-Liste im Chat", "hud"),
+    ("bFilterTribeNames", "Tribe-Namen filtern", "Badword-Liste für Tribe-Namen", "hud"),
+
+    # ------------------------------------------------------------ PvP & Regeln
+    ("ServerPVE", "PvE-Modus", "True = kein PvP", "pvp"),
+    ("ServerHardcore", "Hardcore", "Tod = Charakter auf Level 1", "pvp"),
+    ("PreventOfflinePvP", "Offline-Raid-Schutz", "Schutz für Tribes ohne Spieler online", "pvp"),
+    ("PreventOfflinePvPInterval", "Offline-Schutz: Verzögerung", "Sekunden bis der Schutz greift", "pvp"),
+    ("PreventTribeAlliances", "Allianzen verbieten", "keine Tribe-Allianzen", "pvp"),
+    ("AllowMultipleAttachedC4", "Mehrere C4 pro Dino", "mehr als ein C4 an einem Dino", "pvp"),
+    ("AllowRaidDinoFeeding", "Raid-Dinos füttern", "Titanosaurus dauerhaft zähmbar", "pvp"),
+    ("RaidDinoCharacterFoodDrainMultiplier", "Raid-Dino-Hunger", "Futterverbrauch von Raid-Dinos", "pvp"),
+    ("PvPDinoDecay", "Dino-Verfall (PvP)", "Dinos verfallen trotz Offline-Schutz", "pvp"),
+    ("PvPStructureDecay", "Struktur-Verfall (PvP)", "Strukturen verfallen bei Offline-Schutz", "pvp"),
+    ("PvEAllowStructuresAtSupplyDrops", "Bauen an Loot-Drops (PvE)", "Strukturen nahe Supply Crates", "pvp"),
+    ("PreventOutOfTribePinCodeUse", "PIN außerhalb des Tribes", "True = fremde dürfen PINs nicht nutzen", "pvp"),
+    ("TribeMergeAllowed", "Tribe-Zusammenlegung", "False = kein Merge", "spieler"),
+    ("TribeMergeCooldown", "Merge-Abstand", "Sekunden zwischen Merges", "spieler"),
+
+    # ------------------------------------------------------------ Strukturen
+    ("TheMaxStructuresInRange", "Max. Strukturen in Reichweite", "Begrenzung gegen Bau-Spam", "struct"),
+    ("MaxStructuresInSmallRadius", "Max. Strukturen (kleiner Radius)", "0 = aus", "struct"),
+    ("RadiusStructuresInSmallRadius", "Kleiner Radius (Unreal-Units)", "Radius für obige Grenze", "struct"),
+    ("MaxStructuresToProcess", "Struktur-Batchgröße", "0 = Standard", "server"),
+    ("DisableStructureDecayPvE", "Kein Verfall (PvE)", "True = nichts verfällt", "struct"),
+    ("bDisableStructureDecayPvE", "Kein Verfall (PvE)", "Schreibweise mit b-Präfix", "struct"),
+    ("PvEStructureDecayPeriodMultiplier", "Verfallszeit-Multiplikator", "2.0 = doppelt so lange", "struct"),
+    ("OnlyDecayUnsnappedCoreStructures", "Nur ungesnappte Kerne verfallen", "gegen einzelne Pfeiler/Stiftungen", "struct"),
+    ("FastDecayUnsnappedCoreStructures", "Ungesnappte Kerne schnell abreißen", "beschleunigter Verfall", "struct"),
+    ("OnlyAutoDestroyCoreStructures", "Nur Kern-Strukturen abreißen", "Deko bleibt stehen", "struct"),
+    ("AutoDestroyOldStructuresMultiplier", "Alte Strukturen abreißen", "nach langer Zeit ohne Tribe in der Nähe", "struct"),
+    ("StructureDamageMultiplier", "Struktur-Schaden", "Schaden an Bauwerken", "struct"),
+    ("StructureResistanceMultiplier", "Struktur-Widerstand", "niedriger = stabiler", "struct"),
+    ("StructurePreventResourceRadiusMultiplier", "Ressourcen-Sperrradius", "Radius um Bauten ohne Respawn", "struct"),
+    ("AlwaysAllowStructurePickup", "Aufheben ohne Timer", "Strukturen sofort wieder aufhebbar", "struct"),
+    ("StructurePickupHoldDuration", "Aufheben: Haltezeit", "0 = sofort", "struct"),
+    ("StructurePickupTimeAfterPlacement", "Aufheben nach Platzieren", "Sekunden, in denen Aufheben geht", "struct"),
+    ("MaxPlatformSaddleStructureLimit", "Max. Sattel-Plattformen", "Plattform-Dinos/Rafts auf der Karte", "struct"),
+    ("PerPlatformMaxStructuresMultiplier", "Strukturen pro Plattform", "Multiplikator der Sattel-Bauplätze", "struct"),
+    ("MaxGateFrameOnSaddles", "Max. Torrahmen auf Sätteln", "0 = Standard", "struct"),
+    ("PlatformSaddleBuildAreaBoundsMultiplier", "Baubereich auf Plattformen", "höher = weiter weg bauen", "struct"),
+    ("OverrideStructurePlatformPrevention", "Türme auf Plattformen", "True = Türme auf Sattel-Plattformen", "struct"),
+    ("ForceAllStructureLocking", "Alles automatisch sperren", "Strukturen starten gesperrt", "struct"),
+    ("AllowIntegratedSPlusStructures", "S+-Strukturen", "False = S+-Bauten aus", "struct"),
+    ("AllowCrateSpawnsOnTopOfStructures", "Loot-Drops auf Bauten", "Kisten landen auf Strukturen", "struct"),
+    ("RandomSupplyCratePoints", "Zufällige Loot-Positionen", "Supply-Drops an zufälligen Orten", "struct"),
+    ("DestroyUnconnectedWaterPipes", "Unverbundene Rohre abreißen", "nach zwei Tagen ohne Anschluss", "struct"),
+    ("IgnoreLimitMaxStructuresInRangeTypeFlag", "Deko-Limit aufheben", "entfernt die 150-Deko-Grenze", "struct"),
+    ("EnableExtraStructurePreventionVolumes", "Bausperrzonen", "kein Bauen in Ressourcengebieten", "struct"),
+    ("FastDecayInterval", "Schneller Verfall: Intervall", "Sekunden bis zum Abriss", "struct"),
+    ("AllowCaveBuildingPvE", "Bauen in Höhlen (PvE)", "erlaubt Bauwerke in Höhlen", "struct"),
+    ("AllowCaveBuildingPvP", "Bauen in Höhlen (PvP)", "False = keine Bauten in Höhlen", "struct"),
+
+    # ------------------------------------------------------------ Dinos
+    ("DinoCountMultiplier", "Dino-Dichte", "1.0 = Standard", "dino"),
+    ("DinoCharacterFoodDrainMultiplier", "Dino-Hunger", "höher = hungriger", "dino"),
+    ("DinoCharacterHealthRecoveryMultiplier", "Dino-Regeneration", "höher = schnellere Heilung", "dino"),
+    ("DinoCharacterStaminaDrainMultiplier", "Dino-Ausdauer", "höher = schneller erschöpft", "dino"),
+    ("DinoDamageMultiplier", "Dino-Schaden (wild)", "Schaden wilder Dinos", "dino"),
+    ("DinoResistanceMultiplier", "Dino-Widerstand (wild)", "niedriger = verwundbarer", "dino"),
+    ("TamedDinoDamageMultiplier", "Gezähmte: Schaden", "Schaden gezähmter Dinos", "dino"),
+    ("TamedDinoResistanceMultiplier", "Gezähmte: Widerstand", "niedriger = verwundbarer", "dino"),
+    ("TamingSpeedMultiplier", "Zähmgeschwindigkeit", "höher = schneller zähmen", "dino"),
+    ("MaxTamedDinos", "Max. gezähmte Dinos", "globales Limit pro Server", "dino"),
+    ("MaxPersonalTamedDinos", "Max. Dinos pro Tribe", "0 = kein eigenes Limit", "dino"),
+    ("PersonalTamedDinosSaddleStructureCost", "Sattel-Kosten in Dino-Slots", "Platzverbrauch einer Plattform", "dino"),
+    ("AllowFlyerCarryPvE", "Flieger tragen (PvE)", "Flieger greifen wilde Dinos", "dino"),
+    ("AllowFlyingStaminaRecovery", "Ausdauer auf Fliegern", "Ausdauer erholt sich im Sattel", "dino"),
+    ("DisableDinoDecayPvE", "Kein Dino-Verfall (PvE)", "Tames verfallen nicht", "dino"),
+    ("PvEDinoDecayPeriodMultiplier", "Dino-Verfallszeit", "2.0 = doppelt so lange", "dino"),
+    ("PreventMateBoost", "Kein Mate-Boost", "Paarbonus aus", "dino"),
+    ("PreventDinoTameable", "Zähmen verbieten", "True = keine Dinos zähmbar", "dino"),
+    ("AllowAnyoneBabyImprintCuddle", "Jeder darf Babys versorgen", "nicht nur der Prägende", "dino"),
+    ("DisableImprintDinoBuff", "Kein Prägungs-Bonus", "Statbonus aus", "dino"),
+    ("AutoDestroyDecayedDinos", "Verwaiste Tames löschen", "zerfallene Tames beim Laden entfernen", "dino"),
+    ("EnableCryopodNerf", "Cryopod-Betäubung aus", "True = kein Cooldown, keine Betäubung", "dino"),
+    ("EnableCryoSicknessPVE", "Cryo-Krankheit (PvE)", "Cooldown nach dem Auswerfen", "dino"),
+    ("CryopodNerfDamageMult", "Cryo: Schadensmalus", "Schaden nach dem Auswerfen", "dino"),
+    ("CryopodNerfDuration", "Cryo: Dauer", "Sekunden Cryosickness", "dino"),
+    ("CryopodNerfIncomingDamageMultPercent", "Cryo: erlittener Schaden", "erhöhter Schaden nach dem Auswerfen", "dino"),
+    ("UseOptimizedHarvestingHealth", "Ernte-Optimierung", "schnelleres Ernten bei hohen Raten", "dino"),
+
+    # ------------------------------------------------------------ Spiel & Tempo
+    ("DifficultyOffset", "Schwierigkeit", "0.0–1.0, skaliert mit der offiziellen Stufe", "play"),
+    ("OverrideOfficialDifficulty", "Offizielle Schwierigkeit", "5 = max. Dino-Level 150", "play"),
+    ("XPMultiplier", "EP-Multiplikator", "1.0 = offiziell", "play"),
+    ("HarvestAmountMultiplier", "Erntemenge", "höher = mehr Ressourcen", "play"),
+    ("HarvestHealthMultiplier", "Ernte-Lebenspunkte", "Knoten halten länger", "play"),
+    ("ResourcesRespawnPeriodMultiplier", "Ressourcen-Nachwuchs", "kleiner = schneller", "play"),
+    ("ItemStackSizeMultiplier", "Stapelgröße", "höher = größere Stapel", "play"),
+    ("DayCycleSpeedScale", "Tag-Nacht-Zyklus", "größer = schnellerer Wechsel", "play"),
+    ("DayTimeSpeedScale", "Tageslänge", "kleiner = längerer Tag", "play"),
+    ("NightTimeSpeedScale", "Nachtlänge", "größer = kürzere Nacht", "play"),
+    ("PlayerCharacterFoodDrainMultiplier", "Hunger", "höher = schneller hungrig", "play"),
+    ("PlayerCharacterWaterDrainMultiplier", "Durst", "höher = schneller durstig", "play"),
+    ("PlayerCharacterStaminaDrainMultiplier", "Ausdauerverbrauch", "höher = schneller erschöpft", "play"),
+    ("PlayerCharacterHealthRecoveryMultiplier", "Regeneration", "höher = schnellere Heilung", "play"),
+    ("PlayerDamageMultiplier", "Spieler-Schaden", "Schaden eigener Angriffe", "play"),
+    ("PlayerResistanceMultiplier", "Spieler-Widerstand", "niedriger = verwundbarer", "play"),
+    ("OxygenSwimSpeedStatMultiplier", "Sauerstoff → Schwimmen", "Einfluss aufs Schwimmtempo", "play"),
+    ("ClampItemSpoilingTimes", "Verderb begrenzen", "Verderbszeiten nicht über Standard", "play"),
+    ("ClampItemStats", "Item-Werte begrenzen", "nutzt ItemStatClamps", "play"),
+    ("ClampResourceHarvestDamage", "Ernteschaden begrenzen", "Schaden abhängig vom Rest", "play"),
+    ("PreventDiseases", "Krankheiten aus", "kein Sumpffieber", "play"),
+    ("NonPermanentDiseases", "Krankheiten nicht dauerhaft", "weg nach Respawn", "play"),
+    ("UseFjordurTraversalBuff", "Fjordur-Reisetrick", "Biom-Teleport mit R", "play"),
+    ("MaxHexagonsPerCharacter", "Max. Hexagons pro Charakter", "Währung auf Genesis", "play"),
+    ("LevelExperienceRampOverrides", "EP-Kurve", "eigene Stufenkurve (Liste)", "play"),
+    ("OverridePlayerLevelEngramPoints", "Engramme pro Stufe", "Liste der Punkte je Stufe", "play"),
+    ("ServerEnableMeshChecking", "Mesh-Prüfung", "Blätter-Nachwuchs-Erkennung", "server"),
+    ("EnableMeshBitingProtection", "Mesh-Biss-Schutz", "False = aus", "server"),
+
+    # ------------------------------------------------------------ Transfer
+    ("noTributeDownloads", "Tribute-Downloads sperren", "kein Import über Obelisken", "transfer"),
+    ("NoTributeDownloads", "Tribute-Downloads sperren", "kein Import über Obelisken", "transfer"),
+    ("CrossARKAllowForeignDinoDownloads", "Fremde Dinos laden", "auf Aberration erlauben", "transfer"),
+    ("MinimumDinoReuploadInterval", "Dino-Reupload-Abstand", "Sekunden zwischen Uploads", "transfer"),
+    ("PreventDownloadSurvivors", "Spieler-Download sperren", "kein Charakter-Import", "transfer"),
+    ("PreventDownloadItems", "Item-Download sperren", "kein Item-Import", "transfer"),
+    ("PreventDownloadDinos", "Dino-Download sperren", "kein Dino-Import", "transfer"),
+    ("PreventUploadSurvivors", "Spieler-Upload sperren", "kein Charakter-Export", "transfer"),
+    ("PreventUploadItems", "Item-Upload sperren", "kein Item-Export", "transfer"),
+    ("PreventUploadDinos", "Dino-Upload sperren", "kein Dino-Export", "transfer"),
+    ("TributeCharacterExpirationSeconds", "Tribute: Char-Ablauf", "Sekunden bis zum Löschen", "transfer"),
+    ("TributeDinoExpirationSeconds", "Tribute: Dino-Ablauf", "Sekunden bis zum Löschen", "transfer"),
+    ("TributeItemExpirationSeconds", "Tribute: Item-Ablauf", "Sekunden bis zum Löschen", "transfer"),
+
+    # ------------------------------------------------------------ Game.ini: Zucht
+    ("ActiveMods", "Mods", "Workshop-IDs, mit Komma getrennt", "game"),
+    ("BabyMatureSpeedMultiplier", "Jungtier-Wachstum", "höher = schneller erwachsen", "dino"),
+    ("BabyFoodConsumptionSpeedMultiplier", "Jungtier-Hunger", "höher = mehr Futter", "dino"),
+    ("BabyCuddleIntervalMultiplier", "Prägen: Intervall", "kleiner = häufiger", "dino"),
+    ("BabyCuddleGracePeriodMultiplier", "Prägen: Kulanzzeit", "Zeit bis die Qualität sinkt", "dino"),
+    ("BabyCuddleLoseImprintQualitySpeedMultiplier", "Prägen: Verlusttempo", "wie schnell Qualität fällt", "dino"),
+    ("BabyImprintAmountMultiplier", "Prägen: Menge", "höher = mehr pro Pflege", "dino"),
+    ("BabyImprintingStatScaleMultiplier", "Prägen: Stat-Bonus", "0 = kein Bonus", "dino"),
+    ("MatingIntervalMultiplier", "Paarungsintervall", "kleiner = häufiger", "dino"),
+    ("MatingSpeedMultiplier", "Paarungsgeschwindigkeit", "höher = schneller", "dino"),
+    ("EggHatchSpeedMultiplier", "Ei-Schlupfzeit", "höher = schneller", "dino"),
+    ("LayEggIntervalMultiplier", "Ei-Abstand", "höher = seltener", "dino"),
+    ("bDisableDinoBreeding", "Zucht verbieten", "keine Babys", "dino"),
+    ("bDisableDinoRiding", "Reiten verbieten", "niemand darf reiten", "dino"),
+    ("bDisableDinoTaming", "Zähmen verbieten", "keine wilden Dinos zähmbar", "dino"),
+    ("bAllowUnclaimDinos", "Dinos freilassen", "False = nicht möglich", "dino"),
+    ("bAllowFlyerSpeedLeveling", "Flieger-Tempo leveln", "Tempo-Stat für Flieger", "dino"),
+    ("DestroyTamesOverLevelClamp", "Tames über Level löschen", "0 = aus", "dino"),
+    ("DinoTurretDamageMultiplier", "Dino vs. Turm", "Schaden von Dinos an Türmen", "dino"),
+    ("DinoHarvestingDamageMultiplier", "Dino-Ernteschaden", "höher = mehr pro Schlag", "dino"),
+    ("PassiveTameIntervalMultiplier", "Passives Zähmen", "Intervall der Fortschrittspunkte", "dino"),
+    ("WildDinoCharacterFoodDrainMultiplier", "Wilde: Hunger", "Futterverbrauch wilder Dinos", "dino"),
+    ("WildDinoTorporDrainMultiplier", "Wilde: Betäubung", "wie schnell Betäubung fällt", "dino"),
+    ("TamedDinoCharacterFoodDrainMultiplier", "Gezähmte: Hunger", "Futterverbrauch", "dino"),
+    ("TamedDinoTorporDrainMultiplier", "Gezähmte: Betäubung", "Betäubungsabbau", "dino"),
+
+    # ------------------------------------------------------------ Game.ini: PvP
+    ("bDisableFriendlyFire", "Kein Friendly-Fire", "Schaden im eigenen Tribe aus", "pvp"),
+    ("bPvEDisableFriendlyFire", "Kein Friendly-Fire (PvE)", "nur im PvE-Modus", "pvp"),
+    ("bPvEAllowTribeWar", "Tribe-Krieg (PvE)", "False = keine Kriegserklärungen", "pvp"),
+    ("bPvEAllowTribeWarCancel", "Krieg abbrechen", "vor dem Start möglich", "pvp"),
+    ("bAutoPvETimer", "PvE-Zeitfenster", "PvPvE-Server mit PvE-Zeiten", "pvp"),
+    ("AutoPvEStartTimeSeconds", "PvE-Startzeit", "Sekunden seit Mitternacht", "pvp"),
+    ("AutoPvEStopTimeSeconds", "PvE-Endzeit", "Sekunden seit Mitternacht", "pvp"),
+    ("bAutoPvEUseSystemTime", "Systemzeit nutzen", "Zeiten beziehen sich auf die Serveruhr", "pvp"),
+    ("bIncreasePvPRespawnInterval", "PvP-Respawn-Verzögerung", "False = aus", "pvp"),
+    ("IncreasePvPRespawnIntervalBaseAmount", "Respawn-Zusatz (Sekunden)", "Grundwert der Verzögerung", "pvp"),
+    ("IncreasePvPRespawnIntervalMultiplier", "Respawn-Zusatz: Faktor", "Multiplikator der Verzögerung", "pvp"),
+    ("IncreasePvPRespawnIntervalCheckPeriod", "Respawn-Zusatz: Prüfzeit", "Sekunden zwischen Prüfungen", "pvp"),
+    ("PreventOfflinePvPConnectionInvincibleInterval", "Offline-Schutz: Verbindungszeit", "Sekunden Unverwundbarkeit", "pvp"),
+    ("PvPZoneStructureDamageMultiplier", "Schaden in PvP-Zonen", "Multiplikator (Standard 6.0)", "pvp"),
+    ("bLimitTurretsInRange", "Turm-Limit aktiv", "False = kein Limit", "pvp"),
+    ("bHardLimitTurretsInRange", "Turm-Limit hart", "auch bestehende Türme betroffen", "pvp"),
+    ("LimitTurretsNum", "Max. Türme", "Anzahl im Radius", "pvp"),
+    ("LimitTurretsRange", "Turm-Radius", "Unreal-Units", "pvp"),
+    ("bPassiveDefensesDamageRiderlessDinos", "Stachelwände gegen Dinos", "verletzen Dinos ohne Reiter", "pvp"),
+
+    # ------------------------------------------------------------ Game.ini: Strukturen & Anzeige
+    ("bDisableStructurePlacementCollision", "Bau-Kollision aus", "Bauten dürfen ins Gelände", "struct"),
+    ("bIgnoreStructuresPreventionVolumes", "Bausperrzonen ignorieren", "überall bauen", "struct"),
+    ("bAllowPlatformSaddleMultiFloors", "Mehrere Plattform-Etagen", "erlaubt mehrstöckige Plattformen", "struct"),
+    ("bUseTameLimitForStructuresOnly", "Dino-Slots nur für Plattformen", "Tame-Limit gilt nur für Bauten", "struct"),
+    ("StructureDamageRepairCooldown", "Reparatur-Cooldown", "Sekunden nach Schaden", "struct"),
+    ("bGenesisUseStructuresPreventionVolumes", "Genesis: Bausperrzonen", "kein Bauen in Missionsgebieten", "struct"),
+    ("ResourceNoReplenishRadiusStructures", "Ressourcen-Sperre (Bauten)", "Radius um Strukturen", "struct"),
+    ("bUseCorpseLocator", "Leichen-Markierung", "grüner Lichtstrahl am Tod", "hud"),
+    ("bUseDinoLevelUpAnimations", "Level-Up-Animation", "False = ohne Animation", "hud"),
+
+    # ------------------------------------------------------------ Game.ini: Spiel
+    ("bUseSingleplayerSettings", "Singleplayer-Werte", "entschärfte Solo-Einstellungen", "play"),
+    ("bAllowUnlimitedRespecs", "Unbegrenzte Respecs", "Mindwipe ohne 24-h-Cooldown", "play"),
+    ("bAllowCustomRecipes", "Eigene Rezepte", "False = Custom-Rezepte aus", "play"),
+    ("CustomRecipeEffectivenessMultiplier", "Rezepte: Wirkung", "höher = stärker", "play"),
+    ("CustomRecipeSkillMultiplier", "Rezepte: Skill-Einfluss", "Einfluss der Crafting-Skillung", "play"),
+    ("CraftingSkillBonusMultiplier", "Crafting-Bonus", "Effekt der Skillung", "play"),
+    ("bAutoUnlockAllEngrams", "Alle Engramme frei", "ignoriert Engramm-Einstellungen", "play"),
+    ("bOnlyAllowSpecifiedEngrams", "Nur erlaubte Engramme", "alles andere gesperrt", "play"),
+    ("bShowCreativeMode", "Kreativmodus", "True = Baumodus frei", "play"),
+    ("MaxNumberOfPlayersInTribe", "Max. Spieler pro Tribe", "0 = unbegrenzt", "spieler"),
+    ("MaxTribeLogs", "Tribe-Log-Einträge", "wie viele Einträge sichtbar", "spieler"),
+    ("TribeSlotReuseCooldown", "Tribe-Slot-Sperre", "Sekunden bis ein Slot frei wird", "spieler"),
+    ("BaseTemperatureMultiplier", "Grundtemperatur", "kleiner = kälter", "play"),
+    ("HairGrowthSpeedMultiplier", "Haarwuchs", "höher = schneller", "play"),
+    ("PoopIntervalMultiplier", "Kot-Intervall", "höher = seltener", "play"),
+    ("FuelConsumptionIntervalMultiplier", "Treibstoffverbrauch", "Intervall der Verbrennung", "play"),
+    ("MaxFallSpeedMultiplier", "Fallschaden-Grenze", "höher = länger ohne Schaden", "play"),
+    ("ResourceNoReplenishRadiusPlayers", "Ressourcen-Sperre (Spieler)", "Radius um Spieler", "play"),
+    ("CropGrowthSpeedMultiplier", "Pflanzenwachstum", "höher = schneller", "play"),
+    ("CropDecaySpeedMultiplier", "Pflanzen-Verfall", "höher = langsamer", "play"),
+    ("CraftXPMultiplier", "EP fürs Craften", "1.0 = offiziell", "play"),
+    ("GenericXPMultiplier", "EP allgemein", "automatische EP über Zeit", "play"),
+    ("HarvestXPMultiplier", "EP fürs Ernten", "1.0 = offiziell", "play"),
+    ("KillXPMultiplier", "EP fürs Töten", "1.0 = offiziell", "play"),
+    ("SpecialXPMultiplier", "EP für Events", "1.0 = offiziell", "play"),
+    ("GlobalSpoilingTimeMultiplier", "Verderb-Zeit", "höher = hält länger", "game"),
+    ("GlobalItemDecompositionTimeMultiplier", "Zerfallszeit (Items)", "liegen gelassene Items", "game"),
+    ("GlobalCorpseDecompositionTimeMultiplier", "Zerfallszeit (Leichen)", "Kadaver bleiben länger", "game"),
+    ("UseCorpseLifeSpanMultiplier", "Lebensdauer Leichen", "Multiplikator für Kadaver und Kisten", "game"),
+    ("GlobalPoweredBatteryDurabilityDecreasePerSecond", "Batterieverbrauch", "Ladung pro Sekunde", "game"),
+    ("bDisableLootCrates", "Keine Loot-Kisten", "Artefakt-Kisten bleiben", "game"),
+    ("FishingLootQualityMultiplier", "Angel-Loot-Qualität", "1.0–5.0", "game"),
+    ("SupplyCrateLootQualityMultiplier", "Loot-Qualität (Kisten)", "1.0–5.0", "game"),
+    ("LimitNonPlayerDroppedItemsCount", "Max. liegende Items", "0 = unbegrenzt", "game"),
+    ("LimitNonPlayerDroppedItemsRange", "Radius für Item-Limit", "Unreal-Units", "game"),
+    ("AdjustableMutagenSpawnDelayMultiplier", "Mutagen-Spawn", "höher = seltener", "game"),
+    ("bDisableHexagonStore", "Hexagon-Shop aus", "Genesis-Shop deaktiviert", "game"),
+    ("bHexStoreAllowOnlyEngramTradeOption", "Shop: nur Engramme", "alles andere gesperrt", "game"),
+    ("HexagonCostMultiplier", "Shop-Preise", "Multiplikator der Kosten", "game"),
+    ("BaseHexagonRewardMultiplier", "Missions-Belohnung", "Hexagons pro Mission", "game"),
+    ("bDisableGenesisMissions", "Genesis-Missionen aus", "keine Missionen", "game"),
+    ("bDisableWorldBuffs", "Weltbuffs aus", "keine Missions-Effekte", "game"),
+    ("bEnableWorldBuffScaling", "Weltbuffs skalieren", "Effekte folgen den Servereinstellungen", "game"),
+    ("bDisableDefaultMapItemSets", "Kein Start-Tek", "Genesis-2-Tek beim Spawn aus", "game"),
+    ("WorldBuffScalingEfficacy", "Weltbuff-Stärke", "Multiplikator der Effekte", "game"),
+    ("ItemStatClamps", "Item-Wert-Grenzen", "Obergrenzen je Stat (Liste)", "game"),
+    ("ConfigAddNPCSpawnEntriesContainer", "Eigene Spawns", "zusätzliche Kreaturen-Spawns", "game"),
+    ("NPCReplacements", "Kreaturen ersetzen", "eine Art durch eine andere tauschen", "game"),
+    ("AllowHitMarkers", "Treffer-Markierungen", "Markierungen bei Treffern", "hud"),
+    ("AllowTekSuitPowersInGenesis", "Tek-Anzug in Genesis", "Tek-Kräfte auf Genesis 1", "play"),
+    ("NPCNetworkStasisRangeScalePlayerCountStart", "NPC-Stasis: ab Spielerzahl", "untere Grenze für die Skalierung", "server"),
+    ("NPCNetworkStasisRangeScalePlayerCountEnd", "NPC-Stasis: bis Spielerzahl", "obere Grenze für die Skalierung", "server"),
+    ("NPCNetworkStasisRangeScalePercentEnd", "NPC-Stasis: Endwert (%)", "Skalierung bei erreichter Spielerzahl", "server"),
+    ("TribeLogDestroyedEnemyStructures", "Tribe-Log: Feindbauten", "zeigt zerstörte Feindstrukturen", "hud"),
+    ("TribeNameChangeCooldown", "Tribe-Namen: Cooldown", "Minuten zwischen Umbenennungen", "spieler"),
+    ("FreezeReaperPregnancy", "Reaper-Schwangerschaft einfrieren", "Timer und EP stoppen", "dino"),
+    ("bFlyerPlatformAllowUnalignedDinoBasing", "Fremde Dinos auf Quetz-Plattform", "nicht verbündete Dinos dürfen aufsitzen", "dino"),
+    ("PlayerHarvestingDamageMultiplier", "Spieler-Ernteschaden", "höher = mehr pro Schlag", "play"),
+]
 
 
-# ------------------------------------------------------------------ Zugang
-_add("SessionName", "Spieleserver-Name", "Name in der Serverliste", "srv")
-_add("ServerPassword", "Server-Passwort", "leer = jeder darf joinen", "srv")
-_add("ServerAdminPassword", "Admin-Passwort", "auch das Passwort für RCON", "srv")
-_add("MaxPlayers", "Max. Spieler", "gleichzeitige Spieler (Standard 70)", "srv")
-_add("Port", "Spiel-Port", "UDP, Spielverbindung", "srv")
-_add("QueryPort", "Query-Port", "UDP, Serverliste (Steam)", "srv")
-_add("RCONEnabled", "RCON aktiv", "Steuerkanal für den Manager", "srv")
-_add("RCONPort", "RCON-Port", "TCP-Port des Steuerkanals", "srv")
-_add("MultiHome", "Bind-Adresse", "leer = alle Netzwerkkarten", "srv")
-_add("Message", "MOTD-Text", "Nachricht beim Beitreten", "motd")
-_add("Duration", "MOTD-Dauer", "Sekunden, die die Nachricht steht", "motd")
-
-# ------------------------------------------------------------------ Spiel
-_add("ServerPVE", "PvE-Modus", "True = kein Spieler-gegen-Spieler", "pvp")
-_add("ServerHardcore", "Hardcore", "Tod = Charakter verloren", "pvp")
-_add("ServerCrosshair", "Fadenkreuz", "Zielkreuz einblenden", "hud")
-_add("ShowMapPlayerLocation", "Eigene Position auf Karte", "Kartenmarker für den Spieler", "hud")
-_add("AllowThirdPersonPlayer", "Third-Person", "Kamera in der dritten Person", "hud")
-_add("AllowFlyerCarryPvE", "Flieger tragen (PvE)", "Greifen von Dinos mit Fliegern", "play")
-_add("GlobalVoiceChat", "Globaler Sprachchat", "alle hören alle", "hud")
-_add("ProximityChat", "Nähe-Chat", "Chat nur in Hörweite", "hud")
-_add("NoTributeDownloads", "Kein Tribute-Download", "kein Import über Obelisken", "transfer")
-_add("DifficultyOffset", "Schwierigkeit", "0.0–1.0, skaliert mit OverrideOfficialDifficulty", "play")
-_add("OverrideOfficialDifficulty", "Offizielle Schwierigkeit", "Dino-Level (1 = max 30, 5 = max 150)", "play")
-_add("XPMultiplier", "EP-Multiplikator", "1.0 = normal", "play")
-_add("TamingSpeedMultiplier", "Zähmgeschwindigkeit", "höher = schneller zähmen", "play")
-_add("HarvestAmountMultiplier", "Erntemenge", "höher = mehr Ressourcen pro Schlag", "play")
-_add("HarvestHealthMultiplier", "Ernte-Lebenspunkte", "Ressourcenknoten halten länger", "play")
-_add("ResourcesRespawnPeriodMultiplier", "Ressourcen-Nachwuchs", "kleiner = schneller nachwachsend", "play")
-_add("DinoCountMultiplier", "Dino-Dichte", "1.0 = Standard", "dino")
-_add("DinoCharacterFoodDrainMultiplier", "Dino-Hunger", "höher = Dinos hungern schneller", "dino")
-_add("PlayerCharacterWaterDrainMultiplier", "Durst", "höher = schneller Durst", "play")
-_add("PlayerCharacterFoodDrainMultiplier", "Hunger", "höher = schneller Hunger", "play")
-_add("PlayerCharacterStaminaDrainMultiplier", "Ausdauerverbrauch", "höher = schneller erschöpft", "play")
-_add("PlayerCharacterHealthRecoveryMultiplier", "Regeneration", "höher = schnellere Heilung", "play")
-_add("DayTimeSpeedScale", "Tageslänge", "kleiner = längerer Tag", "play")
-_add("NightTimeSpeedScale", "Nachtlänge", "größer = kürzere Nacht", "play")
-_add("AutoSavePeriodMinutes", "Autosave", "Minuten zwischen Sicherungen", "play")
-_add("bUseSingleplayerSettings", "Singleplayer-Werte", "nutzt die entschärften Solo-Einstellungen", "play")
-_add("PreventSpawnAnimations", "Spawn-Animation aus", "Dinos erscheinen ohne Effekt", "hud")
-_add("bDisableStructurePlacementCollision", "Bau-Kollision aus", "Strukturen dürfen sich überlappen", "struct")
-_add("AllowCaveBuildingPvE", "Bauen in Höhlen (PvE)", "erlaubt Bauwerke in Höhlen", "struct")
-_add("PvPStructureDecay", "Verfall im PvP", "Strukturen verfallen ohne Login", "struct")
-_add("bDisableStructureDecayPvE", "Kein Verfall (PvE)", "True = nichts verfällt", "struct")
-_add("StructureDamageMultiplier", "Struktur-Schaden", "Schaden an Bauwerken", "struct")
-_add("StructureResistanceMultiplier", "Struktur-Widerstand", "niedriger = stabiler", "struct")
-_add("PreventDinoTameable", "Zähmen verbieten", "True = keine Dinos zähmbar", "dino")
-_add("MaxTamedDinos", "Max. gezähmte Dinos", "Obergrenze pro Server", "dino")
-_add("TamedDinoCharacterFoodDrainMultiplier", "Gezähmte: Hunger", "Nahrungsverbrauch gezähmter Dinos", "dino")
-_add("TamedDinoTorporDrainMultiplier", "Gezähmte: Betäubung", "wie schnell die Betäubung fällt", "dino")
-_add("WildDinoTorporDrainMultiplier", "Wilde: Betäubung", "Betäubungsabbau bei wilden Dinos", "dino")
-_add("PassiveTameIntervalMultiplier", "Passives Zähmen", "Intervall der Fortschrittspunkte", "dino")
-_add("BabyMatureSpeedMultiplier", "Jungtier-Wachstum", "höher = schneller erwachsen", "dino")
-_add("BabyFoodConsumptionSpeedMultiplier", "Jungtier-Hunger", "Nahrungsverbrauch der Jungen", "dino")
-_add("MatingIntervalMultiplier", "Paarungsintervall", "kleiner = häufiger", "dino")
-_add("EggHatchSpeedMultiplier", "Ei-Schlupfzeit", "höher = schneller", "dino")
-_add("GlobalSpoilingTimeMultiplier", "Verderb-Zeit", "höher = Essen hält länger", "game")
-_add("GlobalItemDecompositionTimeMultiplier", "Zerfallszeit (Items)", "liegen gelassene Items", "game")
-_add("GlobalCorpseDecompositionTimeMultiplier", "Zerfallszeit (Leichen)", "Kadaver verschwinden später", "game")
-_add("ActiveMods", "Mods", "Workshop-IDs, mit Komma getrennt", "game")
-_add("PreventDownloadItems", "Kein Item-Download", "kein Import von Items", "transfer")
-_add("PreventDownloadDinos", "Kein Dino-Download", "kein Import von Dinos", "transfer")
-_add("PreventUploadItems", "Kein Item-Upload", "kein Export von Items", "transfer")
-_add("PreventUploadDinos", "Kein Dino-Upload", "kein Export von Dinos", "transfer")
-_add("PreventUploadSurvivors", "Kein Spieler-Upload", "kein Export des Charakters", "transfer")
-_add("MaxNumberOfPlayersInTribe", "Max. Spieler pro Tribe", "0 = unbegrenzt", "play")
-_add("TributeItemExpirationSeconds", "Tribute: Item-Ablauf", "Sekunden bis zum Löschen", "transfer")
-_add("TributeDinoExpirationSeconds", "Tribute: Dino-Ablauf", "Sekunden bis zum Löschen", "transfer")
-_add("TributeCharacterExpirationSeconds", "Tribute: Char-Ablauf", "Sekunden bis zum Löschen", "transfer")
-
-# Eigenschaften, die erst ASE selbst anlegt (Auswahl der häufigen)
-_add("DisableStructureDecayPvE", "Kein Verfall (PvE)", "Variante ohne b-Präfix", "struct")
-_add("DestroyTamesOverLevelClamp", "Zu starke Tames löschen", "entfernt Dinos über dem Level-Limit", "dino")
-_add("LevelExperienceRampOverrides", "EP-Kurve", "eigene Stufenkurve (Liste)", "play")
-_add("OverridePlayerLevelEngramPoints", "Engramme pro Stufe", "Liste der Punkte je Stufe", "play")
-_add("RandomSupplyCratePoints", "Zufällige Loot-Drops", "Beacon-Positionen selbst festlegen", "game")
-_add("ConfigAddNPCSpawnEntriesContainer", "Eigene Spawns", "zusätzliche Kreaturen-Spawns", "game")
-_add("NPCReplacements", "Kreaturen ersetzen", "eine Art durch eine andere tauschen", "game")
-_add("PreventOfflinePvP", "Offline-Raid-Schutz", "True = Schutz bei Offline-Spielern", "pvp")
-_add("PreventOfflinePvPInterval", "Offline-Schutz Verzögerung", "Sekunden bis der Schutz greift", "pvp")
-_add("EnableExtraStructurePreventionVolumes", "Bausperrzonen", "vordefinierte Sperrgebiete", "struct")
-_add("TheMaxStructuresInRange", "Max. Strukturen in Reichweite", "Begrenzung gegen Bau-Spam", "struct")
-_add("OxygenSwimSpeedStatMultiplier", "Sauerstoff/Schwimmen", "Tempo unter Wasser", "play")
-_add("KickIdlePlayersPeriod", "Idle-Kick", "Sekunden bis AFK-Spieler fliegen", "srv")
-_add("AutoDestroyOldStructuresMultiplier", "Alte Strukturen abreißen", "Multiplikator für Verfall", "struct")
-_add("SpectatorPassword", "Zuschauer-Passwort", "Passwort für den Spectator-Modus", "srv")
-_add("ClampItemStats", "Item-Werte begrenzen", "verhindert überhöhte Werte", "game")
-_add("ItemStatClamps", "Item-Wert-Grenzen", "Obergrenzen je Stat", "game")
-_add("MaxTribeLogs", "Tribe-Log-Einträge", "wie viele Einträge behalten werden", "play")
-_add("bPvEDisableFriendlyFire", "Kein Friendly-Fire (PvE)", "Schaden an eigenen Dinos aus", "pvp")
-_add("bDisableFriendlyFire", "Kein Friendly-Fire", "Schaden unter Tribe-Mitgliedern aus", "pvp")
+for _key, _label, _hint, _group in EINTRAEGE:
+    LABELS[_key] = (_label, _hint)
+    GROUPS[_key] = _group

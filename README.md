@@ -58,7 +58,7 @@ noah2games --name factory start
 server. Configuration lives in `ShooterGame/Saved/Config/LinuxServer/` (`GameUserSettings.ini` and
 `Game.ini`), the manager writes ports, name, admin password and workshop mods there, and the map
 plus cluster arguments go into the launch line. Mods are Steam Workshop IDs (`-automanagedmods`);
-the settings tab reads **every** property from both INI files, with German labels.
+the settings tab reads **every** property from both INI files — 262 values, all with German labels.
 
 The web UI accepts the extra `game` parameter on `POST /api/instances`. Ports: Satisfactory needs
 three (`-Port`, `-QueryPort`, `-BeaconPort`), 7 Days to Die game, query and telnet ports. Instance

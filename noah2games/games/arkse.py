@@ -25,70 +25,21 @@ CONFIG_REL = os.path.join("ShooterGame", "Saved", "Config", "LinuxServer")
 LOG_REL = os.path.join("ShooterGame", "Saved", "Logs", "ShooterGame.log")
 SECTION_GAME = "/script/shootergame.shootergamemode"
 
-# Werte, die beim ersten Schreiben angelegt werden. ASE ergaenzt beim ersten
-# Start selbst viele weitere Eigenschaften - die Oberflaeche zeigt sie danach
-# automatisch, weil sie die INI-Dateien vollstaendig liest.
-GUS_TEMPLATE = {
-    "ServerSettings": [
-        ("RCONEnabled", "True"),
-        ("RCONPort", ""),
-        ("ServerAdminPassword", ""),
-        ("ServerPassword", ""),
-        ("MaxPlayers", "20"),
-        ("ServerPVE", "True"),
-        ("ServerHardcore", "False"),
-        ("ServerCrosshair", "True"),
-        ("ShowMapPlayerLocation", "True"),
-        ("AllowThirdPersonPlayer", "True"),
-        ("AllowFlyerCarryPvE", "True"),
-        ("GlobalVoiceChat", "False"),
-        ("ProximityChat", "False"),
-        ("NoTributeDownloads", "False"),
-        ("DifficultyOffset", "1.0"),
-        ("OverrideOfficialDifficulty", "5.0"),
-        ("XPMultiplier", "1.0"),
-        ("TamingSpeedMultiplier", "1.0"),
-        ("HarvestAmountMultiplier", "1.0"),
-        ("HarvestHealthMultiplier", "1.0"),
-        ("ResourcesRespawnPeriodMultiplier", "1.0"),
-        ("DinoCountMultiplier", "1.0"),
-        ("DinoCharacterFoodDrainMultiplier", "1.0"),
-        ("PlayerCharacterWaterDrainMultiplier", "1.0"),
-        ("PlayerCharacterFoodDrainMultiplier", "1.0"),
-        ("PlayerCharacterStaminaDrainMultiplier", "1.0"),
-        ("PlayerCharacterHealthRecoveryMultiplier", "1.0"),
-        ("DayTimeSpeedScale", "1.0"),
-        ("NightTimeSpeedScale", "2.0"),
-        ("AutoSavePeriodMinutes", "15.0"),
-        ("PvPStructureDecay", "False"),
-        ("AllowCaveBuildingPvE", "True"),
-        ("PreventSpawnAnimations", "False"),
-        ("bDisableStructurePlacementCollision", "False"),
-    ],
-    "SessionSettings": [
-        ("SessionName", ""),
-        ("Port", ""),
-        ("QueryPort", ""),
-    ],
-    "MessageOfTheDay": [
-        ("Message", ""),
-        ("Duration", "20"),
-    ],
-}
+TEMPLATE_GUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "arkse_template_gus.ini")
+TEMPLATE_GAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "arkse_template_game.ini")
 
-GAME_TEMPLATE = [
-    ("ActiveMods", ""),
-    ("bDisableStructureDecayPvE", "False"),
-    ("PreventDinoTameable", "False"),
-    ("MaxTamedDinos", "5000.0"),
-    ("TamedDinoCharacterFoodDrainMultiplier", "1.0"),
-    ("TamedDinoTorporDrainMultiplier", "1.0"),
-    ("WildDinoTorporDrainMultiplier", "1.0"),
-    ("PassiveTameIntervalMultiplier", "1.0"),
-    ("GlobalSpoilingTimeMultiplier", "1.0"),
-    ("GlobalItemDecompositionTimeMultiplier", "1.0"),
-    ("GlobalCorpseDecompositionTimeMultiplier", "1.0"),
-]
+
+def _load_template(path: str) -> list[tuple[str, list[tuple[str, str]]]]:
+    """Default-Werte aus der mitgelieferten ASE-Vorlage (eine Sektion je Eintrag)."""
+    cp = configparser.ConfigParser(strict=False, interpolation=None)
+    cp.optionxform = str
+    cp.read(path, encoding="utf-8")
+    return [(section, list(cp.items(section))) for section in cp.sections()]
+
+
+# Vollstaendige ASE-Eigenschaften (ServerSettings 160, SessionSettings 3, MOTD 2, Game.ini 100)
+GUS_TEMPLATE = _load_template(TEMPLATE_GUS)
+GAME_TEMPLATE = _load_template(TEMPLATE_GAME)
 
 # Instanz-Attribut <-> INI-Eigenschaft
 ALIASES = {
@@ -98,6 +49,12 @@ ALIASES = {
     "RCONPort": "rcon_port",
     "MaxPlayers": "max_players",
 }
+
+# ASE schreibt Schluessel in gemischter Schreibweise (serverPVE, globalVoiceChat) -
+# Nachschlagen deshalb immer ueber die Kleinschreibung.
+_LABELS = {k.lower(): v for k, v in LABELS.items()}
+_GROUPS = {k.lower(): v for k, v in GROUPS.items()}
+_ALIASES = {k.lower(): v for k, v in ALIASES.items()}
 
 
 class ArkSeProfile(GameProfile):
@@ -195,6 +152,14 @@ class ArkSeProfile(GameProfile):
         return argv
 
     # ---------------------------------------------------------- Konfigdatei
+    def _canonical(self) -> dict[str, str]:
+        """Kleinschreibung -> offizielle Schreibweise aus den Vorlagen."""
+        table: dict[str, str] = {}
+        for _section, liste in GUS_TEMPLATE + GAME_TEMPLATE:
+            for key, _val in liste:
+                table.setdefault(key.lower(), key)
+        return table
+
     def _read_ini(self, path: str) -> configparser.ConfigParser:
         cp = configparser.ConfigParser(strict=False, interpolation=None)
         cp.optionxform = str
@@ -203,7 +168,32 @@ class ArkSeProfile(GameProfile):
                 cp.read(path, encoding="utf-8-sig")
             except (configparser.Error, OSError):
                 pass
+        self._dedupe_case(cp)
         return cp
+
+    def _dedupe_case(self, cp: configparser.ConfigParser) -> None:
+        """Doppelte Schluessel mit anderer Schreibweise zusammenfassen.
+
+        ASE liest Konfigurationsschluessel ohne Ruecksicht auf Gross-/Kleinschreibung.
+        Stehen `ServerPVE` und `serverPVE` nebeneinander (etwa aus einer aelteren
+        Vorlage), ist unklar, welcher Wert gilt - hier bleibt der offizielle Name
+        mit dem zuletzt gelesenen Wert stehen.
+        """
+        table = self._canonical()
+        for section in cp.sections():
+            werte: dict[str, str] = {}
+            for key, value in cp.items(section):
+                werte[self._canonical_key(key, table)] = value      # letzter gewinnt
+            if [k for k, _v in cp.items(section)] == list(werte):
+                continue
+            cp.remove_section(section)
+            cp.add_section(section)
+            for key, value in werte.items():
+                cp.set(section, key, value)
+
+    @staticmethod
+    def _canonical_key(key: str, table: dict[str, str]) -> str:
+        return table.get(key.lower(), key)
 
     def write_config(self, inst) -> None:
         """Ports, RCON, Name und Mods in die INIs schreiben (idempotent)."""
@@ -214,7 +204,7 @@ class ArkSeProfile(GameProfile):
             "MaxPlayers": str(inst.max_players),
         }
         cp = self._read_ini(self.gus_ini(inst))
-        for section, liste in GUS_TEMPLATE.items():
+        for section, liste in GUS_TEMPLATE:
             if not cp.has_section(section):
                 cp.add_section(section)
             for key, val in liste:
@@ -230,6 +220,7 @@ class ArkSeProfile(GameProfile):
                 "QueryPort": str(inst.query_port),
             },
             "ServerSettings": {
+                "ActiveMods": ",".join(str(m) for m in inst.mods),   # ASE liest Mods hier
                 "RCONEnabled": "True",
                 "RCONPort": str(inst.rcon_port),
                 "ServerAdminPassword": self.admin_pw(inst),
@@ -245,18 +236,18 @@ class ArkSeProfile(GameProfile):
             cp.write(fh, space_around_delimiters=False)
 
         cp2 = self._read_ini(self.game_ini(inst))
-        if not cp2.has_section(SECTION_GAME):
-            cp2.add_section(SECTION_GAME)
-        for key, val in GAME_TEMPLATE:
-            if not cp2.has_option(SECTION_GAME, key):
-                cp2.set(SECTION_GAME, key, val)
-        cp2.set(SECTION_GAME, "ActiveMods", ",".join(str(m) for m in inst.mods))
+        for section, liste in GAME_TEMPLATE:
+            if not cp2.has_section(section):
+                cp2.add_section(section)
+            for key, val in liste:
+                if not cp2.has_option(section, key):
+                    cp2.set(section, key, val)
         with open(self.game_ini(inst), "w", encoding="utf-8") as fh:
             cp2.write(fh, space_around_delimiters=False)
 
     # ---------------------------------------------------------- Einstellungen
     def _gruppierung(self, key: str) -> str:
-        return GROUPS.get(key, "weitere")
+        return _GROUPS.get(str(key).lower(), "weitere")
 
     def _typ(self, key: str, value: str) -> str:
         if "password" in key.lower() or "token" in key.lower():
@@ -283,12 +274,12 @@ class ArkSeProfile(GameProfile):
             cp = self._read_ini(pfad)
             for section in cp.sections():
                 for key, value in cp.items(section):
-                    if filekey == "game" and key.lower() == "activemods":
+                    if key.lower() == "activemods":
                         value = ",".join(str(m) for m in inst.mods)
-                    alias = ALIASES.get(key)
+                    alias = _ALIASES.get(str(key).lower())
                     if alias:
                         value = str(getattr(inst, alias, value))
-                    label, hint = LABELS.get(key, (key, ""))
+                    label, hint = _LABELS.get(str(key).lower(), (key, ""))
                     out.append({"file": filekey, "section": section, "key": key,
                                 "label": label, "hint": hint,
                                 "type": self._typ(key, value), "value": str(value),
@@ -317,7 +308,7 @@ class ArkSeProfile(GameProfile):
             if not cp.has_section(section):
                 cp.add_section(section)
             cp.set(section, key, val)
-            alias = ALIASES.get(key)
+            alias = _ALIASES.get(str(key).lower())
             if alias:
                 cur = getattr(inst, alias, "")
                 try:
@@ -326,7 +317,7 @@ class ArkSeProfile(GameProfile):
                     pass
             if key.lower() == "activemods":
                 inst.mods = [int(p) for p in val.replace(" ", "").split(",") if p.isdigit()]
-            if key == "ServerAdminPassword":
+            if key.lower() == "serveradminpassword":
                 inst.admin_password = val
             geaendert += 1
         for pfad, cp in geoeffnet.items():

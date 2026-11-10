@@ -59,7 +59,7 @@ Linux-Server. Die Konfiguration liegt in `ShooterGame/Saved/Config/LinuxServer/`
 (`GameUserSettings.ini` und `Game.ini`); der Manager schreibt Ports, Namen, Admin-Passwort und
 Workshop-Mods hinein, Karte und Cluster-Argumente stehen in der Startzeile. Mods sind
 Steam-Workshop-IDs (`-automanagedmods`). Der Einstellungs-Reiter liest **alle** Eigenschaften aus
-beiden INI-Dateien, mit deutschen Beschriftungen.
+beiden INI-Dateien — 262 Werte, alle mit deutschen Beschriftungen.
 
 Im Web-UI nimmt `POST /api/instances` zusätzlich den Parameter `game` an. Ports: Satisfactory
 braucht drei (Spiel `-Port`, `-QueryPort`, `-BeaconPort`), 7 Days to Die Spiel-, Query- und
