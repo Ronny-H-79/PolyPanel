@@ -78,17 +78,16 @@ SHARED_CSS = """
 body{margin:0;color:var(--fg);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
 min-height:100vh;
 background:
- radial-gradient(1100px 620px at 12% -8%, rgba(37,230,164,.16), transparent 62%),
- radial-gradient(900px 560px at 88% 8%, rgba(56,132,255,.13), transparent 60%),
- radial-gradient(1200px 800px at 50% 120%, rgba(37,230,164,.10), transparent 65%),
- linear-gradient(160deg,#05080c 0%,#070c12 45%,#04070a 100%);
+ linear-gradient(170deg,#05090f 0%,#070d14 55%,#04070b 100%);
 background-attachment:fixed}
+
 body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
-background:radial-gradient(120% 90% at 50% 45%, transparent 45%, rgba(0,0,0,.55) 100%)}
-#bg{position:fixed;inset:0;z-index:0;opacity:.85}
+background:radial-gradient(135% 100% at 50% 40%, transparent 58%, rgba(2,6,10,.42) 100%)}
+#bg{position:fixed;inset:0;z-index:0;opacity:1}
 header,main,.cards{position:relative;z-index:2}
 header{padding:16px 24px;border-bottom:1px solid #16302a;display:flex;gap:14px;align-items:center;
-flex-wrap:wrap;background:rgba(6,9,14,.75)}
+flex-wrap:wrap;background:rgba(7,17,23,.58);backdrop-filter:blur(12px) saturate(120%);
+-webkit-backdrop-filter:blur(12px) saturate(120%);border-bottom-color:rgba(64,255,199,.18)}
 h1{font-size:15px;margin:0;letter-spacing:.18em;text-transform:uppercase;color:var(--acc)}
 a{color:var(--acc);text-decoration:none}
 .badge.warn{border-color:#e67e22;color:#e67e22}
@@ -98,7 +97,9 @@ a{color:var(--acc);text-decoration:none}
 .badge.off{border-color:var(--err);color:var(--err)}
 .badge.warn{border-color:var(--warn);color:var(--warn)}
 main{padding:22px 24px;display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
-section{border:1px solid #16302a;border-radius:5px;padding:14px 16px;background:rgba(11,17,22,.88)}
+section{border:1px solid rgba(64,255,199,.14);border-radius:12px;padding:16px 18px;
+background:linear-gradient(180deg,rgba(14,27,35,.62),rgba(7,14,20,.74));
+backdrop-filter:blur(14px) saturate(115%);box-shadow:0 10px 30px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.04)}
 h2{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin:0 0 12px}
 button{background:#0f1a1f;color:var(--fg);border:1px solid #22453c;border-radius:3px;padding:6px 11px;
 font:inherit;font-size:11px;cursor:pointer;letter-spacing:.06em}
@@ -109,9 +110,9 @@ button.danger:hover{border-color:var(--err);color:var(--err)}
 border-radius:8px;padding:10px 12px;background:rgba(0,0,0,.28)}
 pre{margin:0;max-height:230px;overflow:auto;font-size:11.5px;white-space:pre-wrap;word-break:break-word;
 color:#9fc4b8}
-textarea{width:100%;min-height:250px;background:#0f1a1f;border:1px solid #22453c;color:#9fc4b8;
+textarea{width:100%;min-height:250px;background:rgba(12,24,30,.9);border:1px solid #22453c;color:#9fc4b8;
 font:11.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;border-radius:3px;padding:8px}
-input,select{width:100%;background:#0f1a1f;border:1px solid #22453c;color:var(--fg);padding:7px 9px;
+input,select{width:100%;background:rgba(12,24,30,.9);border:1px solid #22453c;color:var(--fg);padding:7px 9px;
 font:inherit;border-radius:3px;margin-bottom:6px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:12px}
@@ -151,11 +152,13 @@ border:1px solid #1d3a32;border-radius:6px;background:#0b1116;transition:filter 
 .settabs button.on{border-color:var(--acc);color:var(--acc)}
 .setgroup{display:none}
 .setgroup.on{display:block}
-.logwrap{background:#070f13;border:1px solid #12241f;border-radius:4px;padding:6px 8px;min-width:0}
+.logwrap{background:rgba(5,13,18,.85);border:1px solid #12241f;border-radius:4px;padding:6px 8px;min-width:0}
 .loghead{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
 .cardlog{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5px;line-height:1.35;
 color:#9fb8ae;white-space:pre-wrap;word-break:break-word;max-height:132px;overflow:hidden}
-.card{border:1px solid #16302a;border-radius:6px;padding:14px 16px;background:rgba(11,17,22,.92);
+.card{border:1px solid rgba(64,255,199,.16);border-radius:14px;padding:16px 18px;
+background:linear-gradient(180deg,rgba(16,31,40,.66),rgba(7,14,20,.78));
+backdrop-filter:blur(16px) saturate(115%);box-shadow:0 14px 34px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.05);
 display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden;container-type:inline-size}
 .card .bgimg{position:absolute;inset:0;background-size:cover;background-position:center;
 opacity:.62;filter:saturate(.9) contrast(1.05) brightness(.95);z-index:0}
@@ -206,71 +209,54 @@ max-height:80vh;overflow:auto;padding:18px 20px;position:relative}
 """
 
 BG_JS = """
+// Wandernde Farbwolken (Mesh-Gradient): niedrig aufgeloest zeichnen und weich hochskalieren
 const cv=document.getElementById('bg');
 if(cv){
-  const ctx=cv.getContext('2d');
-  let W=0,H=0,dpr=Math.min(devicePixelRatio||1,2),pts=[],mx=.5,my=.5,t0=performance.now();
-  // Glow-Sprite einmal vorrendern (schneller als Schatten pro Punkt)
-  const glow=document.createElement('canvas'); glow.width=glow.height=64;
-  const gc=glow.getContext('2d'); const grd=gc.createRadialGradient(32,32,0,32,32,32);
-  grd.addColorStop(0,'rgba(120,255,214,.85)');
-  grd.addColorStop(.35,'rgba(37,230,164,.35)');
-  grd.addColorStop(1,'rgba(37,230,164,0)');
-  gc.fillStyle=grd; gc.fillRect(0,0,64,64);
+  const ctx=cv.getContext('2d',{alpha:false});
+  const SCALE=0.22;                     // klein rechnen = weiche Kanten, wenig CPU
+  let W=0,H=0,t0=performance.now(),lauf=true;
+  const ruhig=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const wolken=[
+    {h:[46,230,164], x:.18, y:.16, ax:.26, ay:.18, sx:.19, sy:.27, r:.62, a:.60, rs:.26},
+    {h:[64,150,255], x:.82, y:.12, ax:.24, ay:.16, sx:.23, sy:.15, r:.58, a:.55, rs:.31},
+    {h:[150,110,255], x:.62, y:.86, ax:.28, ay:.20, sx:.14, sy:.29, r:.66, a:.48, rs:.19},
+    {h:[32,214,196], x:.10, y:.82, ax:.22, ay:.24, sx:.28, sy:.17, r:.54, a:.45, rs:.23},
+    {h:[255,146,88],  x:.94, y:.58, ax:.16, ay:.20, sx:.12, sy:.24, r:.44, a:.26, rs:.29}
+  ];
 
   function build(){
-    W=cv.width=innerWidth*dpr; H=cv.height=innerHeight*dpr;
+    W=cv.width=Math.max(160,Math.round(innerWidth*SCALE));
+    H=cv.height=Math.max(120,Math.round(innerHeight*SCALE));
     cv.style.width=innerWidth+'px'; cv.style.height=innerHeight+'px';
-    const n=Math.min(90,Math.max(28,Math.floor(innerWidth*innerHeight/22000)));
-    pts=Array.from({length:n},()=>({
-      x:Math.random()*W, y:Math.random()*H,
-      z:.35+Math.random()*.65,
-      vx:(Math.random()-.5)*.10, vy:(Math.random()-.5)*.10,
-      ph:Math.random()*Math.PI*2
-    }));
   }
-  addEventListener('resize',build); addEventListener('mousemove',e=>{mx=e.clientX/innerWidth;my=e.clientY/innerHeight;});
+  addEventListener('resize',build);
+  document.addEventListener('visibilitychange',()=>{ lauf=!document.hidden; if(lauf) requestAnimationFrame(frame); });
   build();
 
+  function wolke(w,t){
+    const cx=(w.x + Math.sin(t*w.sx + w.x*10)*w.ax)*W;
+    const cy=(w.y + Math.cos(t*w.sy + w.y*10)*w.ay)*H;
+    const atem=1 + Math.sin(t*w.rs*3.2 + w.x*7)*0.14;      // Radius atmet
+    const r=w.r*atem*Math.max(W,H);
+    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,r);
+    const [rh,rg,rb]=w.h;
+    g.addColorStop(0,   'rgba('+rh+','+rg+','+rb+','+w.a+')');
+    g.addColorStop(.45, 'rgba('+rh+','+rg+','+rb+','+(w.a*0.45)+')');
+    g.addColorStop(1,   'rgba('+rh+','+rg+','+rb+',0)');
+    ctx.fillStyle=g;
+    ctx.fillRect(0,0,W,H);
+  }
+
   function frame(now){
-    const t=(now-t0)/1000, dt=Math.min(.05,(now-t0)/1000);
-    ctx.clearRect(0,0,W,H);
-    const ox=(mx-.5)*40*dpr, oy=(my-.5)*40*dpr;
-    for(const p of pts){
-      p.x+=p.vx*dpr*6*(1+p.z); p.y+=p.vy*dpr*6*(1+p.z);
-      if(p.x<-80)p.x=W+80; if(p.x>W+80)p.x=-80;
-      if(p.y<-80)p.y=H+80; if(p.y>H+80)p.y=-80;
-    }
-    // Verbindungen
-    const R=170*dpr;
-    for(let i=0;i<pts.length;i++){
-      const a=pts[i];
-      for(let j=i+1;j<pts.length;j++){
-        const b=pts[j];
-        const dx=a.x-b.x, dy=a.y-b.y, d=Math.hypot(dx,dy);
-        if(d<R){
-          const al=(1-d/R)*.28*Math.min(a.z,b.z);
-          ctx.strokeStyle='rgba(37,230,164,'+al.toFixed(3)+')';
-          ctx.lineWidth=(.6+a.z*.7)*dpr;
-          ctx.beginPath();
-          ctx.moveTo(a.x+ox*a.z, a.y+oy*a.z);
-          ctx.lineTo(b.x+ox*b.z, b.y+oy*b.z);
-          ctx.stroke();
-        }
-      }
-    }
-    // Knoten mit Glow und langsamem Puls
-    for(const p of pts){
-      const pulse=.55+.45*Math.sin(t*1.2+p.ph);
-      const s=(10+p.z*22)*dpr*pulse;
-      ctx.globalAlpha=(.35+p.z*.5)*pulse;
-      ctx.drawImage(glow, p.x-s/2+ox*p.z, p.y-s/2+oy*p.z, s, s);
-      ctx.globalAlpha=1;
-      ctx.fillStyle='rgba(200,255,235,'+(.25+p.z*.45)+')';
-      const c=(1.1+p.z*1.6)*dpr;
-      ctx.fillRect(p.x+ox*p.z, p.y+oy*p.z, c, c);
-    }
-    requestAnimationFrame(frame);
+    if(!lauf) return;
+    const t=ruhig?0:(now-t0)/1000;
+    ctx.globalCompositeOperation='source-over';
+    ctx.fillStyle='#05090f'; ctx.fillRect(0,0,W,H);
+    ctx.globalCompositeOperation='lighter';
+    for(const w of wolken) wolke(w,t);
+    ctx.globalCompositeOperation='source-over';
+    if(!ruhig) requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
 }
