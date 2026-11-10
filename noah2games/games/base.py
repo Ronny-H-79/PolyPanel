@@ -96,6 +96,10 @@ class GameProfile:
         """Wine-Prefix fuer dieses Spiel ('' = Standard des Benutzers)."""
         return os.path.expanduser(inst.wine_prefix) if getattr(inst, "wine_prefix", "") else ""
 
+    def mods_path(self, inst) -> str:
+        """Ordner mit lokalen Mods ('' = keine Mod-Unterstuetzung)."""
+        return ""
+
     def workdir(self, inst) -> str:
         """Arbeitsverzeichnis beim Start (Standard: Instanzordner)."""
         return inst.directory

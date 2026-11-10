@@ -122,9 +122,13 @@ align-items:center;flex-wrap:wrap}
 .p small{color:var(--dim)}
 #out{color:var(--warn);margin-top:8px}
 .tabs{display:flex;gap:6px;padding:12px 24px 0;flex-wrap:wrap;position:relative;z-index:2}
-.tabs button{background:transparent;border:1px solid #16302a;border-bottom-color:transparent;
-border-radius:4px 4px 0 0;padding:7px 14px;font-size:11.5px;letter-spacing:.08em;color:var(--dim)}
-.tabs button.on{border-color:var(--acc);color:var(--acc);background:rgba(37,230,164,.06)}
+.tabs button{background:rgba(10,22,28,.85);border:1px solid rgba(64,255,199,.22);
+border-radius:10px;padding:9px 18px;font-size:12.5px;letter-spacing:.07em;font-weight:600;
+color:#a8d8c8;cursor:pointer;transition:color .12s,background .12s,border-color .12s,box-shadow .12s}
+.tabs button:hover{color:#e6fff5;border-color:rgba(64,255,199,.45);background:rgba(18,38,44,.9)}
+.tabs button.on{border-color:var(--acc);color:#04120d;background:linear-gradient(180deg,#4df3bb,#1fd79a);
+box-shadow:0 6px 18px rgba(37,230,164,.28),inset 0 1px 0 rgba(255,255,255,.35)}
+.tabs{background:rgba(6,14,19,.55);backdrop-filter:blur(10px);border-bottom:1px solid rgba(64,255,199,.14);padding-bottom:10px}
 .tab.wide{grid-column:1/-1}
 .tab{display:none}
 .tab.on{display:block}
@@ -626,6 +630,8 @@ INST = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>noah2games · __NAME__</title>
 <style>""" + SHARED_CSS + """
 body:not([data-game="ark"]) .ark-only{display:none !important}
+body:not([data-game="ark"]) .tab-mods > *:not(h2):not(#mods-nonark){display:none !important}
+body[data-game="ark"] #mods-nonark{display:none !important}
 </style></head><body data-game="__GAME__">
 <canvas id="bg"></canvas>
 <div class="modal" id="modal" onclick="if(event.target.id==='modal')closeModal()">
@@ -644,7 +650,7 @@ body:not([data-game="ark"]) .ark-only{display:none !important}
 <div class="tabs">
   <button class="on" data-tab="overview" onclick="showTab('overview',this)" data-t="tabs.overview">Übersicht</button>
   <button data-tab="settings" onclick="showTab('settings',this)" data-t="tabs.settings">Einstellungen</button>
-  <button data-tab="mods" class="ark-only" onclick="showTab('mods',this)" data-t="tabs.mods">Mods</button>
+  <button data-tab="mods" onclick="showTab('mods',this)" data-t="tabs.mods">Mods</button>
   <button data-tab="server" onclick="showTab('server',this)" data-t="tabs.manage">Verwaltung</button>
 </div>
 <main>
@@ -677,7 +683,13 @@ body:not([data-game="ark"]) .ark-only{display:none !important}
     <pre id="wlmsg">–</pre>
   </section>
 
-  <section class="tab tab-mods ark-only"><h2 data-t="tabs.mods">Mods</h2>
+  <section class="tab tab-mods"><h2 data-t="tabs.mods">Mods</h2>
+    <div id="mods-nonark" style="display:none">
+      <p class="hint" data-t="mods.local_hint">Dieses Spiel wird nicht über CurseForge verwaltet. Mods legst du direkt im Ordner ab – noah2games zeigt dir, was dort liegt.</p>
+      <div class="setrow"><label><b data-t="mods.local_dir">Mod-Ordner</b><small id="mods-local-path">…</small></label></div>
+      <div id="mods-local-list">…</div>
+      <div class="row"><button onclick="loadLocalMods()" data-t="common.refresh">Aktualisieren</button></div>
+    </div>
     <div id="mods">…</div>
     <div class="row" style="margin-top:8px">
       <input id="modid" data-tp="mods.search_ph" placeholder="Mod suchen oder ID eingeben"
@@ -944,6 +956,7 @@ function showTab(name, btn){
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));
   if(btn) btn.classList.add('on');
   try{ localStorage.setItem('noah2games.tab', name); if(history.replaceState) history.replaceState(null,'','#'+name); }catch(e){}
+  if(name==='mods' && document.body.dataset.game!=='ark'){ loadLocalMods(); }
   if(name==='overview'){ const l=document.getElementById('log');
     if(l){ requestAnimationFrame(()=>{ l.scrollTop=l.scrollHeight; }); } }
 }
@@ -1064,6 +1077,24 @@ function showSetGroup(g){
   document.querySelectorAll('#settabs button').forEach(b=>b.classList.toggle('on', b.dataset.g===g));
   try{ localStorage.setItem('noah2games.setgroup', g); }catch(e){}
 }
+
+async function loadLocalMods(){
+  const liste=document.getElementById('mods-local-list');
+  const pfad=document.getElementById('mods-local-path');
+  if(!liste) return;
+  try{
+    const d=JSON.parse(await api('/api/mods/local'));
+    if(pfad) pfad.textContent=d.path||'—';
+    if(!d.entries || !d.entries.length){
+      liste.innerHTML='<p class="hint">'+(L['mods.local_empty']||'keine Mods im Ordner')+'</p>';
+      return;
+    }
+    liste.innerHTML='<div class="setrow">'+d.entries.map(function(e){
+      return '<label><b>'+e.name+'</b><small>'+(e.size_mb||0)+' MB'+(e.workshop?' · Workshop':'')+'</small></label>';
+    }).join('')+'</div>';
+  }catch(e){ liste.textContent='Fehler: '+e; }
+}
+
 async function loadSettings(){
   SETTINGS=JSON.parse(await api('/api/settings'));
   const byGroup={};
@@ -1421,6 +1452,26 @@ def _start_install(inst: Instance) -> None:
     threading.Thread(target=run, daemon=True).start()
 
 
+
+def _local_mods(inst) -> dict:
+    """Mods im spieleigenen Ordner auflisten (7D2D, Satisfactory, Space Engineers)."""
+    pfad = inst.profile.mods_path(inst)
+    eintraege = []
+    if pfad and os.path.isdir(pfad):
+        for name in sorted(os.listdir(pfad)):
+            voll = os.path.join(pfad, name)
+            if not os.path.isdir(voll):
+                continue
+            try:
+                mb = sum(os.path.getsize(os.path.join(w, f))
+                         for w, _, fs in os.walk(voll) for f in fs) / 1024 / 1024
+            except OSError:
+                mb = 0
+            eintraege.append({"name": name, "size_mb": round(mb, 1),
+                              "workshop": name.isdigit()})
+    return {"path": pfad, "entries": eintraege}
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "noah2games"
 
@@ -1595,6 +1646,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"url": inst.webhook_url if inst else "", "log": notify_mod.log_path(inst) if inst else ""})
         elif path == "/api/commands":
             self._json([i18n.command(c) for c in cmdreg.COMMANDS])
+        elif path == "/api/mods/local":
+            self._json(_local_mods(inst))
         elif path == "/api/mods":
             data = modlib.list_all_enriched(inst)
             data["size_mb"] = modlib.mod_size_mb(inst)

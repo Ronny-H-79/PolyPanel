@@ -44,6 +44,9 @@ class SatisfactoryProfile(GameProfile):
     def config_dir(self) -> str:
         return ""
 
+    def mods_path(self, inst) -> str:
+        return os.path.join(inst.directory, "FactoryGame", "Mods")
+
     def log_path(self, inst) -> str:
         return os.path.join(inst.directory, LOG_REL)
 

@@ -137,6 +137,14 @@ class SpaceEngineersProfile(GameProfile):
                 return p
         return os.path.join(inst.directory, CFG_NAME)
 
+    def mods_path(self, inst) -> str:
+        # SE laedt Mods aus Content\Mods (Workshop-Downloads landen dort)
+        for rel in (os.path.join("Content", "Mods"), "Mods"):
+            pfad = os.path.join(inst.directory, rel)
+            if os.path.isdir(pfad):
+                return pfad
+        return os.path.join(inst.directory, "Mods")
+
     def log_path(self, inst) -> str:
         """SE schreibt pro Start eine eigene Logdatei - immer die neueste zeigen."""
         import glob

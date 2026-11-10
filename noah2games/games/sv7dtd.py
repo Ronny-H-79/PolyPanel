@@ -42,6 +42,9 @@ class SevenDaysProfile(GameProfile):
     def config_file(self, inst) -> str:
         return os.path.join(inst.directory, "serverconfig.xml")
 
+    def mods_path(self, inst) -> str:
+        return os.path.join(inst.directory, "Mods")
+
     def log_path(self, inst) -> str:
         # 7D2D legt selbst eine Datei an: output_log__JJJJ-MM-TT__HH-MM-SS.txt.
         # Der -logfile-Parameter wird ignoriert, deshalb hier suchen.
