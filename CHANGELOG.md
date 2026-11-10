@@ -4,6 +4,15 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.9] — 2026-11-10
+
+### Neu
+- **Deinstallieren direkt aus der Liste der installierten Mods.** Jede Zeile im Block
+  „Installierte Mods" hat einen Knopf `Deinstallieren` (Rückfrage vorher, Freigabe in MB in der
+  Meldung danach). `POST /api/mods/uninstall?id=<Schlüssel>` löscht ausschließlich Ordner innerhalb
+  des Mod-Verzeichnisses dieser Instanz — `..`, absolute Pfade und fremde Unterordner werden
+  abgelehnt (Schlüssel sind `Name` oder `GameFeatures/Name`).
+
 ## [0.6.8] — 2026-11-10
 
 ### Geändert

@@ -6,6 +6,7 @@ import os
 import re
 import hmac
 import secrets
+import shutil
 import ssl
 import threading
 import time
@@ -1216,12 +1217,27 @@ async function loadInstalledMods(){
       liste.innerHTML = idsBlock || '<p class="hint">'+(L['mods.local_empty']||'keine Mods im Ordner')+'</p>';
       return;
     }
-    liste.innerHTML = idsBlock + '<div class="setrow">'+e.map(function(m){
-      return '<label><b>'+m.name+'</b><small>'+(m.size_mb||0)+' MB'
+    liste.innerHTML = idsBlock + e.map(function(m){
+      const schluessel = m.key || m.name;
+      return '<div class="row" style="align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)">'
+        + '<div style="flex:1"><b>'+m.name+'</b><br><small style="color:var(--dim)">'+(m.size_mb||0)+' MB'
         + (m.active===false ? ' · '+(L['mods.inactive']||'inakt.') : '')
-        + (m.source==='curseforge' ? ' · CurseForge' : '')+'</small></label>';
-    }).join('')+'</div>';
+        + (m.source==='curseforge' ? ' · CurseForge' : '')+'</small></div>'
+        + '<button class="danger" data-mod="'+schluessel+'">'+(L['mods.uninstall']||'Deinstallieren')+'</button>'
+        + '</div>';
+    }).join('');
+    liste.querySelectorAll('button[data-mod]').forEach(function(b){
+      b.onclick=function(){ uninstallMod(b.dataset.mod); };
+    });
   }catch(err){ liste.textContent='Fehler: '+err; }
+}
+async function uninstallMod(key){
+  const kurz = String(key).split('/').pop();
+  const frage = (L['mods.uninstall_ask']||'Mod löschen: %s?').replace('%s', kurz);
+  if(!confirm(frage)) return;
+  const msg = await api('/api/mods/uninstall?id='+encodeURIComponent(key),{method:'POST'});
+  alert(msg);
+  loadInstalledMods();
 }
 async function loadLocalMods(){
   const spiel = document.body.dataset.game;
@@ -1765,6 +1781,30 @@ def _installed_mods(inst) -> dict:
     return lokal
 
 
+def _uninstall_mod(inst, key: str) -> str:
+    """Mod-Ordner entfernen - nur echte Mod-Ordner dieser Instanz.
+
+    ``key`` ist der relative Pfad aus der Liste (``Name`` oder ``GameFeatures/Name``).
+    Alles ausserhalb des Mod-Verzeichnisses wird abgelehnt, damit ein manipulierter
+    Aufruf keine fremden Ordner loeschen kann.
+    """
+    pfad = inst.profile.mods_path(inst)
+    if not pfad:
+        raise RuntimeError("Dieses Spiel hat keinen Mod-Ordner")
+    basis = os.path.realpath(pfad)
+    teile = [t for t in str(key).replace(os.sep, "/").split("/") if t]
+    if not teile or len(teile) > 2 or any(t in (".", "..") for t in teile):
+        raise RuntimeError("ungueltiger Mod-Name")
+    if len(teile) == 2 and teile[0] != "GameFeatures":
+        raise RuntimeError("ungueltiger Pfad")
+    ziel = os.path.realpath(os.path.join(basis, *teile))
+    if not ziel.startswith(basis + os.sep) or not os.path.isdir(ziel):
+        raise RuntimeError("Mod-Ordner nicht gefunden: %s" % key)
+    mb = _dirs_mb([""], ziel)
+    shutil.rmtree(ziel)
+    return "%s entfernt (%s MB frei)" % (teile[-1], mb)
+
+
 def _local_mods(inst) -> dict:
     """Mods im spieleigenen Ordner auflisten (7D2D, Satisfactory, Space Engineers)."""
     pfad = inst.profile.mods_path(inst)
@@ -1784,13 +1824,14 @@ def _local_mods(inst) -> dict:
             else:
                 kandidaten.append((name, voll))
         for name, voll in kandidaten:
+            schluessel = os.path.relpath(voll, pfad).replace(os.sep, "/")
             try:
                 mb = sum(os.path.getsize(os.path.join(w, f))
                          for w, _, fs in os.walk(voll) for f in fs) / 1024 / 1024
             except OSError:
                 mb = 0
             eintraege.append({"name": name, "size_mb": round(mb, 1),
-                              "workshop": name.isdigit()})
+                              "workshop": name.isdigit(), "key": schluessel})
     hat_key = False
     if hasattr(inst.profile, "nexus_key"):
         try:
@@ -2069,6 +2110,18 @@ class Handler(BaseHTTPRequestHandler):
             if result.get("ok"):
                 threading.Timer(1.0, selfupdate.restart_service).start()
             self._json(result)
+            return
+
+        if path == "/api/mods/uninstall":
+            inst_m = self._inst(q)
+            schluessel = q.get("id", [""])[0].strip()
+            if inst_m is None or not schluessel:
+                self._send(400, b"Instanz oder Mod fehlt")
+                return
+            try:
+                self._send(200, _uninstall_mod(inst_m, schluessel).encode())
+            except (RuntimeError, OSError) as exc:
+                self._send(400, str(exc).encode())
             return
 
         if path == "/api/mods/nexuskey":
