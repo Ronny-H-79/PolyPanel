@@ -4,6 +4,18 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.2] — 2026-11-10
+
+### Added
+- **Mod search for every game.** The mods tab is now visible everywhere:
+  - **Satisfactory** — search and install straight from ficsit.app (GraphQL), including download
+    and extraction into `FactoryGame/Mods`
+  - **7 Days to Die** — links to the NexusMods search (no official search API), mods go into
+    `Mods/` as folders
+  - **Space Engineers** — links to the Steam Workshop; workshop IDs belong into the "Mods"
+    config field and are downloaded by the server on start
+- **Clearly visible tabs**: filled background, stronger type, active tab colour-filled.
+
 ## [0.4.1] — 2026-11-10
 
 ### Added

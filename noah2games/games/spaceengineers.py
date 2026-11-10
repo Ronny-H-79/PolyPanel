@@ -137,6 +137,13 @@ class SpaceEngineersProfile(GameProfile):
                 return p
         return os.path.join(inst.directory, CFG_NAME)
 
+    def mods_search(self, inst, query: str) -> dict:
+        # Workshop-IDs gehoeren in das Config-Feld "Mods"; der Server laedt sie beim Start.
+        return {"provider": "steamworkshop",
+                "note": "Workshop-ID in der Einstellung \"Mods\" eintragen - der Server laedt sie beim Start",
+                "search_url": "https://steamcommunity.com/workshop/browse/?appid=244850&searchtext=%s"
+                              % __import__("urllib.parse", fromlist=["quote"]).quote(query)}
+
     def mods_path(self, inst) -> str:
         # SE laedt Mods aus Content\Mods (Workshop-Downloads landen dort)
         for rel in (os.path.join("Content", "Mods"), "Mods"):

@@ -687,8 +687,14 @@ body[data-game="ark"] #mods-nonark{display:none !important}
     <div id="mods-nonark" style="display:none">
       <p class="hint" data-t="mods.local_hint">Dieses Spiel wird nicht über CurseForge verwaltet. Mods legst du direkt im Ordner ab – noah2games zeigt dir, was dort liegt.</p>
       <div class="setrow"><label><b data-t="mods.local_dir">Mod-Ordner</b><small id="mods-local-path">…</small></label></div>
+      <div class="row" style="margin:10px 0">
+        <input id="modq" data-tp="mods.search_ph" placeholder="Mod suchen" style="flex:1"
+          onkeydown="if(event.key==='Enter')searchLocalMods()" autocomplete="off">
+        <button onclick="searchLocalMods()" data-t="mods.search">Suchen</button>
+        <button onclick="loadLocalMods()" data-t="common.refresh">Aktualisieren</button>
+      </div>
+      <div id="modhits-local"></div>
       <div id="mods-local-list">…</div>
-      <div class="row"><button onclick="loadLocalMods()" data-t="common.refresh">Aktualisieren</button></div>
     </div>
     <div id="mods">…</div>
     <div class="row" style="margin-top:8px">
@@ -1093,6 +1099,41 @@ async function loadLocalMods(){
       return '<label><b>'+e.name+'</b><small>'+(e.size_mb||0)+' MB'+(e.workshop?' · Workshop':'')+'</small></label>';
     }).join('')+'</div>';
   }catch(e){ liste.textContent='Fehler: '+e; }
+}
+
+
+async function searchLocalMods(){
+  const box=document.getElementById('modhits-local');
+  const q=(document.getElementById('modq')||{}).value||'';
+  if(!box) return;
+  if(!q.trim()){ box.innerHTML=''; return; }
+  box.innerHTML='<p class="hint">…</p>';
+  try{
+    const d=JSON.parse(await api('/api/mods/search?q='+encodeURIComponent(q)));
+    if(!d.results || !d.results.length){
+      box.innerHTML = (d.search_url
+        ? '<div class="hint">'+(d.note||'')+'<br><a href="'+d.search_url+'" target="_blank" rel="noopener">'
+          + (L['mods.open_site']||'Suche auf der Webseite öffnen') +'</a></div>'
+        : '<p class="hint">'+(d.error||L['mods.none_active']||'keine Treffer')+'</p>');
+      return;
+    }
+    box.innerHTML=d.results.map(function(m,i){
+      return '<div class="setrow"><label><b>'+m.name+'</b><small>'+(m.description||'')+'</small></label>'
+        + '<button class="modinstall" data-id="'+m.id+'">'+(L['mods.install']||'Installieren')+'</button></div>';
+    }).join('');
+    box.querySelectorAll('.modinstall').forEach(function(b){
+      b.onclick=function(){ installLocalMod(b.dataset.id); };
+    });
+  }catch(e){ box.textContent='Fehler: '+e; }
+}
+async function installLocalMod(id){
+  const box=document.getElementById('modhits-local');
+  if(box) box.innerHTML='<p class="hint">'+(L['mods.installing']||'wird installiert …')+'</p>';
+  try{
+    const msg=await api('/api/mods/install?id='+encodeURIComponent(id),{method:'POST'});
+    if(box) box.innerHTML='<p class="hint">'+msg+'</p>';
+    loadLocalMods();
+  }catch(e){ if(box) box.textContent='Fehler: '+e; }
 }
 
 async function loadSettings(){
@@ -1591,6 +1632,14 @@ class Handler(BaseHTTPRequestHandler):
         # Mods: Suche und Key-Status brauchen keine Instanz
         if path == "/api/mods/search":
             term = q.get("q", [""])[0]
+            inst_m = self._inst(q)
+            if inst_m is not None and inst_m.game != "ark":
+                # 7D2D/Satisfactory/SE: eigener Anbieter je Spielprofil
+                try:
+                    self._json(inst_m.profile.mods_search(inst_m, term))
+                except Exception as exc:          # noqa: BLE001
+                    self._json({"results": [], "error": str(exc)})
+                return
             key = modlib._api_key()
             results = modlib.search(term, limit=50)
             self._json({"results": results, "total": modlib.api_total(),
@@ -1648,6 +1697,15 @@ class Handler(BaseHTTPRequestHandler):
             self._json([i18n.command(c) for c in cmdreg.COMMANDS])
         elif path == "/api/mods/local":
             self._json(_local_mods(inst))
+        elif path == "/api/mods/search":
+            q = q.get("q", [""])[0].strip()
+            if not q:
+                self._json({"results": [], "search_url": ""})
+            else:
+                try:
+                    self._json(inst.profile.mods_search(inst, q))
+                except Exception as exc:      # noqa: BLE001 - Suche darf nie 500en
+                    self._json({"results": [], "error": str(exc)})
         elif path == "/api/mods":
             data = modlib.list_all_enriched(inst)
             data["size_mb"] = modlib.mod_size_mb(inst)
@@ -1711,6 +1769,19 @@ class Handler(BaseHTTPRequestHandler):
             if result.get("ok"):
                 threading.Timer(1.0, selfupdate.restart_service).start()
             self._json(result)
+            return
+
+        if path == "/api/mods/install":
+            inst_m = self._inst(q)
+            mid = q.get("id", [""])[0].strip()
+            if inst_m is None or not mid:
+                self._send(400, b"Instanz oder Mod-ID fehlt")
+                return
+            try:
+                msg = inst_m.profile.mods_install(inst_m, mid, log=lambda m: None)
+                self._send(200, msg.encode())
+            except Exception as exc:              # noqa: BLE001 - Fehler an die UI
+                self._send(400, str(exc).encode())
             return
 
         if path == "/api/instances":

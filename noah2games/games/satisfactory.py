@@ -7,7 +7,12 @@ ueber die HTTPS-API (`/api/v1`, Bearer-Token).
 from __future__ import annotations
 
 import configparser
+import io
+import json
 import os
+import urllib.parse
+import urllib.request
+import zipfile
 
 from .base import GameProfile
 
@@ -132,6 +137,52 @@ class SatisfactoryProfile(GameProfile):
         except (KeyError, TypeError):
             return []
         return [p.get("playerName", "?") for p in states if isinstance(p, dict)]
+
+
+    # ------------------------------------------------------------ Mods (ficsit.app)
+    API = "https://api.ficsit.app/v2/query"
+
+    def _gql(self, query: str, timeout: float = 20.0) -> dict:
+        payload = json.dumps({"query": query}).encode()
+        req = urllib.request.Request(self.API, data=payload,
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8", "replace"))
+        if data.get("errors"):
+            raise ControlError("ficsit.app: %s" % data["errors"][0].get("message", "Fehler"))
+        return data.get("data") or {}
+
+    def mods_search(self, inst, query: str) -> dict:
+        q = json.dumps(query)
+        data = self._gql("{getMods(filter:{search:%s,limit:25})"
+                         "{count mods{id name short_description downloads}}}" % q)
+        mods = (data.get("getMods") or {}).get("mods") or []
+        return {"provider": "ficsit.app",
+                "search_url": "https://ficsit.app/mods?q=%s" % urllib.parse.quote(query),
+                "results": [{"id": m["id"], "name": m["name"],
+                             "description": (m.get("short_description") or "")[:160],
+                             "downloads": m.get("downloads") or 0} for m in mods]}
+
+    def mods_install(self, inst, mod_id: str, log=print) -> str:
+        data = self._gql('{getMod(modId:%s){name versions(filter:{limit:1}){version link}}}'
+                         % json.dumps(mod_id))
+        mod = data.get("getMod") or {}
+        versionen = mod.get("versions") or []
+        if not versionen:
+            raise ControlError("keine Version gefunden")
+        ver = versionen[0]
+        pfad = "https://api.ficsit.app" + ver["link"]
+
+        ziel = self.mods_path(inst)
+        os.makedirs(ziel, exist_ok=True)
+        log("lade %s %s" % (mod.get("name"), ver.get("version")))
+        req = urllib.request.Request(pfad, headers={"User-Agent": "noah2games"})
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            rohdaten = resp.read()
+        log("%.1f MB geladen" % (len(rohdaten) / 1024 / 1024))
+        with zipfile.ZipFile(io.BytesIO(rohdaten)) as z:
+            z.extractall(ziel)
+        return "%s %s nach %s entpackt" % (mod.get("name"), ver.get("version"), ziel)
 
     def graceful_stop(self, inst) -> list[str]:
         """Die API kann den Server sauber herunterfahren (Save inklusive)."""

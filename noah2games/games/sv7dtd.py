@@ -42,6 +42,13 @@ class SevenDaysProfile(GameProfile):
     def config_file(self, inst) -> str:
         return os.path.join(inst.directory, "serverconfig.xml")
 
+    def mods_search(self, inst, query: str) -> dict:
+        # 7D2D hat keinen Steam Workshop; NexusMods bietet keine oeffentliche Such-API.
+        return {"provider": "nexusmods",
+                "note": "Suche bei NexusMods - Mod als Ordner nach Mods/ entpacken",
+                "search_url": "https://www.nexusmods.com/7daystodie/search/?gsearch=%s"
+                              % __import__("urllib.parse", fromlist=["quote"]).quote(query)}
+
     def mods_path(self, inst) -> str:
         return os.path.join(inst.directory, "Mods")
 

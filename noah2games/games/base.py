@@ -96,6 +96,13 @@ class GameProfile:
         """Wine-Prefix fuer dieses Spiel ('' = Standard des Benutzers)."""
         return os.path.expanduser(inst.wine_prefix) if getattr(inst, "wine_prefix", "") else ""
 
+    def mods_search(self, inst, query: str) -> dict:
+        """Mod-Suche; {} = kein Anbieter vorhanden."""
+        return {}
+
+    def mods_install(self, inst, mod_id: str, log=print) -> str:
+        raise ControlError("Für dieses Spiel gibt es keine automatische Mod-Installation")
+
     def mods_path(self, inst) -> str:
         """Ordner mit lokalen Mods ('' = keine Mod-Unterstuetzung)."""
         return ""
