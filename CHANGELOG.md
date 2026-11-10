@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.5] — 2026-11-10
+
+### Geändert
+- **Knopf „Englische Website" aus der Kopfzeile entfernt.** Er öffnete nur die englische README auf
+  GitHub; der englische Text ist über die README im Repo erreichbar, der Platz im Kopf gehört den
+  Statusanzeigen.
+
 ## [0.7.4] — 2026-11-10
 
 ### Geändert
