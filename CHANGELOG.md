@@ -4,6 +4,20 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.2] — 2026-11-10
+
+### Behoben
+- **„Löschen mit Dateien" hat die Serverordner nie entfernt.** Das Sicherheitsnetz prüfte nur auf
+  Namen, die mit `arkserver` beginnen — bei `~/noah2games-instances/<name>` und
+  `/mnt/Games/noah2games/<name>` blieben 8–17 GB pro Instanz liegen, ohne Meldung. Jetzt gilt:
+  Ordner muss in einem Instanzverzeichnis liegen und wie die Instanz heißen; dann wird gelöscht,
+  die Größe vorher gemessen und als „X GB freigegeben" gemeldet. Alles andere wird mit klarem
+  Hinweis abgelehnt statt still übersprungen.
+- **Die Lösch-Rückmeldung im Dashboard war immer „Fehler"**, weil die Antwort als Text statt als
+  JSON gelesen wurde. Jetzt erscheint die Meldung mit freigegebener Größe bzw. dem Hinweis, dass
+  die Dateien liegen geblieben sind.
+- Der Supervisor-Marker `<ordner>.stopped` wird beim Löschen mit entfernt.
+
 ## [0.6.1] — 2026-11-10
 
 ### Neu

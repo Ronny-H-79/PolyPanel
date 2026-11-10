@@ -566,8 +566,17 @@ async function delInst(name, sizeGb){
   const msg = document.getElementById('instmsg');
   if(msg) msg.textContent='…';
   try{
-    const r = await api('/api/instance/delete?name='+encodeURIComponent(name)+'&files='+files, {method:'POST'});
-    if(r.ok){ load(); } else { alert(r.error || 'Fehler'); }
+    const raw = await api('/api/instance/delete?name='+encodeURIComponent(name)+'&files='+files, {method:'POST'});
+    let r; try{ r = JSON.parse(raw); }catch(e){ r = {ok:true}; }
+    if(r.ok){
+      const frei = r.freed_gb >= 1 ? (Math.round(r.freed_gb).toLocaleString('de-DE')+' GB')
+                 : (r.freed_mb ? (r.freed_mb.toLocaleString('de-DE')+' MB') : '');
+      if(msg) msg.textContent = frei
+        ? (frei+' freigegeben · '+name+' entfernt')
+        : (name+' entfernt' + (files ? ' · Dateien blieben liegen' : ' · Dateien behalten'));
+      if(r.hint) alert(r.hint);
+      load();
+    } else { alert(r.error || 'Fehler'); }
   }catch(e){ alert(String(e)); }
 }
 function toggleMap(){

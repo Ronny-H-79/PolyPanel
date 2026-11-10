@@ -4,6 +4,18 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.2] — 2026-11-10
+
+### Fixed
+- **"Delete with files" never removed the server folders.** The safety check only accepted names
+  starting with `arkserver` — for `~/noah2games-instances/<name>` and `/mnt/Games/noah2games/<name>`
+  8–17 GB per instance stayed on disk, silently. Now the folder must sit inside an instance root and
+  be named like the instance; its size is measured first and reported as "X GB freed". Everything
+  else is refused with a clear hint instead of being skipped quietly.
+- **The delete message in the dashboard always said "error"** because the response was read as text
+  instead of JSON. It now reports the freed size, or that the files were left in place.
+- The supervisor marker `<folder>.stopped` is removed together with the folder.
+
 ## [0.6.1] — 2026-11-10
 
 ### Added

@@ -58,13 +58,62 @@ def forget(name: str, delete_files: bool = False) -> dict:
     moved = os.path.join(trash, "%s_%s.json" % (name, stamp))
     shutil.move(conf_path(name), moved)
     removed_dir = ""
+    freed_gb = 0.0
+    hinweis = ""
     if delete_files:
         directory = inst.directory.rstrip("/")
-        # Sicherheitsnetz: nur Verzeichnisse, die wie ein Serverordner aussehen
-        if directory and os.path.isdir(directory) and os.path.basename(directory).startswith("arkserver"):
+        grund = _delete_refusal(inst, directory)
+        if grund:
+            hinweis = grund
+        else:
+            freed_gb = _dir_gb(directory)
             shutil.rmtree(directory, ignore_errors=True)
-            removed_dir = directory
-    return {"ok": True, "config": moved, "removed_dir": removed_dir}
+            if not os.path.exists(directory):
+                removed_dir = directory
+                marker = directory + ".stopped"       # Rest des Supervisor-Markers
+                if os.path.exists(marker):
+                    try:
+                        os.remove(marker)
+                    except OSError:
+                        pass
+            else:
+                hinweis = "Ordner konnte nicht vollstaendig geloescht werden: %s" % directory
+    return {"ok": True, "config": moved, "removed_dir": removed_dir,
+            "freed_gb": round(freed_gb, 2), "freed_mb": round(freed_gb * 1024),
+            "hint": hinweis}
+
+
+# Nur innerhalb dieser Verzeichnisse werden Serverdateien geloescht
+INSTANCE_ROOTS = (os.path.expanduser("~/noah2games-instances"),
+                  "/mnt/Games/noah2games")
+
+
+def _delete_refusal(inst: Instance, directory: str) -> str:
+    """Leerer String = loeschen erlaubt; sonst der Grund (Sicherheitsnetz)."""
+    if not directory or not os.path.isdir(directory):
+        return "Ordner existiert nicht: %s" % directory
+    real = os.path.realpath(directory)
+    if real in ("/", os.path.expanduser("~"), os.path.expanduser("~/noah2games")):
+        return "Ordner sieht nicht wie eine Instanz aus: %s" % real
+    in_root = any(real.startswith(os.path.realpath(root) + os.sep) for root in INSTANCE_ROOTS)
+    if not in_root:
+        return ("Ordner liegt ausserhalb der Instanzverzeichnisse - bitte von Hand löschen: %s"
+                % real)
+    if os.path.basename(real) != inst.name:
+        return ("Ordner heisst nicht wie die Instanz (%s) - bitte von Hand löschen: %s"
+                % (inst.name, real))
+    return ""
+
+
+def _dir_gb(directory: str) -> float:
+    total = 0
+    for root, _dirs, files in os.walk(directory):
+        for f in files:
+            try:
+                total += os.path.getsize(os.path.join(root, f))
+            except OSError:
+                pass
+    return total / (1024 ** 3)
 
 
 def save(inst: Instance) -> None:
