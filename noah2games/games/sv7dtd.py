@@ -71,24 +71,41 @@ class SevenDaysProfile(GameProfile):
             return json.loads(resp.read().decode("utf-8", "replace"))
 
     def mods_search(self, inst, query: str) -> dict:
-        treffer = []
-        key = self.nexus_key()
+        """Offizielle API: POST /mods/search (Filter nach Spiel, Sortierung nach Downloads).
+
+        Die API kennt keinen Suchbegriff - deshalb lokal nach Namen filtern.
+        """
+        treffer, key = [], self.nexus_key()
         if key:
-            # Nexus-API hat keine freie Suche: Neuheiten + Trends laden und lokal filtern
-            for pfad in ("/games/7daystodie/mods/latest_added.json",
-                         "/games/7daystodie/mods/trending.json"):
-                try:
-                    for m in self._nexus(pfad) or []:
-                        name = m.get("name") or ""
-                        if query.lower() in name.lower():
-                            treffer.append({"id": m.get("mod_id"), "name": name,
-                                            "description": (m.get("summary") or "")[:160],
-                                            "downloads": m.get("mod_downloads") or 0})
-                except Exception:               # noqa: BLE001 - Suche darf nicht scheitern
-                    continue
+            body = {"filters": {"games": ["7daystodie"]},
+                    "sort": {"field": "downloads", "direction": "desc"},
+                    "pagination": {"size": 50}}
+            req = urllib.request.Request(
+                "https://api.nexusmods.com/mods/search", data=json.dumps(body).encode(),
+                headers={"apikey": key, "User-Agent": "noah2games",
+                         "Content-Type": "application/json", "accept": "application/json"},
+                method="POST")
+            try:
+                with urllib.request.urlopen(req, timeout=25) as resp:
+                    daten = json.loads(resp.read().decode("utf-8", "replace"))
+                mods = daten.get("mods") or daten.get("data") or []
+                for m in mods:
+                    name = m.get("name") or m.get("title") or ""
+                    if query.lower() in name.lower():
+                        treffer.append({
+                            "id": m.get("mod_id") or m.get("id"),
+                            "name": name,
+                            "description": (m.get("summary") or m.get("description") or "")[:160],
+                            "downloads": m.get("downloads") or m.get("mod_downloads") or 0,
+                        })
+            except Exception as exc:            # noqa: BLE001 - Suche darf nicht scheitern
+                return {"provider": "nexusmods", "results": [], "has_key": True,
+                        "error": "Nexus: %s" % exc.__class__.__name__,
+                        "search_url": "https://www.nexusmods.com/7daystodie/search/?gsearch=%s"
+                                      % urllib.parse.quote(query)}
         return {"provider": "nexusmods", "results": treffer, "has_key": bool(key),
-                "note": ("Nexus hat keine freie Such-API - Treffer stammen aus Neuheiten und "
-                         "Trends. Alles andere über die Webseite; Mod als Ordner nach Mods/."),
+                "note": ("Top-Mods nach Downloads, lokal nach Namen gefiltert - Nexus bietet "
+                         "keine Volltextsuche. Mod als Ordner nach Mods/."),
                 "search_url": "https://www.nexusmods.com/7daystodie/search/?gsearch=%s"
                               % urllib.parse.quote(query)}
 
