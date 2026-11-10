@@ -701,7 +701,10 @@ body[data-game="ark"] #mods-nonark{display:none !important}
           <small><span data-t="mods.nexus_hint">Persönlicher Key — ganz unten auf dieser Seite:</span>
             <a href="https://www.nexusmods.com/settings/api-keys" target="_blank" rel="noopener">nexusmods.com/settings/api-keys</a></small></label>
           <input id="nexuskey" type="password" placeholder="…"></div>
-        <div class="row"><button onclick="saveNexusKey()" data-t="common.save">Speichern</button></div>
+        <div class="row" style="align-items:center">
+          <button onclick="saveNexusKey()" data-t="common.save">Speichern</button>
+          <span id="nexusstate" class="badge">…</span>
+        </div>
       </div>
     </div>
     <div id="mods">…</div>
@@ -1115,6 +1118,11 @@ async function loadLocalMods(){
   try{
     const d=JSON.parse(await api('/api/mods/local'));
     if(pfad) pfad.textContent=d.path||'—';
+    const st=document.getElementById('nexusstate');
+    if(st && d.nexus_key!==null && d.nexus_key!==undefined){
+      st.textContent = d.nexus_key ? (L['mods.api_on']||'API aktiv') : (L['mods.api_off']||'kein Key');
+      st.className = 'badge ' + (d.nexus_key ? 'on' : 'off');
+    }
     if(!d.entries || !d.entries.length){
       liste.innerHTML='<p class="hint">'+(L['mods.local_empty']||'keine Mods im Ordner')+'</p>';
       return;
@@ -1540,7 +1548,14 @@ def _local_mods(inst) -> dict:
                 mb = 0
             eintraege.append({"name": name, "size_mb": round(mb, 1),
                               "workshop": name.isdigit()})
-    return {"path": pfad, "entries": eintraege}
+    hat_key = False
+    if hasattr(inst.profile, "nexus_key"):
+        try:
+            hat_key = bool(inst.profile.nexus_key())
+        except Exception:                       # noqa: BLE001
+            hat_key = False
+    return {"path": pfad, "entries": eintraege,
+            "nexus_key": hat_key if inst.game == "7d2d" else None}
 
 
 class Handler(BaseHTTPRequestHandler):

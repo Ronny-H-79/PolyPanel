@@ -119,6 +119,8 @@ T: dict[str, dict[str, str]] = {
     "common.save": {"de": "Speichern", "en": "Save"},
     "mods.search_how": {"de": "So funktioniert die Suche: sie filtert die 50 meistgeladenen Mods (Nexus) und passende GitHub-Repos nach deinem Begriff – kurze Wörter genügen, z. B. „ui“, „trader“, „vehicle“. Eine echte Volltextsuche bietet nur die Nexus-Webseite.",
                         "en": "How the search works: it filters the 50 most downloaded mods (Nexus) and matching GitHub repos by your term – short words are enough, e.g. \"ui\", \"trader\". Only the Nexus website offers full-text search."},
+    "mods.api_on": {"de": "API aktiv", "en": "API active"},
+    "mods.api_off": {"de": "kein Key", "en": "no key"},
     "mods.nexus_manual": {"de": "Nexus-Mods: kein API-Download (nur mit Premium) – über ↗ herunterladen und den Ordner nach Mods/ legen. GitHub-Mods lassen sich direkt installieren.",
                           "en": "Nexus mods: no API download (premium only) – use ↗ to download and put the folder into Mods/. GitHub mods install directly."},
     "mods.nexus_hint": {"de": "Persönlicher Key — ganz unten auf dieser Seite:",
