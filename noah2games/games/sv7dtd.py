@@ -118,7 +118,8 @@ class SevenDaysProfile(GameProfile):
                     treffer.append({"id": m.get("full_name"), "name": m.get("name") or "",
                                     "description": (m.get("description") or "")[:160],
                                     "downloads": m.get("stargazers_count") or 0,
-                                    "url": m.get("html_url") or ""})
+                                    "url": m.get("html_url") or "",
+                                    "installable": True})
             except Exception:                   # noqa: BLE001
                 pass
         return {"provider": "nexus+github" if self.nexus_key() else "github",
@@ -127,6 +128,68 @@ class SevenDaysProfile(GameProfile):
                          "Eingabe gefiltert. Mod-Ordner nach Mods/ legen."),
                 "search_url": "https://www.nexusmods.com/7daystodie/search/?gsearch=%s"
                               % urllib.parse.quote(query)}
+
+
+    def mods_install(self, inst, mod_id: str, log=print) -> str:
+        """7D2D-Mod aus einem GitHub-Repo holen (ZIP) und nach Mods/ entpacken."""
+        if "/" not in mod_id:
+            raise ControlError("Für Nexus-Mods gibt es keinen API-Download (Premium nötig) - "
+                               "bitte über die Webseite laden")
+        import io as _io
+        import zipfile as _zip
+        kopf = {"User-Agent": "noah2games", "accept": "application/vnd.github+json"}
+
+        def _get(url: str) -> bytes:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=kopf), timeout=60) as r:
+                return r.read()
+
+        info = json.loads(_get("https://api.github.com/repos/" + mod_id).decode("utf-8", "replace"))
+        branch = info.get("default_branch") or "main"
+        log("lade %s (%s)" % (mod_id, branch))
+        rohdaten = _get("https://github.com/%s/archive/refs/heads/%s.zip" % (mod_id, branch))
+        log("%.1f MB geladen" % (len(rohdaten) / 1024 / 1024))
+
+        ziel = self.mods_path(inst)
+        os.makedirs(ziel, exist_ok=True)
+        with _zip.ZipFile(_io.BytesIO(rohdaten)) as z:
+            namen = [n for n in z.namelist() if n.strip()]
+            oben = {n.split("/")[0] for n in namen}
+            wurzel = oben.pop() if len(oben) == 1 else ""
+
+            # Ordner mit ModInfo.xml sind die eigentlichen Mods (7D2D erwartet Mods/<Name>/ModInfo.xml)
+            mods = sorted({n.rsplit("/", 1)[0] for n in namen if n.endswith("ModInfo.xml")})
+            if not mods:
+                z.extractall(os.path.join(ziel, os.path.basename(mod_id)))
+                return "%s nach %s/%s entpackt (keine ModInfo.xml gefunden)" % (
+                    mod_id, ziel, os.path.basename(mod_id))
+
+            eingetragen = []
+            for modordner in mods:
+                teile = modordner.split("/")
+                if wurzel and teile and teile[0] == wurzel:
+                    teile = teile[1:]
+                if len(teile) > 2:              # zu tief verschachtelt
+                    continue
+                name = teile[-1]
+                praefix = modordner + "/"
+                for eintrag in z.infolist():
+                    if not eintrag.filename.startswith(praefix):
+                        continue
+                    relativ = eintrag.filename[len(praefix):]
+                    if not relativ:
+                        continue
+                    pfad = os.path.join(ziel, name, relativ)
+                    if eintrag.is_dir():
+                        os.makedirs(pfad, exist_ok=True)
+                    else:
+                        os.makedirs(os.path.dirname(pfad), exist_ok=True)
+                        with open(pfad, "wb") as fh:
+                            fh.write(z.read(eintrag))
+                eingetragen.append(name)
+            if not eingetragen:
+                z.extractall(os.path.join(ziel, os.path.basename(mod_id)))
+                return "%s nach %s/%s entpackt" % (mod_id, ziel, os.path.basename(mod_id))
+        return "%s: %s nach %s entpackt" % (mod_id, ", ".join(eingetragen), ziel)
 
     def mods_path(self, inst) -> str:
         return os.path.join(inst.directory, "Mods")
