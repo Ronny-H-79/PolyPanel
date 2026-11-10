@@ -140,6 +140,7 @@ T: dict[str, dict[str, str]] = {
     "mods.local_hint": {"de": "Dieses Spiel wird nicht über CurseForge verwaltet. Mods legst du direkt im Ordner ab – noah2games zeigt dir, was dort liegt.",
                         "en": "This game is not managed through CurseForge. Put mods into the folder directly – noah2games shows what is there."},
     "mods.local_dir": {"de": "Mod-Ordner", "en": "Mod folder"},
+    "mods.installed": {"de": "Installierte Mods", "en": "Installed mods"},
     "mods.local_empty": {"de": "keine Mods im Ordner", "en": "no mods in this folder"},
     "mods.none_active": {"de": "keine aktiven Mods", "en": "no active mods"},
     "mods.none_inactive": {"de": "keine weiteren Mods gefunden",

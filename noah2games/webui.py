@@ -704,8 +704,9 @@ INST = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
 <style>""" + SHARED_CSS + """
 body:not([data-game="ark"]) .ark-only{display:none !important}
 body:not([data-game="ark"]):not([data-game="arkse"]) .arkcmd{display:none !important}
-body:not([data-game="ark"]) .tab-mods > *:not(h2):not(#mods-nonark){display:none !important}
+body:not([data-game="ark"]):not([data-game="arkse"]) .tab-mods > *:not(h2):not(#mods-nonark):not(#mods-installed){display:none !important}
 body[data-game="ark"] #mods-nonark{display:none !important}
+body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{display:none !important}
 </style></head><body data-game="__GAME__">
 <canvas id="bg"></canvas>
 <div class="modal" id="modal" onclick="if(event.target.id==='modal')closeModal()">
@@ -758,9 +759,17 @@ body[data-game="ark"] #mods-nonark{display:none !important}
   </section>
 
   <section class="tab tab-mods"><h2 data-t="tabs.mods">Mods</h2>
+    <div id="mods-installed">
+      <div class="row" style="align-items:center;margin:0 0 6px">
+        <b data-t="mods.installed">Installierte Mods</b>
+        <span class="meta" id="mods-installed-count"></span>
+        <span class="meta" id="mods-installed-path">…</span>
+        <button onclick="loadInstalledMods()" data-t="common.refresh">Aktualisieren</button>
+      </div>
+      <div id="mods-installed-list">…</div>
+    </div>
     <div id="mods-nonark" style="display:none">
       <p class="hint" data-t="mods.local_hint">Dieses Spiel wird nicht über CurseForge verwaltet. Mods legst du direkt im Ordner ab – noah2games zeigt dir, was dort liegt.</p>
-      <div class="setrow"><label><b data-t="mods.local_dir">Mod-Ordner</b><small id="mods-local-path">…</small></label></div>
       <p class="hint" data-t="mods.search_how">So funktioniert die Suche: sie filtert die 50 meistgeladenen Mods (Nexus) und passende GitHub-Repos nach deinem Begriff – kurze Wörter genügen, z. B. „ui", „trader", „vehicle". Eine echte Volltextsuche bietet nur die Nexus-Webseite.</p>
       <div class="row" style="margin:10px 0">
         <input id="modq" data-tp="mods.search_ph" placeholder="Mod suchen" style="flex:1"
@@ -769,7 +778,6 @@ body[data-game="ark"] #mods-nonark{display:none !important}
         <button onclick="loadLocalMods()" data-t="common.refresh">Aktualisieren</button>
       </div>
       <div id="modhits-local"></div>
-      <div id="mods-local-list">…</div>
       <div id="nexusbox" style="display:none;margin-top:14px">
         <div class="setrow"><label><b>NexusMods-API-Key</b>
           <small><span data-t="mods.nexus_hint">Persönlicher Key — ganz unten auf dieser Seite:</span>
@@ -1047,12 +1055,15 @@ function showTab(name, btn){
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));
   if(btn) btn.classList.add('on');
   try{ localStorage.setItem('noah2games.tab', name); if(history.replaceState) history.replaceState(null,'','#'+name); }catch(e){}
-  if(name==='mods' && document.body.dataset.game!=='ark'){
-    const pane=document.getElementById('mods-nonark');
-    if(pane) pane.style.display='';
-    loadLocalMods();
-    const nb=document.getElementById('nexusbox');
-    if(nb) nb.style.display = (document.body.dataset.game==='7d2d') ? '' : 'none';
+  if(name==='mods'){
+    if(!['ark','arkse'].includes(document.body.dataset.game)) loadInstalledMods();   // ARK hat seine Liste darunter
+    if(document.body.dataset.game!=='ark'){
+      const pane=document.getElementById('mods-nonark');
+      if(pane) pane.style.display='';
+      loadLocalMods();
+      const nb=document.getElementById('nexusbox');
+      if(nb) nb.style.display = (document.body.dataset.game==='7d2d') ? '' : 'none';
+    }
   }
   if(name==='overview'){ const l=document.getElementById('log');
     if(l){ requestAnimationFrame(()=>{ l.scrollTop=l.scrollHeight; }); } }
@@ -1185,10 +1196,34 @@ async function saveNexusKey(){
   }catch(e){ alert('Fehler: '+e); }
 }
 
-async function loadLocalMods(){
-  const liste=document.getElementById('mods-local-list');
-  const pfad=document.getElementById('mods-local-path');
+async function loadInstalledMods(){
+  const liste=document.getElementById('mods-installed-list');
+  const pfad=document.getElementById('mods-installed-path');
+  const anz=document.getElementById('mods-installed-count');
   if(!liste) return;
+  try{
+    const d=JSON.parse(await api('/api/mods/installed'));
+    if(pfad) pfad.textContent=d.path||'—';
+    const e=d.entries||[];
+    if(anz) anz.textContent = e.length ? ('· '+e.length) : '';
+    const ids = d.workshop_ids || [];
+    const idsBlock = ids.length
+      ? '<div class="setrow"><label><b>'+(L['mods.workshop_ids']||'Eingetragene Workshop-Mods')+'</b>'
+        + '<small>'+ids.join(', ')+'</small></label>'
+        + '<span class="meta">'+(L['mods.workshop_note']||'geladen beim nächsten Start')+'</span></div>'
+      : '';
+    if(!e.length){
+      liste.innerHTML = idsBlock || '<p class="hint">'+(L['mods.local_empty']||'keine Mods im Ordner')+'</p>';
+      return;
+    }
+    liste.innerHTML = idsBlock + '<div class="setrow">'+e.map(function(m){
+      return '<label><b>'+m.name+'</b><small>'+(m.size_mb||0)+' MB'
+        + (m.active===false ? ' · '+(L['mods.inactive']||'inakt.') : '')
+        + (m.source==='curseforge' ? ' · CurseForge' : '')+'</small></label>';
+    }).join('')+'</div>';
+  }catch(err){ liste.textContent='Fehler: '+err; }
+}
+async function loadLocalMods(){
   const spiel = document.body.dataset.game;
   const variante = ['arkse','spaceengineers'].includes(spiel) ? 'steam'
                  : (spiel === 'satisfactory' ? 'ficsit' : '');
@@ -1200,26 +1235,13 @@ async function loadLocalMods(){
   });
   try{
     const d=JSON.parse(await api('/api/mods/local'));
-    if(pfad) pfad.textContent=d.path||'—';
     const st=document.getElementById('nexusstate');
     if(st && d.nexus_key!==null && d.nexus_key!==undefined){
       st.textContent = d.nexus_key ? (L['mods.api_on']||'API aktiv') : (L['mods.api_off']||'kein Key');
       st.className = 'badge ' + (d.nexus_key ? 'on' : 'off');
     }
-    const ids = d.workshop_ids || [];
-    const idsBlock = ids.length
-      ? '<div class="setrow"><label><b>'+(L['mods.workshop_ids']||'Eingetragene Workshop-Mods')+'</b>'
-        + '<small>'+ids.join(', ')+'</small></label>'
-        + '<span class="meta">'+(L['mods.workshop_note']||'geladen beim nächsten Start')+'</span></div>'
-      : '';
-    if(!d.entries || !d.entries.length){
-      liste.innerHTML = idsBlock || '<p class="hint">'+(L['mods.local_empty']||'keine Mods im Ordner')+'</p>';
-      return;
-    }
-    liste.innerHTML = idsBlock + '<div class="setrow">'+d.entries.map(function(e){
-      return '<label><b>'+e.name+'</b><small>'+(e.size_mb||0)+' MB'+(e.workshop?' · Workshop':'')+'</small></label>';
-    }).join('')+'</div>';
-  }catch(e){ liste.textContent='Fehler: '+e; }
+  }catch(e){}
+  loadInstalledMods();
 }
 
 
@@ -1701,6 +1723,48 @@ def _translate_hits(data: dict, field: str, limit: int = 24) -> dict:
     return data
 
 
+def _dirs_mb(rel: list, basis: str) -> float:
+    """Groesse mehrerer Unterordner (relativ zu basis) in MB."""
+    total = 0
+    for eintrag in rel or []:
+        for ordner, _dirs, dateien in os.walk(os.path.join(basis, eintrag)):
+            for datei in dateien:
+                try:
+                    total += os.path.getsize(os.path.join(ordner, datei))
+                except OSError:
+                    pass
+    return round(total / 1024 / 1024, 1)
+
+
+def _installed_mods(inst) -> dict:
+    """Installierte Mods einheitlich fuer alle Spiele.
+
+    ARK (ASA) fuehrt seine Mods ueber CurseForge-IDs in der Konfiguration, alle anderen
+    Spiele ueber Ordner im Mod-Verzeichnis. Der Mods-Reiter soll in beiden Faellen oben
+    dieselbe Liste zeigen, deshalb hier ein gemeinsames Format:
+    ``{"path", "entries": [{name, size_mb, source, active}], "workshop_ids"}``.
+    """
+    if inst.game == "ark":
+        ordner = modlib.installed_dirs(inst)
+        daten = modlib.list_all_enriched(inst)
+        basis = modlib.mods_dir(inst)
+        eintraege = []
+        for gruppe, aktiv in (("active", True), ("inactive", False)):
+            for eintrag in daten.get(gruppe) or []:
+                eintraege.append({
+                    "name": eintrag.get("title") or eintrag.get("name") or str(eintrag.get("id")),
+                    "size_mb": _dirs_mb(ordner.get(str(eintrag.get("id")), []), basis),
+                    "source": "curseforge",
+                    "active": aktiv,
+                })
+        return {"path": basis, "entries": eintraege, "workshop_ids": None}
+    lokal = _local_mods(inst)
+    for eintrag in lokal.get("entries", []):
+        eintrag.setdefault("source", "local")
+        eintrag.setdefault("active", True)
+    return lokal
+
+
 def _local_mods(inst) -> dict:
     """Mods im spieleigenen Ordner auflisten (7D2D, Satisfactory, Space Engineers)."""
     pfad = inst.profile.mods_path(inst)
@@ -1931,6 +1995,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json([i18n.command(c) for c in cmdreg.COMMANDS])
         elif path == "/api/mods/local":
             self._json(_local_mods(inst))
+        elif path == "/api/mods/installed":
+            self._json(_installed_mods(inst))
         elif path == "/api/mods/search":
             q = q.get("q", [""])[0].strip()
             if not q:

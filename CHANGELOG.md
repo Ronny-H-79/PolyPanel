@@ -4,6 +4,20 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.8] — 2026-11-10
+
+### Geändert
+- **Der Mods-Reiter zeigt die installierten Mods jetzt immer ganz oben.** Neuer Block „Installierte
+  Mods" über der Suche: Pfad, Anzahl, Aktualisieren-Knopf und die Liste mit Name und Größe. Gilt für
+  alle Spiele (`GET /api/mods/installed`) — Satisfactory, 7D2D und Space Engineers über den
+  Mod-Ordner, ARK-Spiele über ihre verwaltete Liste, die dafür sichtbar bleibt.
+- **ASE hatte im Mods-Reiter gar keine Liste.** Die CSS-Regel, die für Nicht-ARK alles außer der
+  Suchspalte ausblendet, traf auch `arkse` — die Mod-Liste war da, aber unsichtbar.
+
+### Behoben
+- `GET /api/mods/installed` liefert ein einheitliches Format (`name`, `size_mb`, `source`, `active`),
+  damit die Oberfläche nicht je Spiel eine eigene Liste bauen muss.
+
 ## [0.6.7] — 2026-11-10
 
 ### Behoben
