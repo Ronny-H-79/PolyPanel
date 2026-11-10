@@ -27,7 +27,7 @@ RCON for everything the server exposes.
 
 ![Dashboard](docs/screenshot-dashboard.png)
 
-## More games (Satisfactory, 7 Days to Die)
+## More games (Satisfactory, 7 Days to Die, Space Engineers)
 
 noah2games manages other dedicated servers besides ARK: Survival Ascended. The core (start/stop,
 updates, backups, schedules, web UI, multi-instance) is game-agnostic; a **game profile** only
@@ -38,12 +38,14 @@ provides what the game needs:
 | `ark` | 2430930 | `ArkAscendedServer.exe` under Wine | Source RCON |
 | `satisfactory` | 1690800 | `FactoryServer.sh` (native) | HTTPS API `/api/v1` (bearer token) |
 | `7d2d` | 294420 | `startserver.sh` (native) | Telnet (`TelnetPassword` in `serverconfig.xml`) |
+| `spaceengineers` | 298740 | `DedicatedServer64/SpaceEngineersDedicated.exe` under Wine | no RCON — start/stop, XML config, server console |
 
 Create an instance:
 
 ```bash
 noah2games --name factory init --game satisfactory
 noah2games --name horde   init --game 7d2d
+noah2games --name yard    init --game spaceengineers
 noah2games --name factory start
 ```
 

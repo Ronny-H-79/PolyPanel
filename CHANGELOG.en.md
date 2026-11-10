@@ -4,6 +4,29 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] — 2026-11-10
+
+### Added
+- **Space Engineers as fourth game** (app 298740). SteamCMD ships the Windows build only, so
+  noah2games creates a shared Wine prefix (`~/.noah2games-wine-se`) on first install and adds
+  `dotnet48` and `vcrun2019` there — once for all SE instances. A config template
+  (`SpaceEngineers-Dedicated.cfg`) is included; 200+ options are labelled in German.
+- **Visual feedback for start/stop/restart** in the dashboard: banner with a seconds counter,
+  disabled buttons, final message ("running" / "stopped").
+- **Graceful shutdown** through the server console (`save`, `stop`) instead of an immediate signal.
+
+### Fixed
+- **The instance list could stay empty** when a running server had no PID file (KeyError on
+  missing metrics).
+- **Hand-started servers** are detected via working directory and executable — status, metrics and
+  stop now work for them too.
+- **7 Days to Die**: log file is found (`output_log__*.txt`), `logs/` is created.
+- **Satisfactory**: status query failed on `ListPlayers`; players now come from `QueryServerState`,
+  a missing API token is no longer treated as an error.
+- **Space Engineers**: status without RCON, per-run log file, `OnlineMode` must be uppercase
+  (otherwise SE discards the whole config).
+- **Web UI**: new background (drifting colour clouds), glass look, refreshed screenshots.
+
 ## [0.4.0] — 2026-11-10
 
 ### Added

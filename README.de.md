@@ -27,7 +27,7 @@ Serverprozess, RCON für alles, was der Server von außen anbietet.
 
 ![Dashboard](docs/screenshot-dashboard-de.png)
 
-## Weitere Spiele (Satisfactory, 7 Days to Die)
+## Weitere Spiele (Satisfactory, 7 Days to Die, Space Engineers)
 
 noah2games kann neben ARK: Survival Ascended auch andere Dedicated Server verwalten. Der Kern
 (Start/Stop, Updates, Backups, Zeitplan, Web-UI, Mehrinstanzen) ist spielunabhängig; ein
@@ -38,18 +38,27 @@ noah2games kann neben ARK: Survival Ascended auch andere Dedicated Server verwal
 | `ark` | 2430930 | `ArkAscendedServer.exe` unter Wine | Source-RCON |
 | `satisfactory` | 1690800 | `FactoryServer.sh` (nativ) | HTTPS-API `/api/v1` (Bearer-Token) |
 | `7d2d` | 294420 | `startserver.sh` (nativ) | Telnet (`TelnetPassword` in `serverconfig.xml`) |
+| `spaceengineers` | 298740 | `DedicatedServer64/SpaceEngineersDedicated.exe` unter Wine | kein RCON — Start/Stop, XML-Config, Serverkonsole |
 
 Instanz anlegen:
 
 ```bash
 noah2games --name fabrik init --game satisfactory
 noah2games --name horde  init --game 7d2d
+noah2games --name werft  init --game spaceengineers
 noah2games --name fabrik start
 ```
 
 Im Web-UI nimmt `POST /api/instances` zusätzlich den Parameter `game` an. Ports: Satisfactory
 braucht drei (Spiel `-Port`, `-QueryPort`, `-BeaconPort`), 7 Days to Die Spiel-, Query- und
 Telnet-Port. Die Instanzverzeichnisse liegen unter `~/noah2games-instances/<name>`.
+
+**Space Engineers** ist der einzige Kandidat ohne Linux-Server: SteamCMD liefert nur die
+Windows-.exe. noah2games legt deshalb beim ersten Installieren ein **gemeinsames Wine-Prefix**
+(`~/.noah2games-wine-se`) an und installiert dort `dotnet48` und `vcrun2019` (einmalig, 10–20 min).
+Ohne diese Laufzeit bricht der Start mit einer klaren Meldung ab statt still zu scheitern.
+Konfiguriert wird über `SpaceEngineers-Dedicated.cfg` (über 200 Optionen), die Vorlage bringt
+noah2games mit — Space Engineers legt sie nicht selbst an.
 
 ## Einblicke
 
