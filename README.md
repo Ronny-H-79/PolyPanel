@@ -75,7 +75,7 @@ directories live in `~/polypanel-instances/<name>`.
 ## Installation
 
 ```bash
-git clone https://github.com/Ronny-H-79/PolyGames.git polypanel   # once
+git clone https://github.com/Ronny-H-79/PolyPanel.git polypanel   # once
 cd PolyPanel
 ./install.sh --check     # check what is missing (changes nothing)
 ./install.sh             # install

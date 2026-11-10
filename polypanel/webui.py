@@ -345,7 +345,7 @@ DASH = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
   <button onclick="polyPanelUpdate()" id="verbtn" style="padding:2px 8px">PolyPanel</button>
   <button onclick="openChangelog()" id="clogbtn" style="padding:2px 8px"
     data-t="self.changelog" title="Changelog">Changelog</button>
-      <button onclick="window.open('https://github.com/Ronny-H-79/PolyGames/blob/master/README.md','_blank','noopener')"
+      <button onclick="window.open('https://github.com/Ronny-H-79/PolyPanel/blob/master/README.md','_blank','noopener')"
               data-t="ui.docs_en" title="English description">English</button>
   <button onclick="toggleLang()" id="langbtn" style="padding:2px 8px">EN</button></span>""" + HEADER_ICONS + """</header>
 <div class="modal" id="modal" onclick="if(event.target.id==='modal')closeModal()">
