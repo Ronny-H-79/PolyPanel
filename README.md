@@ -1,4 +1,6 @@
-# noah2games — ARK: Survival Ascended server manager for Linux · web UI in the browser
+# noah2games — multigame server manager for Linux · web UI in the browser
+
+ARK: Survival Ascended · Satisfactory · 7 Days to Die · Space Engineers — one manager, one web UI.
 
 English · [Deutsch](README.de.md) — the installer asks for the language up front, and the UI can switch
 any time (button in the top right, `noah2games lang en` on the console).

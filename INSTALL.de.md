@@ -1,6 +1,7 @@
 # noah2games installieren
 
-Ein Installer für den eigenen ARK-ASA-Servermanager.
+Ein Installer für den eigenen Multigame-Servermanager
+(ARK: Survival Ascended, Satisfactory, 7 Days to Die, Space Engineers).
 Alles läuft lokal, Python-Standardbibliothek plus SteamCMD und Wine.
 
 ## Voraussetzungen

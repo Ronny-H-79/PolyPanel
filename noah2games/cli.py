@@ -31,7 +31,7 @@ def cmd_init(args: argparse.Namespace) -> None:
         directory=os.path.abspath(os.path.join(args.dir, args.name)) if args.dir.endswith("noah2games-instances") else os.path.abspath(args.dir),
         game=args.game,
         map=args.map,
-        session_name=args.session or "ARK %s" % args.name,
+        session_name=args.session or "Gameserver %s" % args.name,
         port=args.port,
         query_port=args.port + 1,
         rcon_port=args.rcon_port,
@@ -364,7 +364,7 @@ def cmd_wizard(args: argparse.Namespace) -> None:
         os.makedirs(unit, exist_ok=True)
         path = os.path.join(unit, "noah2games-%s.service" % name)
         with open(path, "w", encoding="utf-8") as fh:
-            fh.write("[Unit]\nDescription=ARK Manager (%s)\nAfter=network-online.target\n\n"
+            fh.write("[Unit]\nDescription=noah2games (%s)\nAfter=network-online.target\n\n"
                      "[Service]\nType=simple\nWorkingDirectory=%s\n"
                      "ExecStart=%s -m noah2games supervise --all\nRestart=always\nRestartSec=15\n\n"
                      "[Install]\nWantedBy=default.target\n"

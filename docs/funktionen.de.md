@@ -87,8 +87,9 @@ deine Daten treffen.
 
 ## Was noah2games für dich übernimmt
 
-ARK-Server sind eigentlich Windows-Programme. Damit sie unter Linux zuverlässig laufen, sind ein
-paar Kniffe nötig — noah2games macht das automatisch, du musst davon nichts wissen:
+Einige Spiele bringen keinen Linux-Server mit (ARK: Survival Ascended, Space Engineers). Damit sie
+unter Linux zuverlässig laufen, sind ein paar Kniffe nötig — noah2games macht das automatisch, du
+musst davon nichts wissen:
 
 - **Der Server wird immer sauber beendet.** Vor jedem Stopp wird die Welt gespeichert. Einfach
   „abwürgen" würde den Fortschritt seit dem letzten Autosave kosten — das passiert hier nicht.

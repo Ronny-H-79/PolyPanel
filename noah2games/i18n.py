@@ -10,8 +10,8 @@ DEFAULT = "de"
 
 T: dict[str, dict[str, str]] = {
     # ---------------------------------------------------------------- allgemein
-    "app.tagline": {"de": "ARK: Survival Ascended Servermanager",
-                    "en": "ARK: Survival Ascended server manager"},
+    "app.tagline": {"de": "Multigame-Servermanager",
+                    "en": "Multigame server manager"},
     "common.start": {"de": "Start", "en": "Start"},
     "common.stop": {"de": "Stop", "en": "Stop"},
     "common.restart": {"de": "Restart", "en": "Restart"},
@@ -215,12 +215,12 @@ T: dict[str, dict[str, str]] = {
                         "en": "minutes of in-game warning beforehand"},
     "sched.keep_hint": {"de": "ältere Sicherungen werden automatisch gelöscht",
                         "en": "older backups are cleaned up automatically"},
-    "snap.hint_text": {"de": "Komplette Kopie der Serverdateien inklusive Mods — für den Fall, dass ein ARK-Update die Installation zerschießt. Platzbedarf: ca. 12 GB pro Snapshot.",
-                       "en": "Full copy of the server files including mods — in case an ARK update breaks the installation. Needs about 12 GB per snapshot."},
+    "snap.hint_text": {"de": "Komplette Kopie der Serverdateien inklusive Mods — für den Fall, dass ein Spiel-Update die Installation zerschießt. Platzbedarf: ca. 12 GB pro Snapshot.",
+                       "en": "Full copy of the server files including mods — in case a game update breaks the installation. Needs about 12 GB per snapshot."},
     # ---------------------------------------------------------------- Snapshots
     "snap.title": {"de": "Instanz-Snapshot (Rollback)", "en": "Instance snapshot (rollback)"},
-    "snap.hint": {"de": "Komplette Kopie der Serverdateien inklusive Mods – für den Fall, dass ein ARK-Update die Installation zerschießt. Platzbedarf: ca. 12 GB pro Snapshot.",
-                  "en": "Full copy of the server files including mods — for when an ARK update breaks the installation. Needs about 12 GB per snapshot."},
+    "snap.hint": {"de": "Komplette Kopie der Serverdateien inklusive Mods – für den Fall, dass ein Spiel-Update die Installation zerschießt. Platzbedarf: ca. 12 GB pro Snapshot.",
+                  "en": "Full copy of the server files including mods — for when a game update breaks the installation. Needs about 12 GB per snapshot."},
     "snap.create": {"de": "Snapshot erstellen", "en": "Create snapshot"},
     "snap.restore": {"de": "Zurückspielen", "en": "Roll back"},
     "common.empty": {"de": "leer", "en": "empty"},

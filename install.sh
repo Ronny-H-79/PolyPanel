@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# noah2games - Installer fuer den eigenen ARK-ASA-Servermanager
+# noah2games - Installer fuer den eigenen Multigame-Servermanager
+#               (ARK: Survival Ascended, Satisfactory, 7 Days to Die, Space Engineers)
 #
 #   ./install.sh                 Installation nach ~/.local/share/noah2games
 #   ./install.sh --lang en       Sprache ohne Rueckfrage (de|en)

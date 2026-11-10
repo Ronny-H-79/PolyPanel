@@ -85,8 +85,8 @@ server folder (`arkserver…`) is ever deleted — a wrong path cannot hit your 
 
 ## What noah2games handles for you
 
-ARK servers are Windows programs. To run them reliably on Linux a few tricks are needed — noah2games does that
-automatically, you do not have to know about it:
+Some games ship no Linux server (ARK: Survival Ascended, Space Engineers). To run them reliably on Linux a
+few tricks are needed — noah2games does that automatically, you do not have to know about it:
 
 - **The server is always shut down cleanly.** The world is saved before every stop. Just cutting power
   would cost everything since the last autosave — that does not happen here.
