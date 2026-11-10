@@ -108,6 +108,10 @@ class GameProfile:
         """Ordner mit lokalen Mods ('' = keine Mod-Unterstuetzung)."""
         return ""
 
+    def workshop_ids(self, inst) -> list[str]:
+        """Eingetragene Workshop-IDs (nur Spiele, deren Mods Workshop-IDs sind)."""
+        return []
+
     def workdir(self, inst) -> str:
         """Arbeitsverzeichnis beim Start (Standard: Instanzordner)."""
         return inst.directory

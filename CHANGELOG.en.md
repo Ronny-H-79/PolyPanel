@@ -4,6 +4,20 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.4] — 2026-11-10
+
+### Added
+- **Mod search for Space Engineers** — in the Steam Workshop (app 244850), real full-text search
+  without a key, hits with subscriber count and description. "Install" writes the workshop ID as a
+  `ModItem` into the `<Mods>` list of `SpaceEngineers-Dedicated.cfg` (XML stays valid, duplicate IDs
+  are caught); the server downloads it on start.
+- Entered IDs show up in the mods tab; the hint texts now name the Steam Workshop instead of only
+  ARK Evolved.
+
+### Changed
+- **The workshop search lives in `games/steam_workshop.py`** and is used by ARK Evolved *and* Space
+  Engineers (previously ASE only, SE just showed a link).
+
 ## [0.6.3] — 2026-11-10
 
 ### Changed

@@ -394,40 +394,17 @@ class ArkSeProfile(GameProfile):
         text = _re.sub(r"\s+", " ", text).strip()
         return text[:limit]
 
+    def workshop_ids(self, inst) -> list[str]:
+        return [str(m) for m in inst.mods]
+
     def mods_search(self, inst, query: str) -> dict:
-        import urllib.parse
-        try:
-            data = self._workshop(query)
-        except Exception as exc:                      # noqa: BLE001
-            return {"provider": "steam", "results": [], "has_key": True,
-                    "error": "Steam-Workshop: %s" % exc.__class__.__name__,
-                    "note": "Die Suche im Steam-Workshop ist gerade nicht erreichbar.",
-                    "search_url": ("https://steamcommunity.com/workshop/browse/?appid=%s&searchtext=%s"
-                                   % (self.WORKSHOP_APP, urllib.parse.quote(query)))}
-        vorhanden = {int(m) for m in inst.mods}
-        treffer = []
-        for it in (data.get("results") or [])[:24]:
-            pid = str(it.get("publishedfileid") or "")
-            if not pid:
-                continue
-            treffer.append({
-                "id": pid,
-                "name": str(it.get("title") or "Mod %s" % pid),
-                "description": self._clean(it.get("short_description")),
-                "downloads": int(it.get("subscriptions") or 0),
-                "url": "https://steamcommunity.com/sharedfiles/filedetails/?id=%s" % pid,
-                "source": "steam",
-                "installable": True,
-                "installed": int(pid) in vorhanden,
-            })
-        return {"provider": "steam", "results": treffer,
-                "total": int(data.get("total_count") or len(treffer)),
-                "has_key": True,
-                "note": ("Volltextsuche im Steam-Workshop (ARK Evolved). „Installieren\" trägt die "
-                         "Workshop-ID ein, der Server lädt sie beim nächsten Start selbst "
-                         "(Startparameter -automanagedmods)."),
-                "search_url": ("https://steamcommunity.com/workshop/browse/?appid=%s&searchtext=%s"
-                               % (self.WORKSHOP_APP, urllib.parse.quote(query)))}
+        """Steam-Workshop von ARK Evolved durchsuchen (App 346110, ohne Key)."""
+        from . import steam_workshop
+        data = steam_workshop.hits(self.WORKSHOP_APP, query, limit=24)
+        vorhanden = set(self.workshop_ids(inst))
+        for treffer in data.get("results") or []:
+            treffer["installed"] = str(treffer.get("id")) in vorhanden
+        return data
 
     def mods_install(self, inst, mod_id: str, log=print) -> str:
         """Workshop-ID eintragen (ASE lädt die Mod beim Start selbst)."""

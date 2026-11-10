@@ -138,11 +138,55 @@ class SpaceEngineersProfile(GameProfile):
         return os.path.join(inst.directory, CFG_NAME)
 
     def mods_search(self, inst, query: str) -> dict:
-        # Workshop-IDs gehoeren in das Config-Feld "Mods"; der Server laedt sie beim Start.
-        return {"provider": "steamworkshop",
-                "note": "Workshop-ID in der Einstellung \"Mods\" eintragen - der Server laedt sie beim Start",
-                "search_url": "https://steamcommunity.com/workshop/browse/?appid=244850&searchtext=%s"
-                              % __import__("urllib.parse", fromlist=["quote"]).quote(query)}
+        """Steam-Workshop von Space Engineers durchsuchen (App 244850, ohne Key)."""
+        from . import steam_workshop
+        data = steam_workshop.hits("244850", query, limit=24)
+        vorhanden = set(self.workshop_ids(inst))
+        for treffer in data.get("results") or []:
+            treffer["installed"] = str(treffer.get("id")) in vorhanden
+        return data
+
+    def workshop_ids(self, inst) -> list[str]:
+        """Eingetragene Workshop-IDs aus <Mods> der Server-Config."""
+        try:
+            tree = ET.parse(self.config_file(inst))
+        except (OSError, ET.ParseError):
+            return []
+        ids = []
+        for item in tree.getroot().findall(".//Mods/ModItem"):
+            pid = (item.findtext("PublishedFileId") or "").strip()
+            if pid:
+                ids.append(pid)
+        return ids
+
+    def mods_install(self, inst, mod_id: str, log=print) -> str:
+        """Workshop-ID in <Mods> eintragen (SE laedt sie beim Start)."""
+        from ..control import ControlError
+        mid = str(mod_id).strip()
+        if not mid.isdigit():
+            raise ControlError("Das ist keine Workshop-ID (nur Ziffern)")
+        path = self.config_file(inst)
+        if not os.path.exists(path):
+            raise ControlError("Server-Config fehlt noch - erst installieren")
+        if mid in self.workshop_ids(inst):
+            return "Mod %s ist bereits eingetragen." % mid
+        try:
+            tree = ET.parse(path)
+        except (OSError, ET.ParseError) as exc:
+            raise ControlError("Config nicht lesbar: %s" % exc) from exc
+        root = tree.getroot()
+        mods = root.find("Mods")
+        if mods is None:
+            mods = ET.SubElement(root, "Mods")
+        item = ET.SubElement(mods, "ModItem")
+        ET.SubElement(item, "Name").text = "Mod %s" % mid
+        ET.SubElement(item, "PublishedFileId").text = mid
+        if hasattr(ET, "indent"):
+            ET.indent(tree, space="  ")
+        tree.write(path, encoding="utf-8", xml_declaration=True)
+        log("Workshop-ID %s eingetragen" % mid)
+        return ("Workshop-ID %s eingetragen - Space Engineers lädt die Mod beim nächsten "
+                "Start (Config: %s)." % (mid, os.path.basename(path)))
 
     def mods_path(self, inst) -> str:
         # SE laedt Mods aus Content\Mods (Workshop-Downloads landen dort)

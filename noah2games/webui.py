@@ -1189,7 +1189,7 @@ async function loadLocalMods(){
   const liste=document.getElementById('mods-local-list');
   const pfad=document.getElementById('mods-local-path');
   if(!liste) return;
-  const steam = document.body.dataset.game==='arkse';
+  const steam = ['arkse','spaceengineers'].includes(document.body.dataset.game);
   [['mods.local_hint','mods.local_hint_steam'],['mods.search_how','mods.search_how_steam']].forEach(function(paar){
     const el=document.querySelector('[data-t="'+paar[0]+'"]'); if(!el) return;
     const key = steam ? paar[1] : paar[0];
@@ -1720,7 +1720,9 @@ def _local_mods(inst) -> dict:
         except Exception:                       # noqa: BLE001
             hat_key = False
     return {"path": pfad, "entries": eintraege,
-            "workshop_ids": [int(m) for m in inst.mods] if inst.game == "arkse" else None,
+            "workshop_ids": ([int(m) for m in inst.mods] if inst.game == "arkse"
+                             else [int(m) for m in inst.profile.workshop_ids(inst)
+                                   if str(m).isdigit()] if inst.game == "spaceengineers" else None),
             "nexus_key": hat_key if inst.game == "7d2d" else None}
 
 
