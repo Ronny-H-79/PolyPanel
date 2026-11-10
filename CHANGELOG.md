@@ -4,6 +4,21 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.2] — 2026-11-10
+
+### Geändert
+- **Space-Engineers-Einstellungen sind schon vor der Installation vollständig.** Bisher zeigte der
+  Reiter nur die sieben Kernfelder, weil die `SpaceEngineers-Dedicated.cfg` erst beim ersten Start
+  entsteht. Jetzt liest `settings()` ersatzweise die mitgelieferte Vorlage und bietet zusätzlich alle
+  bekannten Optionen an (247 Felder statt 7): gesetzte Werte kommen aus der Vorlage, der Rest steht
+  leer mit dem Hinweis „Standard, noch nicht gesetzt".
+- **Speichern funktioniert ohne Installation:** `apply_settings()` legt die Config aus der Vorlage an,
+  trägt geänderte Werte ein und setzt Optionen, die in der Datei noch fehlen, passend ein (nur bekannte
+  Schlüssel, Unbekanntes wird ignoriert).
+- **Gruppierung nach Thema:** die acht Abschnitte aus `se_labels.py` (Limits, Bauen, Müll, Forschung,
+  Begegnungen, Kampf, Netzwerk, Server) bestimmen jetzt den Reiter — vorher landeten 219 von 247
+  Feldern unter „weitere", weil `_group_of()` nur wenige Schlüssel kannte.
+
 ## [0.7.1] — 2026-11-10
 
 ### Behoben

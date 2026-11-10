@@ -56,7 +56,7 @@ def _group_of(name: str) -> str:
         return "spieler"
     if name.startswith(("Remote", "Steam", "Master")):
         return "netz"
-    return "weitere"
+    return _SE_GRUPPE.get(name, "weitere")
 
 
 class SpaceEngineersProfile(GameProfile):
@@ -239,8 +239,14 @@ class SpaceEngineersProfile(GameProfile):
     # ------------------------------------------------------------ Einstellungen
     def _read_cfg(self, inst) -> list[tuple[str, str]]:
         try:
-            tree = ET.parse(self.config_file(inst))
-        except (OSError, ET.ParseError):
+            return self._parse_cfg(open(self.config_file(inst), encoding="utf-8", errors="replace").read())
+        except OSError:
+            return []
+
+    def _parse_cfg(self, text: str) -> list[tuple[str, str]]:
+        try:
+            tree = ET.ElementTree(ET.fromstring(text))
+        except ET.ParseError:
             return []
         out: list[tuple[str, str]] = []
         seen = set()
@@ -267,6 +273,12 @@ class SpaceEngineersProfile(GameProfile):
     def settings(self, inst) -> list[dict]:
         props = self._read_cfg(inst)
         if not props:
+            # Noch nicht installiert: die mitgelieferte Vorlage liefert schon alle Felder,
+            # danach werden die restlichen bekannten Optionen leer angeboten (Standard).
+            vorlage = self._render_template(inst)
+            if vorlage:
+                props = self._parse_cfg(vorlage)
+        if not props:
             return super().settings(inst)
         aliases = {"ServerName": "session_name", "MaxPlayers": "max_players",
                    "ServerPort": "port", "Password": "rcon_password"}
@@ -279,10 +291,20 @@ class SpaceEngineersProfile(GameProfile):
             out.append({"file": "instance", "section": "", "key": name, "label": label,
                         "hint": hint, "type": "text", "value": str(value),
                         "group": _group_of(name)})
+        # Optionen, die (noch) nicht in der Datei stehen, trotzdem anbieten: leer = Standard
+        vorhanden = {name for name, _ in props}
+        for name, (label, hint) in LABELS.items():
+            if name in vorhanden:
+                continue
+            out.append({"file": "instance", "section": "", "key": name, "label": label,
+                        "hint": (hint + " · " if hint else "") + "Standard, noch nicht gesetzt",
+                        "type": "text", "value": "", "group": _group_of(name)})
         return out
 
     def apply_settings(self, inst, items) -> int:
         path = self.config_file(inst)
+        if not os.path.exists(path):
+            self.write_config(inst)          # Datei fehlt (noch nicht installiert) -> aus der Vorlage
         try:
             text = open(path, encoding="utf-8", errors="replace").read()
         except OSError:
@@ -295,9 +317,15 @@ class SpaceEngineersProfile(GameProfile):
             if not key:
                 continue
             pattern = re.compile(r"(<%s>)(.*?)(</%s>)" % (re.escape(key), re.escape(key)), re.S)
-            if not pattern.search(text):
-                continue
-            text = pattern.sub(lambda m: m.group(1) + val + m.group(3), text, count=1)
+            if pattern.search(text):
+                text = pattern.sub(lambda m: m.group(1) + val + m.group(3), text, count=1)
+            elif val != "" and key in LABELS:
+                # Option ist in der Datei noch nicht vorhanden: passend einsetzen
+                eintrag = "    <%s>%s</%s>\n" % (key, val, key)
+                if "</SessionSettings>" in text:
+                    text = text.replace("  </SessionSettings>", eintrag + "  </SessionSettings>", 1)
+            else:
+                continue                  # leer und nicht vorhanden = Standard bleibt
             alias = aliases.get(key)
             if alias:
                 cur = getattr(inst, alias, "")
@@ -307,15 +335,13 @@ class SpaceEngineersProfile(GameProfile):
             open(path, "w", encoding="utf-8").write(text)
         return changed
 
-    def write_config(self, inst) -> None:
-        path = self.config_file(inst)
-        if not os.path.exists(path):
-            # SE legt die Datei nicht selbst an - PolyPanel bringt die Vorlage mit
-            try:
-                text = open(TEMPLATE, encoding="utf-8").read()
-            except OSError:
-                return
-            text = (text.replace("{{SERVERNAME}}", inst.session_name)
+    def _render_template(self, inst) -> str:
+        """Vorlage mit den Werten der Instanz fuellen (Platzhalter ersetzen)."""
+        try:
+            text = open(TEMPLATE, encoding="utf-8").read()
+        except OSError:
+            return ""
+        return (text.replace("{{SERVERNAME}}", inst.session_name)
                         .replace("{{MAXPLAYERS}}", str(inst.max_players))
                         .replace("{{PORT}}", str(inst.port))
                         .replace("{{STEAMPORT}}", str(inst.query_port or 8766))
@@ -324,7 +350,15 @@ class SpaceEngineersProfile(GameProfile):
                         .replace("{{LOADWORLD}}", self.save_world(inst))
                         .replace("{{PREMADE}}", self._win(self.premade_world(inst)))
                         .replace("{{SCENARIO}}", "StarSystem")
-                        .replace("{{ONLINEMODE}}", "PUBLIC" if inst.rcon_password else "FRIENDS"))
+                    .replace("{{ONLINEMODE}}", "PUBLIC" if inst.rcon_password else "FRIENDS"))
+
+    def write_config(self, inst) -> None:
+        path = self.config_file(inst)
+        if not os.path.exists(path):
+            # SE legt die Datei nicht selbst an - PolyPanel bringt die Vorlage mit
+            text = self._render_template(inst)
+            if not text:
+                return
             os.makedirs(os.path.dirname(path), exist_ok=True)
             open(path, "w", encoding="utf-8").write(text)
             return
@@ -416,5 +450,5 @@ LABELS.update({
 })
 
 # Restliche Optionen (ausgelagert, damit die Datei lesbar bleibt)
-from .se_labels import EXTRA as _SE_EXTRA   # noqa: E402
+from .se_labels import EXTRA as _SE_EXTRA, GRUPPE as _SE_GRUPPE   # noqa: E402
 LABELS.update(_SE_EXTRA)

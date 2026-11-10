@@ -201,3 +201,39 @@ EXTRA.update({
     "GridStorageMaxDistance": ('Grid-Speicher: max. Distanz', 'Meter'),
     "Plugins": ('Plugins (Pfade)', 'je Zeile ein Plugin-Pfad'),
 })
+
+
+# ------------------------------------------------------------------ Gruppen
+# Die Abschnitte oben ("# --- Titel") bestimmen den Reiter im Einstellungs-Formular.
+# Erlaubt sind nur die Gruppen aus SETGROUP_ORDER der Web-UI, eigene Slugs werden
+# stillschweigend verworfen - deshalb hier auf bekannte Slugs abgebildet.
+import re as _re
+
+_ABSCHNITT = {
+    "Limits & PCU": "struct",
+    "Bauen & Technik": "struct",
+    "Muell / Aufraeumen": "welt",
+    "Forschung, Wirtschaft, NPC": "play",
+    "Begegnungen (Encounter)": "welt",
+    "Kampf / Match": "pvp",
+    "Chat & Netzwerk": "netz",
+    "Server-Betrieb": "server",
+}
+
+
+def _gruppen() -> dict:
+    """{Schluessel: Gruppe} aus den Abschnittskommentaren dieser Datei."""
+    text = open(__file__, encoding="utf-8").read()
+    aktuell, ergebnis = "weitere", {}
+    for zeile in text.splitlines():
+        m = _re.match(r"\s*# --- (.+)$", zeile)
+        if m:
+            aktuell = _ABSCHNITT.get(m.group(1).strip(), "weitere")
+            continue
+        m = _re.match(r'\s*"([A-Za-z0-9_]+)"\s*:', zeile)
+        if m:
+            ergebnis[m.group(1)] = aktuell
+    return ergebnis
+
+
+GRUPPE = _gruppen()
