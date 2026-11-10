@@ -32,7 +32,7 @@ def search(app_id: str, query: str, limit: int = 24, page: int = 1,
     url = (URL + "?appid=%s&searchtext=%s&browsesort=textsearch&section=readytouseitems&p=%d"
            % (app_id, urllib.parse.quote_plus(query), max(1, page)))
     req = urllib.request.Request(url, headers={
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) noah2games",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) PolyPanel",
         "Accept-Language": "de,en;q=0.8"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         html = resp.read().decode("utf-8", "replace")

@@ -227,7 +227,7 @@ class SatisfactoryProfile(GameProfile):
             pfad = "https://api.ficsit.app" + pfad
 
         log("lade %s %s" % (mod.get("name"), ver.get("version")))
-        req = urllib.request.Request(pfad, headers={"User-Agent": "noah2games"})
+        req = urllib.request.Request(pfad, headers={"User-Agent": "PolyPanel"})
         with urllib.request.urlopen(req, timeout=120) as resp:
             rohdaten = resp.read()
         if ver.get("hash") and hashlib.sha256(rohdaten).hexdigest() != ver["hash"]:

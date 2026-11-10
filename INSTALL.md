@@ -1,4 +1,4 @@
-# Installing noah2games
+# Installing PolyPanel
 
 An installer for your own multigame server manager (ARK: Survival Ascended, ARK: Survival Evolved,
 Satisfactory, 7 Days to Die, Space Engineers). Everything runs locally: Python standard library
@@ -34,9 +34,9 @@ Sprache / Language:  [1] Deutsch  [2] English   [1]
 ```
 
 Non-interactive: `./install.sh --lang en` or `NOAH_LANG=en ./install.sh`.
-It is stored in `~/.config/noah2games/settings.json`. Changeable later at any time:
+It is stored in `~/.config/polypanel/settings.json`. Changeable later at any time:
 
-- `noah2games lang en` / `noah2games lang de`
+- `polypanel lang en` / `polypanel lang de`
 - web UI: button in the top right (`EN` / `DE`)
 
 ## Installation
@@ -44,14 +44,14 @@ It is stored in `~/.config/noah2games/settings.json`. Changeable later at any ti
 On a **server**, use a dedicated service user so nothing runs as root:
 
 ```bash
-sudo ./install.sh --user noah2games      # creates the user, installs to /home/noah2games, user service + linger
+sudo ./install.sh --user polypanel      # creates the user, installs to /home/PolyPanel, user service + linger
 ```
 
 Normal install (inside your own account):
 
 ```bash
-git clone https://github.com/Ronny-H-79/Noah2Games.git noah2games   # or copy the folder
-cd noah2games          # this folder contains install.sh - NOT noah2games/noah2games (that is the Python package)
+git clone https://github.com/Ronny-H-79/Noah2Games.git polypanel   # or copy the folder
+cd polypanel          # this folder contains install.sh - NOT PolyPanel/polypanel (that is the Python package)
 ./install.sh --check        # only check what is missing (changes nothing)
 ./install.sh                # install, asks before adding missing packages
 ./install.sh --auto         # install missing packages without asking (sudo)
@@ -61,42 +61,42 @@ cd noah2games          # this folder contains install.sh - NOT noah2games/noah2g
 The installer detects missing packages (e.g. Wine) via `pacman`, `apt`, `dnf` or `zypper` and installs them
 with `sudo` on request. `--auto` forces that without asking.
 
-It checks Python and Wine, copies the program files, creates the `noah2games` command and sets up
-`~/.config/noah2games`. It needs **no** root rights.
+It checks Python and Wine, copies the program files, creates the `polypanel` command and sets up
+`~/.config/polypanel`. It needs **no** root rights.
 
 ## Web service (optional)
 
 The installer asks: "start the web UI automatically (systemd service)?" Answering yes creates a **system
-service** `/etc/systemd/system/noah2games-web.service` as root (`WantedBy=multi-user.target`, starts at boot) —
-or as a normal user `~/.config/systemd/user/noah2games-web.service` (`systemctl --user enable --now`).
-Without it, start the UI when you need it: `noah2games web`.
+service** `/etc/systemd/system/polypanel-web.service` as root (`WantedBy=multi-user.target`, starts at boot) —
+or as a normal user `~/.config/systemd/user/polypanel-web.service` (`systemctl --user enable --now`).
+Without it, start the UI when you need it: `polypanel web`.
 
 ## Access from elsewhere
 
 By default `127.0.0.1` only. From another machine via SSH tunnel:
 `ssh -N -L 8790:127.0.0.1:8790 user@server`, then open `http://127.0.0.1:8790/?token=…`.
-In a LAN/VPN: `noah2games web --host 0.0.0.0`. From the internet via nginx with HTTPS:
-`sudo noah2games proxy --domain noah2games.example.de --write --cert` (writes the config, tests with `nginx -t`,
+In a LAN/VPN: `polypanel web --host 0.0.0.0`. From the internet via nginx with HTTPS:
+`sudo polypanel proxy --domain PolyPanel.example.de --write --cert` (writes the config, tests with `nginx -t`,
 reloads nginx and fetches the certificate). Without nginx, HTTPS also works directly:
-`noah2games web --tls-cert cert.pem --tls-key key.pem`. Details in the README.
+`polypanel web --tls-cert cert.pem --tls-key key.pem`. Details in the README.
 
 ## Security (short)
 
 The UI is an admin console: **whoever has the token controls everything** — start, stop and delete servers,
 add mods, send console commands. Therefore:
 
-- Client install (mode `[1]`) and server with a domain (mode `[2]`): noah2games stays on `127.0.0.1`, access goes
+- Client install (mode `[1]`) and server with a domain (mode `[2]`): polypanel stays on `127.0.0.1`, access goes
   through the SSH tunnel or nginx with HTTPS. Only mode `[3]` binds directly to the outside.
 - **Never expose it unencrypted to the internet.** With `--host 0.0.0.0` and no TLS the token travels in
-  clear text through every hop. For public access use HTTPS via `noah2games proxy` or TLS directly.
+  clear text through every hop. For public access use HTTPS via `polypanel proxy` or TLS directly.
 - The installer warns about mode `[3]` (IP and port) and asks before continuing.
 
-In detail, including what noah2games protects itself: `docs/zugriff.md`, section "Security".
+In detail, including what polypanel protects itself: `docs/zugriff.md`, section "Security".
 
 ## The token
 
-After installation `noah2games url` shows the address with token, e.g.
-`http://127.0.0.1:8790/?token=…`. The key lives in `~/.config/noah2games/token` (mode 0600) and protects the UI
+After installation `polypanel url` shows the address with token, e.g.
+`http://127.0.0.1:8790/?token=…`. The key lives in `~/.config/polypanel/token` (mode 0600) and protects the UI
 against any website in your browser sending commands to `127.0.0.1` (without token: `HTTP 401`). Details in
 the README, section "The token". Reset: delete the file, a new one is created on the next start.
 
@@ -105,7 +105,7 @@ the README, section "The token". Reset: delete the file, a new one is created on
 **Normal way — in the browser:**
 
 ```bash
-noah2games web
+polypanel web
 ```
 
 Open the printed address with token, enter an instance name, pick the game (and map for ARK), press
@@ -115,7 +115,7 @@ ARK Evolved) and the service is registered automatically.
 **Optional, console only — the wizard:**
 
 ```bash
-noah2games wizard
+polypanel wizard
 ```
 
 This runs in the **terminal on the server** — over SSH (`ssh user@server`) or on the console itself.
@@ -128,20 +128,20 @@ server files (~12.4 GB, 10–30 minutes) and to set up a systemd service.
 Without prompts, e.g. for scripts:
 
 ```bash
-noah2games init --name test --dir ~/arkserver-test --map Ragnarok_WP --port 7790 --rcon-port 27025
-noah2games update      # download the server files, then noah2games start
+polypanel init --name test --dir ~/arkserver-test --map Ragnarok_WP --port 7790 --rcon-port 27025
+polypanel update      # download the server files, then polypanel start
 ```
 
 ## Using it
 
 ```bash
-noah2games web                    # start the web UI
-noah2games url                    # show the ready-made address including token
-noah2games status                 # process, RCON, last log line
-noah2games start --wait 240
-noah2games stop                   # SaveWorld → DoExit → SIGTERM
-noah2games update --check         # is a Steam build available?
-noah2games supervise --all        # auto-restart, scheduled restarts, backups
+polypanel web                    # start the web UI
+polypanel url                    # show the ready-made address including token
+polypanel status                 # process, RCON, last log line
+polypanel start --wait 240
+polypanel stop                   # SaveWorld → DoExit → SIGTERM
+polypanel update --check         # is a Steam build available?
+polypanel supervise --all        # auto-restart, scheduled restarts, backups
 ```
 
 The UI shows a dashboard with all instances (status, CPU, RAM, players), per instance start/stop/update,
@@ -152,7 +152,7 @@ backups, snapshots and a schedule.
 
 ```bash
 systemctl --user daemon-reload
-systemctl --user enable --now noah2games-<name>
+systemctl --user enable --now polypanel-<name>
 loginctl enable-linger $USER      # keeps running without a logged-in session
 ```
 
@@ -162,20 +162,20 @@ loginctl enable-linger $USER      # keeps running without a logged-in session
 ./install.sh --uninstall
 ```
 
-Removes the program and launcher. **Kept:** instances (`~/arkserver-*`), settings (`~/.config/noah2games`),
-backups (`~/noah2games-backups`), snapshots (`~/noah2games-snapshots`).
+Removes the program and launcher. **Kept:** instances (`~/arkserver-*`), settings (`~/.config/polypanel`),
+backups (`~/polypanel-backups`), snapshots (`~/polypanel-snapshots`).
 
 ## Where things are
 
 | Path | Content |
 |---|---|
-| `~/.local/share/noah2games` | program |
-| `~/.local/bin/noah2games` | launcher |
-| `~/.config/noah2games/<name>.json` | instance configuration |
-| `~/.config/noah2games/token` | web token (0600) |
+| `~/.local/share/PolyPanel` | program |
+| `~/.local/bin/PolyPanel` | launcher |
+| `~/.config/polypanel/<name>.json` | instance configuration |
+| `~/.config/polypanel/token` | web token (0600) |
 | `~/arkserver-<name>` | server files of the instance |
-| `~/noah2games-backups/<name>` | world backups (tar.gz) |
-| `~/noah2games-snapshots/<name>` | full instance snapshots (rollback after an update) |
+| `~/polypanel-backups/<name>` | world backups (tar.gz) |
+| `~/polypanel-snapshots/<name>` | full instance snapshots (rollback after an update) |
 
 ---
 

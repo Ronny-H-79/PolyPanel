@@ -1,6 +1,6 @@
 # Entwicklung
 
-Hinweise für alle, die an noah2games mitarbeiten wollen.
+Hinweise für alle, die an polypanel mitarbeiten wollen.
 
 [← zurück zum README](../README.md)
 

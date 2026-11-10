@@ -1,6 +1,6 @@
 """Reverse-Proxy-Unterstuetzung: nginx-Konfiguration erzeugen und einrichten.
 
-noah2games selbst hoert nur auf 127.0.0.1. Fuer Zugriff aus dem Netz kommt nginx davor -
+PolyPanel selbst hoert nur auf 127.0.0.1. Fuer Zugriff aus dem Netz kommt nginx davor -
 mit HTTPS, optionaler Basic-Auth und Zeiteinstellungen, die zu Snapshots/Backups passen.
 """
 from __future__ import annotations
@@ -24,11 +24,11 @@ def render(domain: str, port: int = 8790, auth_file: str = "", tls: bool = True)
     fullchain, privkey = cert_paths(domain)
     auth = ""
     if auth_file:
-        auth = ('        auth_basic "noah2games";\n'
+        auth = ('        auth_basic "PolyPanel";\n'
                 '        auth_basic_user_file %s;\n' % auth_file)
 
     if not tls:
-        return """# noah2games - generiert von `noah2games proxy`
+        return """# PolyPanel - generiert von `PolyPanel proxy`
 server {{
     listen 80;
     server_name {domain};
@@ -49,7 +49,7 @@ server {{
 }}
 """.format(domain=domain, port=port, auth=auth)
 
-    return """# noah2games - generiert von `noah2games proxy`
+    return """# PolyPanel - generiert von `PolyPanel proxy`
 server {{
     listen 80;
     server_name {domain};
@@ -102,16 +102,16 @@ def test_config(path: str) -> tuple[bool, str]:
 def install(domain: str, port: int = 8790, auth_file: str = "", tls: bool = True) -> dict:
     """Config schreiben, aktivieren, pruefen, nginx neu laden."""
     if os.geteuid() != 0:
-        return {"ok": False, "error": "root noetig (sudo noah2games proxy --write …)"}
+        return {"ok": False, "error": "root noetig (sudo PolyPanel proxy --write …)"}
     if not nginx_bin():
         return {"ok": False, "error": "nginx ist nicht installiert"}
     if not os.path.isdir(AVAILABLE):
         return {"ok": False, "error": "%s fehlt" % AVAILABLE}
 
-    target = os.path.join(AVAILABLE, "noah2games-%s.conf" % domain)
+    target = os.path.join(AVAILABLE, "PolyPanel-%s.conf" % domain)
     with open(target, "w", encoding="utf-8") as fh:
         fh.write(render(domain, port, auth_file, tls))
-    link = os.path.join(ENABLED, "noah2games-%s.conf" % domain)
+    link = os.path.join(ENABLED, "PolyPanel-%s.conf" % domain)
     if not os.path.lexists(link):
         os.symlink(target, link)
 

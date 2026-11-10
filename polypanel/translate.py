@@ -14,7 +14,7 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-CACHE_DIR = os.path.expanduser("~/.config/noah2games/cache/translations")
+CACHE_DIR = os.path.expanduser("~/.config/polypanel/cache/translations")
 ENDPOINT = ("https://translate.googleapis.com/translate_a/single"
             "?client=gtx&sl=en&tl=de&dt=t&q=")
 MAX_CHARS = 400                      # laengere Texte werden abgeschnitten
@@ -65,7 +65,7 @@ def _eins(text: str) -> str:
         return text
     kurz = text[:MAX_CHARS]
     url = ENDPOINT + urllib.parse.quote(kurz)
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 noah2games"})
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 PolyPanel"})
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
             daten = json.loads(resp.read().decode("utf-8", "replace"))
@@ -91,7 +91,7 @@ def _eins_en(text: str) -> str:
     if zwischengespeichert:
         return zwischengespeichert
     url = ENDPOINT.replace("sl=en&tl=de", "sl=de&tl=en") + urllib.parse.quote(text[:MAX_CHARS])
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 noah2games"})
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 PolyPanel"})
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
             daten = json.loads(resp.read().decode("utf-8", "replace"))

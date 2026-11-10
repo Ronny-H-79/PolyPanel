@@ -91,7 +91,7 @@ class maintenance:
 
 
 def console_socket(inst: Instance) -> str:
-    return os.path.join(inst.directory, ".noah2games-console.sock")
+    return os.path.join(inst.directory, ".PolyPanel-console.sock")
 
 
 def send_console(inst: Instance, cmd: str) -> str:
@@ -158,9 +158,9 @@ def start(inst: Instance, wait: int = 0) -> int:
     # In einer eigenen systemd-Scope, damit Wine-Prozesse nicht in der Prozessgruppe
     # des Web-Dienstes haengen und dessen Neustart blockieren.
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    argv = [sys.executable, "-m", "noah2games.consoled", inst.name]
+    argv = [sys.executable, "-m", "PolyPanel.consoled", inst.name]
     launcher = list(argv)
-    scope_unit = "noah2games-%s.scope" % re.sub(r"[^A-Za-z0-9_.-]", "-", inst.name)
+    scope_unit = "PolyPanel-%s.scope" % re.sub(r"[^A-Za-z0-9_.-]", "-", inst.name)
     if os.environ.get("NOAH_NO_SCOPE") != "1" and shutil.which("systemd-run"):
         launcher = ["systemd-run", "--scope", "--collect", "--quiet",
                     "--unit", scope_unit] + argv
@@ -261,7 +261,7 @@ def instance_pids(inst: Instance) -> list[int]:
                 raw = fh.read().replace(b"\0", b" ").decode("utf-8", "replace")
         except OSError:
             continue
-        if any(x in raw for x in ("noah2games -m", "python -c", "pgrep", "grep ", "tail -")):
+        if any(x in raw for x in ("PolyPanel -m", "python -c", "pgrep", "grep ", "tail -")):
             continue
         pids.append(pid)
     return pids

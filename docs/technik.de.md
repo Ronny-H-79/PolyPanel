@@ -7,28 +7,28 @@ Aufbau, Benutzung auf der Konsole, Stop-Reihenfolge und Hinweise für Entwickler
 ## Benutzung
 
 ```bash
-noah2games web               # Weboberfläche auf http://127.0.0.1:8790
-noah2games url               # fertige Adresse inklusive Token
-noah2games status            # Prozess, RCON, letzte Logzeile
-noah2games start --wait 240
-noah2games stop              # SaveWorld → DoExit → SIGTERM → SIGKILL
-noah2games update --check    # ist ein neuer Steam-Build verfügbar?
-noah2games supervise --all   # Auto-Restart, Zeitplan, Backups
+polypanel web               # Weboberfläche auf http://127.0.0.1:8790
+polypanel url               # fertige Adresse inklusive Token
+polypanel status            # Prozess, RCON, letzte Logzeile
+polypanel start --wait 240
+polypanel stop              # SaveWorld → DoExit → SIGTERM → SIGKILL
+polypanel update --check    # ist ein neuer Steam-Build verfügbar?
+polypanel supervise --all   # Auto-Restart, Zeitplan, Backups
 ```
 
 ## Aufbau
 
 | Datei | Aufgabe |
 |---|---|
-| `noah2games/instance.py` | Instanz-Konfiguration (JSON), Pfade, INI-Schreiben, Startparameter |
-| `noah2games/runner.py` | Start/Stop/Status/Update, RCON-Shutdown, Wartungssperre |
-| `noah2games/consoled.py` | startet den Server am PTY, damit Wine kein Fenster öffnet |
-| `noah2games/rcon.py` | eigener Source-RCON-Client |
-| `noah2games/supervisor.py` | Health-Check, Auto-Restart, Zeitplan, Countdown |
-| `noah2games/registry.py` | mehrere Instanzen, Portvergabe, Kennzahlen |
-| `noah2games/mods.py` · `whitelist.py` · `config.py` · `backups.py` · `snapshots.py` | Fachmodule |
-| `noah2games/webui.py` | Dashboard, Instanzseiten, JSON-API (stdlib `http.server`) |
-| `noah2games/cli.py` | Kommandozeile inkl. `wizard` |
+| `PolyPanel/instance.py` | Instanz-Konfiguration (JSON), Pfade, INI-Schreiben, Startparameter |
+| `PolyPanel/runner.py` | Start/Stop/Status/Update, RCON-Shutdown, Wartungssperre |
+| `PolyPanel/consoled.py` | startet den Server am PTY, damit Wine kein Fenster öffnet |
+| `PolyPanel/rcon.py` | eigener Source-RCON-Client |
+| `PolyPanel/supervisor.py` | Health-Check, Auto-Restart, Zeitplan, Countdown |
+| `PolyPanel/registry.py` | mehrere Instanzen, Portvergabe, Kennzahlen |
+| `PolyPanel/mods.py` · `whitelist.py` · `config.py` · `backups.py` · `snapshots.py` | Fachmodule |
+| `PolyPanel/webui.py` | Dashboard, Instanzseiten, JSON-API (stdlib `http.server`) |
+| `PolyPanel/cli.py` | Kommandozeile inkl. `wizard` |
 
 ## Stop-Reihenfolge (bewusst so)
 

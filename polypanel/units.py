@@ -30,7 +30,7 @@ def project_dir() -> str:
 def render(inst, system: bool) -> str:
     lines = [
         "[Unit]",
-        "Description=noah2games supervisor (%s)" % inst.name,
+        "Description=PolyPanel supervisor (%s)" % inst.name,
         "After=network-online.target",
         "Wants=network-online.target",
         "",
@@ -45,7 +45,7 @@ def render(inst, system: bool) -> str:
     lines += [
         "WorkingDirectory=%s" % project_dir(),
         "Environment=PYTHONPATH=%s" % project_dir(),
-        "ExecStart=%s -m noah2games supervise --all" % python_bin(),
+        "ExecStart=%s -m polypanel supervise --all" % python_bin(),
         "Restart=always",
         "RestartSec=15",
         "",
@@ -60,7 +60,7 @@ def install(inst, system: bool | None = None) -> dict:
     if system is None:
         system = os.geteuid() == 0 and os.path.isdir(SYSTEM_DIR)
 
-    path = os.path.join(SYSTEM_DIR if system else USER_DIR, "noah2games-%s.service" % inst.name)
+    path = os.path.join(SYSTEM_DIR if system else USER_DIR, "PolyPanel-%s.service" % inst.name)
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as fh:

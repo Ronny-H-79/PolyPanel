@@ -4,6 +4,17 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.0] — 2026-11-10
+
+### Geändert
+- **Das Projekt heißt jetzt PolyPanel.** Befehl `polypanel` (auch `python3 -m polypanel`), Dienst
+  `polypanel-web.service`, Konfiguration unter `~/.config/polypanel`, Instanzen unter
+  `~/polypanel-instances` bzw. `/mnt/Games/polypanel`, Backups/Snapshots unter
+  `~/polypanel-backups` und `~/polypanel-snapshots`.
+- **Bestehende Installationen migrieren automatisch:** liegt noch `~/.config/noah2games` bzw.
+  `~/noah2games-instances` herum und das neue Verzeichnis fehlt, wird es beim ersten Start
+  umbenannt (gleiche Partition) oder kopiert — Instanzen, Token und Einstellungen bleiben erhalten.
+
 ## [0.6.11] — 2026-11-10
 
 ### Geändert

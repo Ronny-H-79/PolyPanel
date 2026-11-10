@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
-# noah2games - Installer fuer den eigenen Multigame-Servermanager
+# polypanel - Installer fuer den eigenen Multigame-Servermanager
 #               (ARK: Survival Ascended, Satisfactory, 7 Days to Die, Space Engineers)
 #
-#   ./install.sh                 Installation nach ~/.local/share/noah2games
+#   ./install.sh                 Installation nach ~/.local/share/polypanel
 #   ./install.sh --lang en       Sprache ohne Rueckfrage (de|en)
 #   ./install.sh --check         nur pruefen, was fehlt (aendert nichts)
 #   ./install.sh --auto          fehlende Pakete ohne Rueckfrage installieren (sudo)
 #   ./install.sh --wizard        optional: danach den Konsolen-Assistenten starten
-#   ./install.sh --user noah2games     als eigener Dienst-Benutzer installieren (root, empfohlen)
+#   ./install.sh --user polypanel     als eigener Dienst-Benutzer installieren (root, empfohlen)
 #   ./install.sh --uninstall     wieder entfernen (Instanzen bleiben erhalten)
 #
-# Umgebungsvariablen: NOAH_HOME (Zielordner), NOAH_BIN (Launcher-Ordner),
+# Umgebungsvariablen: POLYPANEL_HOME (Zielordner), NOAH_BIN (Launcher-Ordner),
 #                     PYTHON (Interpreter), NOAH_LANG (de|en)
 set -euo pipefail
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEST="${NOAH_HOME:-$HOME/.local/share/noah2games}"
+DEST="${POLYPANEL_HOME:-$HOME/.local/share/polypanel}"
 BIN="${NOAH_BIN:-$HOME/.local/bin}"
 PY="${PYTHON:-python3}"
 RUN_WIZARD=0
@@ -61,7 +61,7 @@ if [ -n "$SERVICE_USER" ]; then
   SERVICE_UID="$(id -u "$SERVICE_USER")"
   HOME="$(getent passwd "$SERVICE_USER" | cut -d: -f6)"
   export HOME
-  [ -n "${NOAH_HOME:-}" ] || DEST="$HOME/.local/share/noah2games"
+  [ -n "${POLYPANEL_HOME:-}" ] || DEST="$HOME/.local/share/polypanel"
   [ -n "${NOAH_BIN:-}" ]  || BIN="$HOME/.local/bin"
 fi
 
@@ -85,8 +85,8 @@ esac
 
 t() {
   case "$LANG_SEL:$1" in
-    en:title)              echo "Installing noah2games" ;;
-    de:title)              echo "noah2games installieren" ;;
+    en:title)              echo "Installing PolyPanel" ;;
+    de:title)              echo "PolyPanel installieren" ;;
     en:python_missing)     echo "Python 3 not found (set PYTHON=/path/to/python3)" ;;
     de:python_missing)     echo "Python 3 nicht gefunden (PYTHON=/pfad/zu/python3 setzen)" ;;
     en:python_old)         echo "Error: Python 3.10 or newer required, found %s" ;;
@@ -109,8 +109,8 @@ t() {
     de:no_sudo)            echo "sudo fehlt - bitte als root installieren: $2" ;;
     en:check_missing)      echo "$2 missing${3:+ (package: $3)}" ;;
     de:check_missing)      echo "$2 fehlt${3:+ (Paket: $3)}" ;;
-    en:uninstall)          echo "Removing noah2games" ;;
-    de:uninstall)          echo "noah2games entfernen" ;;
+    en:uninstall)          echo "PolyPanel entfernen" ;;
+    de:uninstall)          echo "PolyPanel entfernen" ;;
     en:service_removed)    echo "service stopped and removed: $2" ;;
     de:service_removed)    echo "Dienst beendet und entfernt: $2" ;;
     en:removed)            echo "Launcher and program files removed." ;;
@@ -129,54 +129,54 @@ t() {
     de:command)            echo "Befehl: $2" ;;
     en:service_restarted)  echo "web service restarted (new code active)" ;;
     de:service_restarted)  echo "Web-Dienst neu gestartet (neuer Code aktiv)" ;;
-    en:linked_usr_local)   echo "Command available as 'noah2games' (symlink in /usr/local/bin)" ;;
-    de:linked_usr_local)   echo "Befehl 'noah2games' verfuegbar (Symlink in /usr/local/bin)" ;;
+    en:linked_usr_local)   echo "Command available as 'polypanel' (symlink in /usr/local/bin)" ;;
+    de:linked_usr_local)   echo "Befehl 'polypanel' verfuegbar (Symlink in /usr/local/bin)" ;;
     en:path_hint)          echo "Note: $2 is not in PATH - e.g. add to ~/.config/fish/config.fish:" ;;
     de:path_hint)          echo "Hinweis: $2 ist nicht im PATH - z. B. in ~/.config/fish/config.fish ergaenzen:" ;;
     en:done)               echo "Done. Next steps:" ;;
     de:done)               echo "Fertig. Naechste Schritte:" ;;
-    en:wizard_step)        echo "  noah2games web             open the web UI - create instances in the browser" ;;
-    de:wizard_step)        echo "  noah2games web             Web-Oberflaeche oeffnen - Instanzen im Browser anlegen" ;;
-    en:wizard_opt)         echo "  noah2games wizard          optional, console only: guided setup in the terminal" ;;
-    de:wizard_opt)         echo "  noah2games wizard          optional, nur Konsole: gefuehrte Einrichtung im Terminal" ;;
-    en:supervise_step)     echo "  noah2games supervise --all   watch all instances" ;;
-    en:uninstall_step)     echo "  ./install.sh --uninstall   remove noah2games (instances and backups stay)" ;;
-    de:uninstall_step)     echo "  ./install.sh --uninstall   noah2games entfernen (Instanzen und Backups bleiben)" ;;
-    de:supervise_step)     echo "  noah2games supervise --all   alle Instanzen ueberwachen" ;;
-    en:web)                echo "Web interface (after 'noah2games web'):" ;;
-    de:web)                echo "Web interface (nach 'noah2games web'):" ;;
-    en:net_note)           echo "only with: noah2games web --host 0.0.0.0" ;;
-    de:net_note)           echo "nur mit: noah2games web --host 0.0.0.0" ;;
-    en:token_hint)         echo "  token is also stored in ~/.config/noah2games/token - show it again with: noah2games url" ;;
-    de:token_hint)         echo "  Token auch in ~/.config/noah2games/token - erneut anzeigen mit: noah2games url" ;;
+    en:wizard_step)        echo "  polypanel web             open the web UI - create instances in the browser" ;;
+    de:wizard_step)        echo "  polypanel web             Web-Oberflaeche oeffnen - Instanzen im Browser anlegen" ;;
+    en:wizard_opt)         echo "  polypanel wizard          optional, console only: guided setup in the terminal" ;;
+    de:wizard_opt)         echo "  polypanel wizard          optional, nur Konsole: gefuehrte Einrichtung im Terminal" ;;
+    en:supervise_step)     echo "  polypanel supervise --all   watch all instances" ;;
+    en:uninstall_step)     echo "  ./install.sh --uninstall   remove polypanel (instances and backups stay)" ;;
+    de:uninstall_step)     echo "  ./install.sh --uninstall   polypanel entfernen (Instanzen und Backups bleiben)" ;;
+    de:supervise_step)     echo "  polypanel supervise --all   alle Instanzen ueberwachen" ;;
+    en:web)                echo "Web interface (after 'polypanel web'):" ;;
+    de:web)                echo "Web interface (nach 'polypanel web'):" ;;
+    en:net_note)           echo "only with: polypanel web --host 0.0.0.0" ;;
+    de:net_note)           echo "nur mit: polypanel web --host 0.0.0.0" ;;
+    en:token_hint)         echo "  token is also stored in ~/.config/polypanel/token - show it again with: polypanel url" ;;
+    de:token_hint)         echo "  Token auch in ~/.config/polypanel/token - erneut anzeigen mit: polypanel url" ;;
     en:access_q)          echo "How should the web interface be reachable?  [1] client-side only (SSH tunnel)  [2] public via domain with HTTPS  [3] direct via IP and port (HTTP)   [1] " ;;
     de:access_q)          echo "Wie soll die Oberflaeche erreichbar sein?  [1] nur Client-seitig (SSH-Tunnel)  [2] oeffentlich ueber Domain mit HTTPS  [3] direkt ueber IP und Port (HTTP)   [1] " ;;
     en:access_domain_q)   echo "Domain (must point to this server): " ;;
     de:access_domain_q)   echo "Domain (muss auf diesen Server zeigen): " ;;
     en:access_tunnel)     echo "Access from another machine: ssh -N -L 8790:127.0.0.1:8790 $(id -un)@$MYIP" ;;
     de:access_tunnel)     echo "Zugriff von einem anderen Rechner: ssh -N -L 8790:127.0.0.1:8790 $(id -un)@$MYIP" ;;
-    en:access_https)      echo "HTTPS einrichten mit: sudo noah2games proxy --write --cert" ;;
-    de:access_https)      echo "HTTPS einrichten mit: sudo noah2games proxy --write --cert" ;;
+    en:access_https)      echo "HTTPS einrichten mit: sudo polypanel proxy --write --cert" ;;
+    de:access_https)      echo "HTTPS einrichten mit: sudo polypanel proxy --write --cert" ;;
     en:ip_warning_strong)  echo "WARNING: this makes the interface reachable from the internet WITHOUT encryption."; echo "         Whoever reads the token (Wi-Fi, proxy, hosting provider, browser history) can start,"; echo "         stop and delete servers and send console commands. Mode [1] or [2] avoids this." ;;
     de:ip_warning_strong)  echo "WARNUNG: Damit ist die Oberflaeche aus dem Internet erreichbar - UNVERSCHLUESSELT."; echo "         Wer den Token mitliest (WLAN, Proxy, Anbieter, Browser-Verlauf), kann Server starten,"; echo "         stoppen, loeschen und Konsolenbefehle absetzen. Modus [1] oder [2] vermeidet das." ;;
     en:ip_confirm)         echo "Really set it up this way?  [j/N] " ;;
     de:ip_confirm)         echo "Trotzdem so einrichten?  [j/N] " ;;
     en:ip_warning)         echo "Note: reachable over the network without HTTPS - the token protects the UI, traffic is unencrypted. Open port 8790 in the firewall." ;;
     de:ip_warning)         echo "Hinweis: im Netzwerk ohne HTTPS erreichbar - der Token schuetzt die Oberflaeche, die Uebertragung ist unverschluesselt. Port 8790 in der Firewall freigeben." ;;
-    en:web_not_needed)     echo "No permanent service needed - the UI starts on demand: noah2games web" ;;
-    de:web_not_needed)     echo "Kein Dauerdienst noetig - Oberflaeche startet bei Bedarf: noah2games web" ;;
+    en:web_not_needed)     echo "No permanent service needed - the UI starts on demand: polypanel web" ;;
+    de:web_not_needed)     echo "Kein Dauerdienst noetig - Oberflaeche startet bei Bedarf: polypanel web" ;;
     en:web_q)              echo "Start the web interface automatically (systemd service)? [y/N] " ;;
     de:web_q)              echo "Web-Oberflaeche automatisch starten (systemd-Dienst)? [j/N] " ;;
-    en:web_installed_system) echo "Web interface runs as systemd system service (starts at boot): systemctl status noah2games-web" ;;
-    de:web_installed_system) echo "Web-Oberflaeche laeuft als Systemdienst (startet beim Booten): systemctl status noah2games-web" ;;
-    en:web_installed_user) echo "Web interface runs as $2 - user service noah2games-web; check: su - $2 -c 'systemctl --user status noah2games-web'" ;;
-    de:web_installed_user) echo "Web-Oberflaeche laeuft als Benutzer $2 - User-Dienst noah2games-web; pruefen: su - $2 -c 'systemctl --user status noah2games-web'" ;;
-    en:web_installed)      echo "Web interface runs as noah2games-web.service - check: systemctl --user status noah2games-web" ;;
-    de:web_installed)      echo "Web-Oberflaeche laeuft als noah2games-web.service - pruefen: systemctl --user status noah2games-web" ;;
-    en:web_failed)         echo "Could not enable the service - start manually with: noah2games web" ;;
-    de:web_failed)         echo "Dienst konnte nicht aktiviert werden - manuell starten mit: noah2games web" ;;
-    en:web_skipped)        echo "No service created - start the UI when needed with: noah2games web" ;;
-    de:web_skipped)        echo "Kein Dienst angelegt - Oberflaeche bei Bedarf starten mit: noah2games web" ;;
+    en:web_installed_system) echo "Web interface runs as systemd system service (starts at boot): systemctl status polypanel-web" ;;
+    de:web_installed_system) echo "Web-Oberflaeche laeuft als Systemdienst (startet beim Booten): systemctl status polypanel-web" ;;
+    en:web_installed_user) echo "Web interface runs as $2 - user service polypanel-web; check: su - $2 -c 'systemctl --user status polypanel-web'" ;;
+    de:web_installed_user) echo "Web-Oberflaeche laeuft als Benutzer $2 - User-Dienst polypanel-web; pruefen: su - $2 -c 'systemctl --user status polypanel-web'" ;;
+    en:web_installed)      echo "Web interface runs as polypanel-web.service - check: systemctl --user status polypanel-web" ;;
+    de:web_installed)      echo "Web-Oberflaeche laeuft als polypanel-web.service - pruefen: systemctl --user status polypanel-web" ;;
+    en:web_failed)         echo "Could not enable the service - start manually with: polypanel web" ;;
+    de:web_failed)         echo "Dienst konnte nicht aktiviert werden - manuell starten mit: polypanel web" ;;
+    en:web_skipped)        echo "No service created - start the UI when needed with: polypanel web" ;;
+    de:web_skipped)        echo "Kein Dienst angelegt - Oberflaeche bei Bedarf starten mit: polypanel web" ;;
     en:language_saved)     echo "Language: English" ;;
     de:language_saved)     echo "Sprache: Deutsch" ;;
     *) return 1 ;;
@@ -256,10 +256,10 @@ ask_install() {
 
 # ---------------------------------------------------------------- Sprache speichern
 save_lang() {
-  mkdir -p "$HOME/.config/noah2games"
+  mkdir -p "$HOME/.config/polypanel"
   "$PY" - "$LANG_SEL" <<'PYEOF'
 import json, os, sys
-path = os.path.expanduser("~/.config/noah2games/settings.json")
+path = os.path.expanduser("~/.config/polypanel/settings.json")
 data = {}
 try:
     with open(path, encoding="utf-8") as fh:
@@ -276,7 +276,7 @@ PYEOF
 if [ "$UNINSTALL" = "1" ]; then
   t uninstall
   # laufende Dienste zuerst beenden, sonst zeigen sie nach dem Loeschen ins Leere
-  for unit in "$HOME"/.config/systemd/user/noah2games-*.service; do
+  for unit in "$HOME"/.config/systemd/user/polypanel-*.service; do
     [ -e "$unit" ] || continue
     name="$(basename "$unit")"
     systemctl --user disable --now "$name" >/dev/null 2>&1 || true
@@ -284,11 +284,11 @@ if [ "$UNINSTALL" = "1" ]; then
     say "$(t service_removed "$name")"
   done
   systemctl --user daemon-reload >/dev/null 2>&1 || true
-  rm -f "$BIN/noah2games"
+  rm -f "$BIN/polypanel"
   rm -rf "$DEST"
   say "$(t removed)"
   say "$(t kept)"
-  say "  ~/.config/noah2games   ~/arkserver-*   ~/noah2games-backups   ~/noah2games-snapshots"
+  say "  ~/.config/polypanel   ~/arkserver-*   ~/polypanel-backups   ~/polypanel-snapshots"
   exit 0
 fi
 
@@ -374,7 +374,7 @@ fi
 if [ -n "$ACCESS" ]; then
   "$PY" - "$ACCESS" "$DOMAIN" <<'PYEOF'
 import json, os, sys
-path = os.path.expanduser("~/.config/noah2games/settings.json")
+path = os.path.expanduser("~/.config/polypanel/settings.json")
 data = {}
 try:
     with open(path, encoding="utf-8") as fh:
@@ -390,8 +390,8 @@ PYEOF
 fi
 
 # ---------------------------------------------------------------- Kopieren
-mkdir -p "$DEST" "$BIN" "$HOME/.config/noah2games"
-cp -a "$SRC/noah2games" "$DEST/"
+mkdir -p "$DEST" "$BIN" "$HOME/.config/polypanel"
+cp -a "$SRC/polypanel" "$DEST/"
 cp -a "$SRC/README.md" "$DEST/" 2>/dev/null || true
 cp -a "$SRC/INSTALL.md" "$DEST/" 2>/dev/null || true
 cp -a "$SRC/README.de.md" "$DEST/" 2>/dev/null || true
@@ -406,35 +406,35 @@ say "$(t copied "$DEST")"
 # Installierten Stand festhalten (Commit), damit auch Aenderungen ohne Versionssprung ankommen
 if command -v git >/dev/null 2>&1 && [ -d "$SRC/.git" ]; then
   SHA="$(git -C "$SRC" rev-parse --short HEAD 2>/dev/null || true)"
-  VER="$(grep -m1 __version__ "$DEST/noah2games/__init__.py" 2>/dev/null | cut -d'"' -f2)"
+  VER="$(grep -m1 __version__ "$DEST/polypanel/__init__.py" 2>/dev/null | cut -d'"' -f2)"
   if [ -n "$SHA" ]; then
-    printf '{"sha": "%s", "version": "%s", "written": "%s"}\n' "$SHA" "$VER" "$(date '+%F %T')" > "$DEST/noah2games/.build"
+    printf '{"sha": "%s", "version": "%s", "written": "%s"}\n' "$SHA" "$VER" "$(date '+%F %T')" > "$DEST/polypanel/.build"
   else
     # Installation aus einem Archiv (kein .git): alten Stand nicht stehen lassen,
     # sonst meldet die Pruefung dauerhaft "neuer Stand verfuegbar"
-    rm -f "$DEST/noah2games/.build"
+    rm -f "$DEST/polypanel/.build"
   fi
 fi
 
-cat > "$BIN/noah2games" <<EOF
+cat > "$BIN/polypanel" <<EOF
 #!/bin/sh
-# noah2games-Launcher (erzeugt von install.sh)
+# polypanel-Launcher (erzeugt von install.sh)
 export PYTHONPATH="$DEST\${PYTHONPATH:+\$PYTHONPATH}"
-# -P: aktuelles Verzeichnis nicht in sys.path - sonst importiert noah2games aus dem Quellordner
-exec "$PY" -P -m noah2games "\$@"
+# -P: aktuelles Verzeichnis nicht in sys.path - sonst importiert polypanel aus dem Quellordner
+exec "$PY" -P -m polypanel "\$@"
 EOF
-chmod +x "$BIN/noah2games"
+chmod +x "$BIN/polypanel"
 # bei --user gehoert alles dem Dienst-Benutzer, sonst kann er seine Configs nicht schreiben
 if [ -n "$SERVICE_USER" ]; then
-  chown -R "$SERVICE_USER":"$SERVICE_USER" "$DEST" "$HOME/.config/noah2games" "$BIN/noah2games" 2>/dev/null || true
+  chown -R "$SERVICE_USER":"$SERVICE_USER" "$DEST" "$HOME/.config/polypanel" "$BIN/polypanel" 2>/dev/null || true
 fi
-say "$(t command "$BIN/noah2games")"
+say "$(t command "$BIN/polypanel")"
 
 case ":$PATH:" in
   *":$BIN:"*) ;;
   *)
     if [ "$(id -u)" = "0" ] && [ -d /usr/local/bin ] && [ -z "$SERVICE_USER" ]; then
-      if ln -sf "$BIN/noah2games" /usr/local/bin/noah2games 2>/dev/null; then
+      if ln -sf "$BIN/polypanel" /usr/local/bin/polypanel 2>/dev/null; then
         say "$(t linked_usr_local)"
       else
         say "$(t path_hint "$BIN")"
@@ -456,7 +456,7 @@ t uninstall_step
 # ---------------------------------------------------------------- Web-Dienst
 if [ -z "$WANT_WEB" ]; then
   if [ "$ACCESS" = "tunnel" ]; then
-    # Client-seitig: die Oberflaeche wird bei Bedarf mit "noah2games web" gestartet, kein Dauerdienst noetig
+    # Client-seitig: die Oberflaeche wird bei Bedarf mit "polypanel web" gestartet, kein Dauerdienst noetig
     WANT_WEB=0
     say "$(t web_not_needed)"
   elif [ -t 0 ]; then
@@ -477,35 +477,35 @@ if [ "$WANT_WEB" = "1" ]; then
   if [ -n "$SERVICE_USER" ]; then
     UNIT_DIR="$HOME/.config/systemd/user"
     install -d -o "$SERVICE_USER" -g "$SERVICE_USER" "$UNIT_DIR"
-    cat > "$UNIT_DIR/noah2games-web.service" <<EOF
+    cat > "$UNIT_DIR/polypanel-web.service" <<EOF
 [Unit]
-Description=noah2games web interface
+Description=polypanel web interface
 After=network-online.target
 
 [Service]
 Type=simple
 WorkingDirectory=$DEST
 Environment=PYTHONPATH=$DEST
-ExecStart=/usr/bin/python3 -m noah2games web $WEBHOST --port 8790
+ExecStart=/usr/bin/python3 -m polypanel web $WEBHOST --port 8790
 Restart=on-failure
 RestartSec=5
 
 [Install]
 WantedBy=default.target
 EOF
-    chown -R "$SERVICE_USER":"$SERVICE_USER" "$DEST" "$HOME/.config/noah2games" "$BIN/noah2games" "$UNIT_DIR" 2>/dev/null || true
+    chown -R "$SERVICE_USER":"$SERVICE_USER" "$DEST" "$HOME/.config/polypanel" "$BIN/polypanel" "$UNIT_DIR" 2>/dev/null || true
     loginctl enable-linger "$SERVICE_USER" >/dev/null 2>&1 || true
-    if su - "$SERVICE_USER" -c "XDG_RUNTIME_DIR=/run/user/$SERVICE_UID systemctl --user daemon-reload && XDG_RUNTIME_DIR=/run/user/$SERVICE_UID systemctl --user enable --now noah2games-web.service" >/dev/null 2>&1; then
+    if su - "$SERVICE_USER" -c "XDG_RUNTIME_DIR=/run/user/$SERVICE_UID systemctl --user daemon-reload && XDG_RUNTIME_DIR=/run/user/$SERVICE_UID systemctl --user enable --now polypanel-web.service" >/dev/null 2>&1; then
       say "$(t web_installed_user "$SERVICE_USER")"
     else
       warn "$(t web_failed)"
     fi
   elif [ "$(id -u)" = "0" ]; then
     # Systemdienst: startet beim Booten, kein Login und kein linger noetig
-    UNIT="/etc/systemd/system/noah2games-web.service"
+    UNIT="/etc/systemd/system/polypanel-web.service"
     cat > "$UNIT" <<EOF
 [Unit]
-Description=noah2games web interface
+Description=polypanel web interface
 After=network-online.target
 Wants=network-online.target
 
@@ -514,14 +514,14 @@ Type=simple
 User=root
 WorkingDirectory=$DEST
 Environment=PYTHONPATH=$DEST
-ExecStart=/usr/bin/python3 -m noah2games web $WEBHOST --port 8790
+ExecStart=/usr/bin/python3 -m polypanel web $WEBHOST --port 8790
 Restart=on-failure
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
 EOF
-    if systemctl daemon-reload 2>/dev/null && systemctl enable --now noah2games-web.service 2>/dev/null; then
+    if systemctl daemon-reload 2>/dev/null && systemctl enable --now polypanel-web.service 2>/dev/null; then
       say "$(t web_installed_system)"
     else
       warn "$(t web_failed)"
@@ -529,23 +529,23 @@ EOF
   else
     UNIT_DIR="$HOME/.config/systemd/user"
     mkdir -p "$UNIT_DIR"
-    cat > "$UNIT_DIR/noah2games-web.service" <<EOF
+    cat > "$UNIT_DIR/polypanel-web.service" <<EOF
 [Unit]
-Description=noah2games web interface
+Description=polypanel web interface
 After=network-online.target
 
 [Service]
 Type=simple
 WorkingDirectory=$DEST
 Environment=PYTHONPATH=$DEST
-ExecStart=/usr/bin/python3 -m noah2games web $WEBHOST --port 8790
+ExecStart=/usr/bin/python3 -m polypanel web $WEBHOST --port 8790
 Restart=on-failure
 RestartSec=5
 
 [Install]
 WantedBy=default.target
 EOF
-    if systemctl --user daemon-reload 2>/dev/null && systemctl --user enable --now noah2games-web.service 2>/dev/null; then
+    if systemctl --user daemon-reload 2>/dev/null && systemctl --user enable --now polypanel-web.service 2>/dev/null; then
       say "$(t web_installed)"
     else
       warn "$(t web_failed)"
@@ -557,13 +557,13 @@ fi
 
 
 # laufenden Web-Dienst neu starten, damit der neue Code aktiv ist
-if systemctl is-active noah2games-web >/dev/null 2>&1; then
-  systemctl restart noah2games-web >/dev/null 2>&1 && say "$(t service_restarted)"
-elif systemctl --user is-active noah2games-web >/dev/null 2>&1; then
-  systemctl --user restart noah2games-web >/dev/null 2>&1 && say "$(t service_restarted)"
+if systemctl is-active polypanel-web >/dev/null 2>&1; then
+  systemctl restart polypanel-web >/dev/null 2>&1 && say "$(t service_restarted)"
+elif systemctl --user is-active polypanel-web >/dev/null 2>&1; then
+  systemctl --user restart polypanel-web >/dev/null 2>&1 && say "$(t service_restarted)"
 fi
 
-URL="$("$BIN/noah2games" url --quiet 2>/dev/null | head -1 || true)"
+URL="$("$BIN/polypanel" url --quiet 2>/dev/null | head -1 || true)"
 TOK="${URL##*token=}"
 if [ -n "$TOK" ]; then
   echo
@@ -579,7 +579,7 @@ fi
 
 if [ "$ACCESS" = "https" ] && [ -n "$DOMAIN" ]; then
   echo
-  say "HTTPS: sudo noah2games proxy --domain $DOMAIN --write --cert"
+  say "HTTPS: sudo polypanel proxy --domain $DOMAIN --write --cert"
 elif [ "$ACCESS" = "tunnel" ]; then
   echo
   say "$(t access_tunnel)"
@@ -587,5 +587,5 @@ fi
 
 if [ "$RUN_WIZARD" = "1" ]; then
   echo
-  exec "$BIN/noah2games" wizard
+  exec "$BIN/polypanel" wizard
 fi

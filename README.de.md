@@ -1,11 +1,11 @@
-# noah2games — Multigame-Servermanager für Linux · Web-UI im Browser
+# PolyPanel — Multigame-Servermanager für Linux · Web-UI im Browser
 
 ARK: Survival Ascended · ARK: Survival Evolved · Satisfactory · 7 Days to Die · Space Engineers — ein Manager, eine Oberfläche.
 
 [Deutsch](README.de.md) · [English](README.md) — der Installer fragt beim Start nach der Sprache, die Oberfläche lässt sich
-jederzeit umschalten (Knopf oben rechts, `noah2games lang en` in der Konsole).
+jederzeit umschalten (Knopf oben rechts, `polypanel lang en` in der Konsole).
 
-[![Spenden](https://img.shields.io/badge/Spenden-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=ronnyhase%40fn.de&item_name=noah2games%20Servermanager&currency_code=EUR)
+[![Spenden](https://img.shields.io/badge/Spenden-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=ronnyhase%40fn.de&item_name=PolyPanel%20Servermanager&currency_code=EUR)
 [![Discord](https://img.shields.io/badge/Discord-Ark--ASA--ASE--Hilfe-5865F2?logo=discord&logoColor=white)](https://discord.gg/ark-ase-asa-hilfe)
 [![Lizenz](https://img.shields.io/badge/Lizenz-kostenlos%20nutzbar%2C%20alle%20Rechte%20beim%20Autor-25e6a4)](LICENSE)
 
@@ -20,7 +20,7 @@ jederzeit umschalten (Knopf oben rechts, `noah2games lang en` in der Konsole).
 Ein eigener Servermanager für ARK-ASA-Dedicated-Server: Start, Stop, Updates, Mods, Backups,
 Einstellungen und Spielerverwaltung über eine Weboberfläche.
 
-> **Keine App für deinen PC — kein Windows- oder macOS-Programm.** noah2games läuft als Dienst auf dem
+> **Keine App für deinen PC — kein Windows- oder macOS-Programm.** polypanel läuft als Dienst auf dem
 > Linux-Server und wird im **Browser** bedient: vom PC, Notebook, Tablet oder Handy, im Heimnetz oder
 > über VPN. Auf dem Server installierst du es **einmal** (`install.sh`, `git clone`); danach gibt es
 > nichts mehr herunterzuladen und kein Programm zu starten — nur die Adresse mit Token.
@@ -32,7 +32,7 @@ Serverprozess, RCON für alles, was der Server von außen anbietet.
 
 ## Weitere Spiele (ARK: Survival Evolved, Satisfactory, 7 Days to Die, Space Engineers)
 
-noah2games kann neben ARK: Survival Ascended auch andere Dedicated Server verwalten. Der Kern
+polypanel kann neben ARK: Survival Ascended auch andere Dedicated Server verwalten. Der Kern
 (Start/Stop, Updates, Backups, Zeitplan, Web-UI, Mehrinstanzen) ist spielunabhängig; ein
 **Spielprofil** liefert nur, was das jeweilige Spiel braucht:
 
@@ -47,11 +47,11 @@ noah2games kann neben ARK: Survival Ascended auch andere Dedicated Server verwal
 Instanz anlegen:
 
 ```bash
-noah2games --name insel  init --game arkse --map Ragnarok
-noah2games --name fabrik init --game satisfactory
-noah2games --name horde  init --game 7d2d
-noah2games --name werft  init --game spaceengineers
-noah2games --name fabrik start
+polypanel --name insel  init --game arkse --map Ragnarok
+polypanel --name fabrik init --game satisfactory
+polypanel --name horde  init --game 7d2d
+polypanel --name werft  init --game spaceengineers
+polypanel --name fabrik start
 ```
 
 **ARK: Survival Evolved** ist die ältere ARK-Generation und braucht kein Wine: SteamCMD liefert einen
@@ -63,14 +63,14 @@ beiden INI-Dateien — 262 Werte, alle mit deutschen Beschriftungen.
 
 Im Web-UI nimmt `POST /api/instances` zusätzlich den Parameter `game` an. Ports: Satisfactory
 braucht drei (Spiel `-Port`, `-QueryPort`, `-BeaconPort`), 7 Days to Die Spiel-, Query- und
-Telnet-Port. Die Instanzverzeichnisse liegen unter `~/noah2games-instances/<name>`.
+Telnet-Port. Die Instanzverzeichnisse liegen unter `~/polypanel-instances/<name>`.
 
 **Space Engineers** ist der einzige Kandidat ohne Linux-Server: SteamCMD liefert nur die
-Windows-.exe. noah2games legt deshalb beim ersten Installieren ein **gemeinsames Wine-Prefix**
-(`~/.noah2games-wine-se`) an und installiert dort `dotnet48` und `vcrun2019` (einmalig, 10–20 min).
+Windows-.exe. polypanel legt deshalb beim ersten Installieren ein **gemeinsames Wine-Prefix**
+(`~/.polypanel-wine-se`) an und installiert dort `dotnet48` und `vcrun2019` (einmalig, 10–20 min).
 Ohne diese Laufzeit bricht der Start mit einer klaren Meldung ab statt still zu scheitern.
 Konfiguriert wird über `SpaceEngineers-Dedicated.cfg` (über 200 Optionen), die Vorlage bringt
-noah2games mit — Space Engineers legt sie nicht selbst an.
+polypanel mit — Space Engineers legt sie nicht selbst an.
 
 ## Einblicke
 
@@ -84,18 +84,18 @@ Mehr dazu: [docs/funktionen.md](docs/funktionen.md)
 ## Installation
 
 ```bash
-git clone https://github.com/Ronny-H-79/Noah2Games.git noah2games   # einmalig
-cd noah2games
+git clone https://github.com/Ronny-H-79/Noah2Games.git polypanel   # einmalig
+cd PolyPanel
 ./install.sh --check     # prüfen, was fehlt (ändert nichts)
 ./install.sh             # installieren
-noah2games web           # Web-Oberfläche starten — die Adresse mit Token wird ausgegeben
+polypanel web           # Web-Oberfläche starten — die Adresse mit Token wird ausgegeben
 ```
 
 Instanzen legst du **im Browser** an: Adresse aus der Ausgabe öffnen, Namen eintragen, Spiel und Karte
 wählen, **Anlegen** drücken — die Karte bietet dann **Installieren** an (SteamCMD, danach Start).
 Nach dem ersten Befehl braucht es kein Terminal mehr.
 
-**Nur Konsole, optional:** `noah2games wizard` ist die Terminal-Alternative zum Browser — fragt Name,
+**Nur Konsole, optional:** `polypanel wizard` ist die Terminal-Alternative zum Browser — fragt Name,
 Karte, Port und Session-Namen ab, lädt die Serverdateien und richtet den systemd-Dienst ein. Er
 braucht eine interaktive Sitzung und ist **nicht** nötig: alles, was der Wizard macht, geht auch in
 der Web-Oberfläche. `./install.sh --wizard` startet ihn direkt nach der Installation.
@@ -112,7 +112,7 @@ root-Rechte braucht nur das Nachinstallieren von Wine.
 | Arch Linux (CachyOS) | aktuell | Python 3.14.9, Wine 11.21 |
 
 Debian, Fedora und openSUSE unterstützt der Installer ebenfalls (`apt`, `dnf`, `zypper`), dort ist
-noah2games aber noch nicht durchgetestet — Rückmeldung willkommen. Nötig ist 64-Bit-Wine (für den
+polypanel aber noch nicht durchgetestet — Rückmeldung willkommen. Nötig ist 64-Bit-Wine (für den
 Windows-Server von ARK); ältere Wine-Stände unter 8.0 sind nicht getestet.
 
 Prüfen, was die eigene Kiste hat:
@@ -129,16 +129,16 @@ Der Installer stellt nacheinander:
   **Tunnel** — nur client-seitig über SSH,
   **Domain** — öffentlich mit HTTPS (wird gleich mitgespeichert),
   **IP** — direkt über IP und Port (HTTP, Port in der Firewall freigeben)
-- **nur bei „Domain"**: ob die Web-Oberfläche dauerhaft laufen soll (`noah2games-web.service`) — als root ein
+- **nur bei „Domain"**: ob die Web-Oberfläche dauerhaft laufen soll (`polypanel-web.service`) — als root ein
   **Systemdienst** in `/etc/systemd/system` (startet beim Booten, kein Login und kein `linger` nötig),
   als normaler Benutzer ein User-Dienst in `~/.config/systemd/user`
 
 Bei **„Tunnel"** entfällt die letzte Frage: dafür braucht es keinen Dauerdienst, die Oberfläche wird
-mit `noah2games web` gestartet, wenn du sie brauchst.
+mit `polypanel web` gestartet, wenn du sie brauchst.
 
 Am Ende steht genau der Befehl, der zu deiner Wahl passt: der SSH-Tunnel mit deinem Benutzer und der
 **IP des Servers** (nicht dem Hostnamen — der ist von außen oft nicht auflösbar), oder
-`sudo noah2games proxy --write --cert`, das die gespeicherte Domain automatisch verwendet.
+`sudo polypanel proxy --write --cert`, das die gespeicherte Domain automatisch verwendet.
 `--web` / `--no-web` überspringt die Dienst-Frage.
 
 > **Sicherheit:** Die Oberfläche ist eine Administrationskonsole — wer den Token hat, kann alles
@@ -149,12 +149,12 @@ Am Ende steht genau der Befehl, der zu deiner Wahl passt: der SSH-Tunnel mit dei
 
 | Meldung | Ursache | Lösung |
 |---|---|---|
-| `fatal: destination path 'noah2games' already exists` | der Ordner liegt schon da | `cd noah2games && git pull` statt erneut klonen |
-| `./install.sh: No such file or directory` **nach** `cd noah2games` | du stehst im Paketordner `noah2games/noah2games` — dort liegen nur `.py`-Dateien | `cd ..` — `install.sh` liegt eine Ebene höher, im Projektordner |
-| `noah2games: command not found` | `~/.local/bin` ist nicht im `PATH` | als root legt der Installer `/usr/local/bin/noah2games` an; sonst `export PATH="$HOME/.local/bin:$PATH"` und neue Shell öffnen |
+| `fatal: destination path 'PolyPanel' already exists` | der Ordner liegt schon da | `cd polypanel && git pull` statt erneut klonen |
+| `./install.sh: No such file or directory` **nach** `cd PolyPanel` | du stehst im Paketordner `PolyPanel/PolyPanel` — dort liegen nur `.py`-Dateien | `cd ..` — `install.sh` liegt eine Ebene höher, im Projektordner |
+| `PolyPanel: command not found` | `~/.local/bin` ist nicht im `PATH` | als root legt der Installer `/usr/local/bin/PolyPanel` an; sonst `export PATH="$HOME/.local/bin:$PATH"` und neue Shell öffnen |
 
-**Eine Falle bei Namensgleichheit:** im Projektordner heißt der Python-Teil ebenfalls `noah2games`.
-`cd noah2games` führt dich also ein zweites Mal hinein — dort liegen `cli.py`, `i18n.py` und Co., aber kein
+**Eine Falle bei Namensgleichheit:** im Projektordner heißt der Python-Teil ebenfalls `polypanel`.
+`cd PolyPanel` führt dich also ein zweites Mal hinein — dort liegen `cli.py`, `i18n.py` und Co., aber kein
 `install.sh`. Merksatz: der richtige Ordner ist der mit `install.sh`, `README.md` und `docs/`.
 
 Als **root** auf einem Server: alle Befehle in einer Sitzung hintereinander ausführen, sonst landet
@@ -171,27 +171,27 @@ Details, Voraussetzungen und Deinstallation: [INSTALL.md](INSTALL.de.md)
 ./install.sh --uninstall
 ```
 
-Das beendet und entfernt auch die systemd-Dienste (`noah2games-web`, `noah2games-*`), damit nach dem Löschen
+Das beendet und entfernt auch die systemd-Dienste (`polypanel-web`, `polypanel-*`), damit nach dem Löschen
 kein Dienst mehr ins Leere zeigt. Ist der Quellordner schon weg, reicht von Hand:
 
 ```bash
-systemctl --user disable --now noah2games-web.service noah2games-test.service
-rm -f ~/.config/systemd/user/noah2games-*.service ~/.local/bin/noah2games
-rm -rf ~/.local/share/noah2games
+systemctl --user disable --now polypanel-web.service polypanel-test.service
+rm -f ~/.config/systemd/user/polypanel-*.service ~/.local/bin/PolyPanel
+rm -rf ~/.local/share/PolyPanel
 ```
 
 **Alles weg** — zusätzlich Konfiguration, Token, Sicherungen und Serverdaten (zusammen etwa 24 GB):
 
 ```bash
-rm -rf ~/.config/noah2games          # Instanzen, Token, Mod-Cache
-rm -rf ~/noah2games-backups          # Welt-Backups
-rm -rf ~/noah2games-snapshots        # Instanz-Snapshots
+rm -rf ~/.config/polypanel          # Instanzen, Token, Mod-Cache
+rm -rf ~/polypanel-backups          # Welt-Backups
+rm -rf ~/polypanel-snapshots        # Instanz-Snapshots
 rm -rf ~/arkserver             # die Serverdateien (12 GB)
 rm -rf ~/.wine-arkserver       # Wine-Prefix
 ```
 
 Der letzte Schritt ist der einzige, der wirklich unwiederbringlich ist: Welt und Configs liegen in
-`~/noah2games-backups` — wer die behält, kann später alles wieder herstellen.
+`~/polypanel-backups` — wer die behält, kann später alles wieder herstellen.
 
 ## Mehr
 
@@ -209,7 +209,7 @@ Installationsdetails: [INSTALL.md](INSTALL.de.md)
 
 Fragen, Probleme oder einfach andere Serverbetreiber: die Community
 **[Ark-ASA-ASE-Hilfe](https://discord.gg/ark-ase-asa-hilfe)** auf Discord hilft bei Einstellungen,
-Mods und Startproblemen. Dort bekommst du auch Rueckmeldung zu noah2games.
+Mods und Startproblemen. Dort bekommst du auch Rueckmeldung zu PolyPanel.
 
 ## Lizenz
 

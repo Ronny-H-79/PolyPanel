@@ -1,6 +1,6 @@
-"""Selbst-Update: pruefen, ob es eine neue noah2games-Version gibt, und einspielen.
+"""Selbst-Update: pruefen, ob es eine neue PolyPanel-Version gibt, und einspielen.
 
-Es wird kein git vorausgesetzt - noah2games laedt das Quellarchiv von GitHub und ersetzt
+Es wird kein git vorausgesetzt - PolyPanel laedt das Quellarchiv von GitHub und ersetzt
 nur das Paketverzeichnis. Einstellungen, Instanzen und Backups bleiben unberuehrt.
 """
 from __future__ import annotations
@@ -14,11 +14,11 @@ import tempfile
 import time
 import urllib.request
 
-REPO = "Ronny-H-79/Noah2Games"
+REPO = "Ronny-H-79/PolyPanel"
 BRANCH = "main"
 API_COMMIT = "https://api.github.com/repos/%s/commits/%s" % (REPO, BRANCH)
-RAW_INIT = "https://raw.githubusercontent.com/%s/%s/noah2games/__init__.py" % (REPO, BRANCH)
-CONTENTS = "https://api.github.com/repos/%s/contents/noah2games/__init__.py?ref=%s" % (REPO, BRANCH)
+RAW_INIT = "https://raw.githubusercontent.com/%s/%s/polypanel/__init__.py" % (REPO, BRANCH)
+CONTENTS = "https://api.github.com/repos/%s/contents/polypanel/__init__.py?ref=%s" % (REPO, BRANCH)
 TARBALL = "https://api.github.com/repos/%s/tarball/%s" % (REPO, BRANCH)
 
 
@@ -52,13 +52,13 @@ def _parse_version(text: str) -> str:
 
 
 def _get(url: str, timeout: int = 10) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": "noah2games-selfupdate",
+    req = urllib.request.Request(url, headers={"User-Agent": "PolyPanel-selfupdate",
                                                "Accept": "application/vnd.github+json"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.read()
 
 
-CACHE = os.path.expanduser("~/.config/noah2games/cache/selfupdate.json")
+CACHE = os.path.expanduser("~/.config/polypanel/cache/selfupdate.json")
 CACHE_TTL = 600          # 10 Minuten: GitHub erlaubt ohne Token nur 60 Anfragen/Stunde
 
 
@@ -171,7 +171,7 @@ def _local_changelog(name: str) -> str:
 
 
 def _changelog_cache(name: str) -> str:
-    path = os.path.expanduser("~/.config/noah2games/cache/%s" % name)
+    path = os.path.expanduser("~/.config/polypanel/cache/%s" % name)
     try:
         with open(path, encoding="utf-8") as fh:
             return fh.read()
@@ -181,7 +181,7 @@ def _changelog_cache(name: str) -> str:
 
 def _store_changelog(name: str, text: str) -> None:
     try:
-        path = os.path.expanduser("~/.config/noah2games/cache/%s" % name)
+        path = os.path.expanduser("~/.config/polypanel/cache/%s" % name)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(text)
@@ -284,7 +284,7 @@ def _fetch_tarball(timeout: int = 60, attempts: int = 3) -> bytes:
 def apply(target: str = "", timeout: int = 60) -> dict:
     """Neue Version herunterladen und das Paketverzeichnis ersetzen."""
     target = target or package_dir()
-    work = tempfile.mkdtemp(prefix="noah2games-update-")
+    work = tempfile.mkdtemp(prefix="polypanel-update-")
     try:
         archive = os.path.join(work, "src.tar.gz")
         with open(archive, "wb") as fh:
@@ -296,9 +296,9 @@ def apply(target: str = "", timeout: int = 60) -> dict:
         roots = [d for d in os.listdir(work) if os.path.isdir(os.path.join(work, d))]
         if not roots:
             return {"ok": False, "error": "Archiv enthaelt kein Verzeichnis"}
-        new_pkg = os.path.join(work, roots[0], "noah2games")
+        new_pkg = os.path.join(work, roots[0], "PolyPanel")
         if not os.path.isdir(new_pkg):
-            return {"ok": False, "error": "Paketordner noah2games/ fehlt im Archiv"}
+            return {"ok": False, "error": "Paketordner PolyPanel/ fehlt im Archiv"}
 
         # Changelog mitziehen, sonst zeigt die Oberflaeche den Stand der Erstinstallation
         root = os.path.join(work, roots[0])
@@ -317,7 +317,7 @@ def apply(target: str = "", timeout: int = 60) -> dict:
         # Erst vollstaendig daneben aufbauen, dann per rename tauschen: das laufende
         # Verzeichnis verschwindet nie, und ein Abbruch laesst den alten Stand stehen.
         parent = os.path.dirname(target.rstrip("/"))
-        staging = os.path.join(parent, ".noah2games-neu-%d" % os.getpid())
+        staging = os.path.join(parent, ".PolyPanel-neu-%d" % os.getpid())
         shutil.rmtree(staging, ignore_errors=True)
         shutil.copytree(new_pkg, staging)
         shutil.rmtree(os.path.join(staging, "__pycache__"), ignore_errors=True)
@@ -382,7 +382,7 @@ def restart_service() -> dict:
     """Web-Dienst und Supervisor neu starten, damit der neue Code laeuft."""
     env = _session_env()
     done = []
-    for service in ("noah2games-web", "noah2games-supervise"):
+    for service in ("polypanel-web", "PolyPanel-supervise"):
         for cmd, kind in ((["systemctl", "restart", service], "system"),
                           (["systemctl", "--user", "restart", service], "user")):
             try:
@@ -394,4 +394,4 @@ def restart_service() -> dict:
                 continue
     if done:
         return {"ok": True, "scope": ", ".join(done)}
-    return {"ok": False, "error": "kein noah2games-web/noah2games-supervise-Dienst gefunden"}
+    return {"ok": False, "error": "kein polypanel-web/PolyPanel-supervise-Dienst gefunden"}

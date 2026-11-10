@@ -1,6 +1,6 @@
 # Features
 
-What noah2games does: overview, screenshots, mod management and notifications.
+What polypanel does: overview, screenshots, mod management and notifications.
 
 [← back to the README](../README.md) · [Deutsch](funktionen.de.md)
 
@@ -41,13 +41,13 @@ The **Mods** tab has a search field. Three kinds of input work:
 | **CurseForge link** | `https://www.curseforge.com/ark-survival-ascended/mods/spyglass` | the mod is resolved, shown with title and image |
 | **Search term** | `spy` | **suggestions appear while you type** — image, ID, downloads; click to add |
 
-For **searching by name** noah2games needs a free CurseForge API key (field below,
+For **searching by name** polypanel needs a free CurseForge API key (field below,
 [console.curseforge.com](https://console.curseforge.com) → API keys). Without a key the search is
 unreliable because CurseForge blocks automated requests — IDs and links always work.
 
 ## Mod updates at a glance
 
-The **Mods** tab shows for every mod whether the installed file is still the newest. noah2games compares the
+The **Mods** tab shows for every mod whether the installed file is still the newest. polypanel compares the
 installed folder (`<modid>_<fileid>`) with the latest file on CurseForge and shows an **UPDATE** marker
 plus "new for X days" when they differ. You see at once which modder has not shipped yet — without
 opening every mod page.
@@ -55,7 +55,7 @@ opening every mod page.
 ## Notifications (Discord)
 
 In the **Management** tab you paste a Discord webhook URL (server settings → integrations → webhooks).
-noah2games then reports to that channel when something happens that you need to know:
+polypanel then reports to that channel when something happens that you need to know:
 
 | Event | When |
 |---|---|
@@ -66,7 +66,7 @@ noah2games then reports to that channel when something happens that you need to 
 | **Restart executed** | after a scheduled restart |
 | **Server stopped** | when you stopped it yourself (the supervisor then leaves it off) |
 
-Routine like "server started" only goes to the log (`<instance>/.noah2games-notify.log`) so the channel does
+Routine like "server started" only goes to the log (`<instance>/.polypanel-notify.log`) so the channel does
 not fill up. **Send test** checks the webhook immediately.
 
 Important: a **manual stop** is respected — the supervisor will not start the server again until you
@@ -76,27 +76,27 @@ start it by hand or via the schedule.
 
 The dashboard card has **Delete**. The flow asks twice:
 
-1. "Remove the instance?" — the entry moves to `~/.config/noah2games/.trash/`, the server files stay.
+1. "Remove the instance?" — the entry moves to `~/.config/polypanel/.trash/`, the server files stay.
 2. "Delete the server files too (X GB)?" — only if you confirm is the server directory removed.
    Cancelling leaves the 12 GB untouched.
 
 If the server is still running it is stopped first (SaveWorld → DoExit). Only a directory named like a
 server folder (`arkserver…`) is ever deleted — a wrong path cannot hit your data.
 
-## What noah2games handles for you
+## What polypanel handles for you
 
 Some games ship no Linux server (ARK: Survival Ascended, Space Engineers). To run them reliably on Linux a
-few tricks are needed — noah2games does that automatically, you do not have to know about it:
+few tricks are needed — polypanel does that automatically, you do not have to know about it:
 
 - **The server is always shut down cleanly.** The world is saved before every stop. Just cutting power
   would cost everything since the last autosave — that does not happen here.
-- **No extra window.** Normally a black Windows console pops up with technical messages. Under noah2games the
+- **No extra window.** Normally a black Windows console pops up with technical messages. Under polypanel the
   server runs fully in the background.
 - **Settings survive.** The admin password and the admin interface survive a restart — with a manually
   started server ARK overwrites those values.
 - **Commands arrive.** Everything you send from the UI (messages, dino wipe, kicking players) goes through
   the game's official admin interface.
-- **The anti-cheat service stays off.** It blocks startup on Linux, so noah2games starts the server without it —
+- **The anti-cheat service stays off.** It blocks startup on Linux, so polypanel starts the server without it —
   the usual way on your own server.
 
 ---

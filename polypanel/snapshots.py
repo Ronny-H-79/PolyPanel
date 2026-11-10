@@ -12,9 +12,9 @@ import time
 from .instance import Instance
 from . import runner
 
-BASE = os.path.expanduser("~/noah2games-snapshots")
+BASE = os.path.expanduser("~/polypanel-snapshots")
 IGNORE = shutil.ignore_patterns("Logs", ".runtime", ".trash", "Crashes", "*.log",
-                                "*.sock", ".noah2games-*", "steamapps/downloading")
+                                "*.sock", ".PolyPanel-*", "steamapps/downloading")
 
 
 def _dir(inst: Instance) -> str:

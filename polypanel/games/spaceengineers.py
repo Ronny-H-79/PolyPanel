@@ -81,7 +81,7 @@ class SpaceEngineersProfile(GameProfile):
     )
 
     # Ein gemeinsames Prefix fuer alle SE-Instanzen: dotnet48 nur einmal installieren
-    SHARED_PREFIX = os.path.expanduser("~/.noah2games-wine-se")
+    SHARED_PREFIX = os.path.expanduser("~/.polypanel-wine-se")
 
     def wine_prefix(self, inst) -> str:
         return os.path.expanduser(inst.wine_prefix) if getattr(inst, "wine_prefix", "") else self.SHARED_PREFIX
@@ -310,7 +310,7 @@ class SpaceEngineersProfile(GameProfile):
     def write_config(self, inst) -> None:
         path = self.config_file(inst)
         if not os.path.exists(path):
-            # SE legt die Datei nicht selbst an - noah2games bringt die Vorlage mit
+            # SE legt die Datei nicht selbst an - PolyPanel bringt die Vorlage mit
             try:
                 text = open(TEMPLATE, encoding="utf-8").read()
             except OSError:

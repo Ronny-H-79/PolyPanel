@@ -31,7 +31,7 @@ def _log_size(inst: Instance) -> int:
 
 
 def _state_path(inst: Instance) -> str:
-    return os.path.join(inst.directory, ".noah2games-supervisor.json")
+    return os.path.join(inst.directory, ".PolyPanel-supervisor.json")
 
 
 def _load_state(inst: Instance) -> dict:
@@ -52,7 +52,7 @@ def notify(inst: Instance, text: str) -> None:
     line = "%s  %s" % (time.strftime("%F %T"), text)
     print(line, flush=True)
     try:
-        with open(os.path.join(inst.directory, ".noah2games-supervisor.log"), "a") as fh:
+        with open(os.path.join(inst.directory, ".PolyPanel-supervisor.log"), "a") as fh:
             fh.write(line + "\n")
     except OSError:
         pass
@@ -62,7 +62,7 @@ def notify_event(inst: Instance, title: str, text: str, kind: str = "info", fiel
     line = "%s  %s" % (time.strftime("%F %T"), text)
     print(line, flush=True)
     try:
-        with open(os.path.join(inst.directory, ".noah2games-supervisor.log"), "a") as fh:
+        with open(os.path.join(inst.directory, ".PolyPanel-supervisor.log"), "a") as fh:
             fh.write(line + "\n")
     except OSError:
         pass

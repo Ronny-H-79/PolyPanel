@@ -1,4 +1,4 @@
-"""Instanz-Registry: mehrere Server unter ~/.config/noah2games/<name>.json."""
+"""Instanz-Registry: mehrere Server unter ~/.config/polypanel/<name>.json."""
 from __future__ import annotations
 
 import json
@@ -9,7 +9,7 @@ import socket
 from . import games
 from .instance import Instance
 
-CONF_DIR = os.path.expanduser("~/.config/noah2games")
+from .paths import CONF_DIR
 
 MAPS = list(games.get("ark").maps)     # ASA-Karten (aeltere Aufrufer nutzen diese Liste)
 
@@ -84,8 +84,8 @@ def forget(name: str, delete_files: bool = False) -> dict:
 
 
 # Nur innerhalb dieser Verzeichnisse werden Serverdateien geloescht
-INSTANCE_ROOTS = (os.path.expanduser("~/noah2games-instances"),
-                  "/mnt/Games/noah2games")
+INSTANCE_ROOTS = (os.path.expanduser("~/polypanel-instances"),
+                  "/mnt/Games/polypanel")
 
 
 def _delete_refusal(inst: Instance, directory: str) -> str:
@@ -93,7 +93,7 @@ def _delete_refusal(inst: Instance, directory: str) -> str:
     if not directory or not os.path.isdir(directory):
         return "Ordner existiert nicht: %s" % directory
     real = os.path.realpath(directory)
-    if real in ("/", os.path.expanduser("~"), os.path.expanduser("~/noah2games")):
+    if real in ("/", os.path.expanduser("~"), os.path.expanduser("~/PolyPanel")):
         return "Ordner sieht nicht wie eine Instanz aus: %s" % real
     in_root = any(real.startswith(os.path.realpath(root) + os.sep) for root in INSTANCE_ROOTS)
     if not in_root:
@@ -154,7 +154,7 @@ def create(name: str, map_name: str = "", port: int | None = None,
     ctrl_port = _free_port(prof.default_control_port, udp=False)
     inst = Instance(
         name=name,
-        directory=os.path.expanduser("~/noah2games-instances/%s" % name),
+        directory=os.path.expanduser("~/polypanel-instances/%s" % name),
         game=prof.key,
         map=map_name or (prof.maps[0][0] if prof.maps else ""),
         session_name=session_name or prof.label,
@@ -221,7 +221,7 @@ def info(inst: Instance) -> dict:
         "ready": runner.server_ready(inst) if running else False,
         "map_image": ("/static/maps/%s.jpg" % inst.map
                       if inst.game == "ark" and os.path.exists(
-                          os.path.expanduser("~/.config/noah2games/static/maps/%s.jpg" % inst.map))
+                          os.path.expanduser("~/.config/polypanel/static/maps/%s.jpg" % inst.map))
                       else ""),
         "cpu": data.get("cpu", 0.0),                        # Summe ueber alle Kerne, wie top
         "cpu_pct": round(data["cpu"] / (metrics.CORES or 1), 1),   # Anteil des Servers

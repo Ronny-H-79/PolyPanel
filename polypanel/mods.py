@@ -148,7 +148,7 @@ def list_all(inst: Instance) -> dict:
 
 
 # ---------------------------------------------------------------- Metadaten
-META_DIR = os.path.expanduser("~/.config/noah2games/cache/mods")
+META_DIR = os.path.expanduser("~/.config/polypanel/cache/mods")
 META_TTL = 24 * 3600
 
 
@@ -187,7 +187,7 @@ def meta(mod_id: str, force: bool = False) -> dict:
     try:
         req = urllib.request.Request(
             "https://api.cfwidget.com/%s" % mod_id,
-            headers={"User-Agent": "noah2games/0.1 (+local)"},
+            headers={"User-Agent": "PolyPanel/0.1 (+local)"},
         )
         with urllib.request.urlopen(req, timeout=8) as resp:
             raw = _json.loads(resp.read().decode("utf-8"))
@@ -321,7 +321,7 @@ def _ddg_slugs(term: str, limit: int = 18) -> list[str]:
     query = "site:curseforge.com/ark-survival-ascended/mods %s" % term
     url = "https://html.duckduckgo.com/html/?q=" + urllib.parse.quote(query)
     req = urllib.request.Request(url, headers={
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 noah2games/0.1",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 PolyPanel/0.1",
         "Accept-Language": "en-US,en;q=0.9",
     })
     try:
@@ -347,7 +347,7 @@ def _by_slug(slug: str) -> dict:
 
     url = "https://api.cfwidget.com/ark-survival-ascended/mods/%s" % slug
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "noah2games/0.1 (+local)"})
+        req = urllib.request.Request(url, headers={"User-Agent": "PolyPanel/0.1 (+local)"})
         with urllib.request.urlopen(req, timeout=8) as resp:
             raw = _json.loads(resp.read().decode("utf-8"))
         return {
@@ -394,7 +394,7 @@ def _search_api(term: str, limit: int = 12) -> list[dict]:
     })
     req = urllib.request.Request(
         "https://api.curseforge.com/v1/mods/search?" + params,
-        headers={"x-api-key": key, "Accept": "application/json", "User-Agent": "noah2games/0.1"},
+        headers={"x-api-key": key, "Accept": "application/json", "User-Agent": "PolyPanel/0.1"},
     )
     try:
         with urllib.request.urlopen(req, timeout=12) as resp:

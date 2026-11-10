@@ -1,4 +1,4 @@
-"""Web-UI fuer noah2games: Dashboard mit Instanzen + Instanzseiten + JSON-API."""
+"""Web-UI fuer PolyPanel: Dashboard mit Instanzen + Instanzseiten + JSON-API."""
 from __future__ import annotations
 
 import json
@@ -29,7 +29,7 @@ from . import supervisor
 from . import whitelist as wl
 from .rcon import RconClient
 
-TOKEN_PATH = os.path.expanduser("~/.config/noah2games/token")
+from .paths import TOKEN_PATH
 RE_PLAYER = re.compile(r"^\s*(\d+)\.\s*(.+?),\s*([0-9]{15,17})\s*$")
 INSTALLS: dict[str, dict] = {}
 
@@ -298,7 +298,7 @@ if(cv){
 """
 
 PAYPAL_URL = ("https://www.paypal.com/donate/?business=ronnyhase%40fn.de"
-              "&item_name=noah2games%20Servermanager&currency_code=EUR")
+              "&item_name=PolyPanel%20Servermanager&currency_code=EUR")
 DISCORD_URL = "https://discord.gg/ark-ase-asa-hilfe"
 
 HEADER_ICONS = """
@@ -317,7 +317,7 @@ HEADER_ICONS = (HEADER_ICONS.replace("__PAYPAL_URL__", PAYPAL_URL)
 # Gemeinsamer Fuß: Copyright, Lizenz-Seite, Spenden- und Community-Link.
 # Der Lizenz-Link bekommt das Token per Skript, damit er auf jeder Seite funktioniert.
 FOOTER = """<footer class="sitefoot">
-<span class="fmeta">noah2games __VERSION__ · © 2026 Ronny H. ·
+<span class="fmeta">PolyPanel __VERSION__ · © 2026 Ronny H. ·
   <span data-t="foot.rights">alle Rechte vorbehalten</span></span>
 <span class="flinks">
   <a data-tok="/license" data-t="foot.license" title="Lizenz">Lizenz</a>
@@ -336,16 +336,16 @@ FOOTER = (FOOTER.replace("__PAYPAL_URL__", PAYPAL_URL)
                 .replace("__DISCORD_URL__", DISCORD_URL))
 
 DASH = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>noah2games</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>PolyPanel</title>
 <style>""" + SHARED_CSS + """</style></head><body>
 <canvas id="bg"></canvas>
-<header><h1>noah2games</h1><span class="badge" id="cnt">…</span>
+<header><h1>PolyPanel</h1><span class="badge" id="cnt">…</span>
 <span class="badge" data-t="dash.dashboard">Dashboard</span>
 <span class="hostbar"><span id="hostcpu">CPU –</span><span id="hostram">RAM –</span>
-  <button onclick="noah2gamesUpdate()" id="verbtn" style="padding:2px 8px">noah2games</button>
+  <button onclick="polyPanelUpdate()" id="verbtn" style="padding:2px 8px">PolyPanel</button>
   <button onclick="openChangelog()" id="clogbtn" style="padding:2px 8px"
     data-t="self.changelog" title="Changelog">Changelog</button>
-      <button onclick="window.open('https://github.com/Ronny-H-79/Noah2Games/blob/main/README.md','_blank','noopener')"
+      <button onclick="window.open('https://github.com/Ronny-H-79/PolyPanel/blob/main/README.md','_blank','noopener')"
               data-t="ui.docs_en" title="English description">English</button>
   <button onclick="toggleLang()" id="langbtn" style="padding:2px 8px">EN</button></span>""" + HEADER_ICONS + """</header>
 <div class="modal" id="modal" onclick="if(event.target.id==='modal')closeModal()">
@@ -604,23 +604,23 @@ async function install(name){
   },4000);
 }
 
-let _noah2gamesInfo=null;
-async function checkNoah2Games(){
-  try{ _noah2gamesInfo=JSON.parse(await api('/api/selfupdate')); }catch(e){ return; }
+let _polyPanelInfo=null;
+async function checkPolyPanel(){
+  try{ _polyPanelInfo=JSON.parse(await api('/api/selfupdate')); }catch(e){ return; }
   const b=document.getElementById('verbtn');
-  if(!b||!_noah2gamesInfo||!_noah2gamesInfo.ok) return;
-  if(!_noah2gamesInfo.update){
-    b.textContent='noah2games '+_noah2gamesInfo.installed+' · '+L['self.current_build']; b.className='';
+  if(!b||!_polyPanelInfo||!_polyPanelInfo.ok) return;
+  if(!_polyPanelInfo.update){
+    b.textContent='PolyPanel '+_polyPanelInfo.installed+' · '+L['self.current_build']; b.className='';
     b.disabled=true; b.style.cursor='default'; b.style.opacity='.7';
     b.title=L['self.up_to_date'];
     return;
   }
-  else if(_noah2gamesInfo.available && _noah2gamesInfo.available!==_noah2gamesInfo.installed){
-    b.textContent='noah2games update: '+_noah2gamesInfo.installed+' → '+_noah2gamesInfo.available;
+  else if(_polyPanelInfo.available && _polyPanelInfo.available!==_polyPanelInfo.installed){
+    b.textContent='PolyPanel update: '+_polyPanelInfo.installed+' → '+_polyPanelInfo.available;
     b.className='badge on';
   } else {
     // gleiche Version, nur neuer Commit: nur ein Hinweis, nicht klickbar
-    b.textContent='noah2games '+_noah2gamesInfo.installed+' · '+L['self.new_build'];
+    b.textContent='PolyPanel '+_polyPanelInfo.installed+' · '+L['self.new_build'];
     b.className='badge';
     b.disabled=true; b.style.cursor='default'; b.style.opacity='.7';
     b.title=L['self.build_only'];
@@ -628,7 +628,7 @@ async function checkNoah2Games(){
   }
   b.disabled=false; b.style.cursor=''; b.style.opacity='';
 
-  b.title = _noah2gamesInfo.update ? L['self.click_update'] : L['self.up_to_date'];
+  b.title = _polyPanelInfo.update ? L['self.click_update'] : L['self.up_to_date'];
 }
 
 function closeModal(){ const m=document.getElementById('modal'); if(m) m.classList.remove('on'); }
@@ -677,33 +677,33 @@ async function openChangelog(){
   box.innerHTML='<div style="max-height:64vh;overflow:auto;padding-right:6px">'+_mdToHtml(d.text)+'</div>'+
     (d.url?('<div style="margin-top:10px"><a href="'+d.url+'" target="_blank">'+L['self.on_github']+'</a></div>'):'');
 }
-async function noah2gamesUpdate(){
-  if(!_noah2gamesInfo){ await checkNoah2Games(); }
-  if(!_noah2gamesInfo || !_noah2gamesInfo.ok) return;
-  if(!_noah2gamesInfo.update){ alert(L['self.up_to_date']); return; }
+async function polyPanelUpdate(){
+  if(!_polyPanelInfo){ await checkPolyPanel(); }
+  if(!_polyPanelInfo || !_polyPanelInfo.ok) return;
+  if(!_polyPanelInfo.update){ alert(L['self.up_to_date']); return; }
   let notes='';
-  try{ const n=JSON.parse(await api('/api/selfupdate/notes?v='+encodeURIComponent(_noah2gamesInfo.available)));
+  try{ const n=JSON.parse(await api('/api/selfupdate/notes?v='+encodeURIComponent(_polyPanelInfo.available)));
        if(n.ok && n.text) notes=String.fromCharCode(10,10)+n.text.slice(0,900); }catch(e){}
-  if(!confirm(L['self.confirm'].replace('{v}', _noah2gamesInfo.available)+notes)) return;
+  if(!confirm(L['self.confirm'].replace('{v}', _polyPanelInfo.available)+notes)) return;
   const b=document.getElementById('verbtn');
   b.textContent='…';
   let res=null;
   try{ res=JSON.parse(await api('/api/selfupdate',{method:'POST'})); }
-  catch(e){ alert(L['self.failed']+' '+(e&&e.message?e.message:'')); await checkNoah2Games(); return; }
+  catch(e){ alert(L['self.failed']+' '+(e&&e.message?e.message:'')); await checkPolyPanel(); return; }
   if(res && res.ok===false){
     alert(L['self.failed']+' '+(res.error||''));
-    await checkNoah2Games();
+    await checkPolyPanel();
     return;
   }
   alert(L['self.done']);
   setTimeout(()=>location.reload(), 4000);
 }
-applyLang(); load(); loadHost(); checkNoah2Games(); setInterval(load,3000); setInterval(loadHost,3000);
+applyLang(); load(); loadHost(); checkPolyPanel(); setInterval(load,3000); setInterval(loadHost,3000);
 </script>""" + FOOTER + """
 </body></html>"""
 
 INST = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>noah2games · __NAME__</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>PolyPanel · __NAME__</title>
 <style>""" + SHARED_CSS + """
 body:not([data-game="ark"]) .ark-only{display:none !important}
 body:not([data-game="ark"]):not([data-game="arkse"]) .arkcmd{display:none !important}
@@ -719,7 +719,7 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
   </div>
 </div>
 <header>
-  <a href="/?token=__TOK__" style="font-size:15px;letter-spacing:.18em;color:var(--acc)">noah2games</a>
+  <a href="/?token=__TOK__" style="font-size:15px;letter-spacing:.18em;color:var(--acc)">PolyPanel</a>
   <a href="/?token=__TOK__" style="margin-left:6px"><button data-t="common.back_dashboard">← Dashboard</button></a>
   <span class="badge" id="st">…</span><span class="badge" id="rd">…</span>
   <span class="badge">__NAME__</span><span class="badge" id="upd" role="button" tabindex="0">UPDATE ?</span>
@@ -756,7 +756,7 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
     </div>
     <div class="meta" style="margin:10px 0 2px">Whitelist</div>
     <div id="wllist">…</div>
-    <div class="meta" style="margin:10px 0 2px" data-t="wl.banned_list">Gebannt (über noah2games)</div>
+    <div class="meta" style="margin:10px 0 2px" data-t="wl.banned_list">Gebannt (über PolyPanel)</div>
     <div id="banlist">…</div>
     <pre id="wlmsg">–</pre>
   </section>
@@ -772,7 +772,7 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
       <div id="mods-installed-list">…</div>
     </div>
     <div id="mods-nonark" style="display:none">
-      <p class="hint" data-t="mods.local_hint">Dieses Spiel wird nicht über CurseForge verwaltet. Mods legst du direkt im Ordner ab – noah2games zeigt dir, was dort liegt.</p>
+      <p class="hint" data-t="mods.local_hint">Dieses Spiel wird nicht über CurseForge verwaltet. Mods legst du direkt im Ordner ab – PolyPanel zeigt dir, was dort liegt.</p>
       <p class="hint" data-t="mods.search_how">So funktioniert die Suche: sie filtert die 50 meistgeladenen Mods (Nexus) und passende GitHub-Repos nach deinem Begriff – kurze Wörter genügen, z. B. „ui", „trader", „vehicle". Eine echte Volltextsuche bietet nur die Nexus-Webseite.</p>
       <div class="row" style="margin:10px 0">
         <input id="modq" data-tp="mods.search_ph" placeholder="Mod suchen" style="flex:1"
@@ -1057,7 +1057,7 @@ function showTab(name, btn){
   document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('on', el.classList.contains('tab-'+name)));
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));
   if(btn) btn.classList.add('on');
-  try{ localStorage.setItem('noah2games.tab', name); if(history.replaceState) history.replaceState(null,'','#'+name); }catch(e){}
+  try{ localStorage.setItem('PolyPanel.tab', name); if(history.replaceState) history.replaceState(null,'','#'+name); }catch(e){}
   if(name==='mods'){
     if(!['ark','arkse'].includes(document.body.dataset.game)) loadInstalledMods();   // ARK hat seine Liste darunter
     if(document.body.dataset.game!=='ark'){
@@ -1073,7 +1073,7 @@ function showTab(name, btn){
 }
 function restoreTab(){
   let t='';
-  try{ t = (location.hash||'').replace('#','') || localStorage.getItem('noah2games.tab') || ''; }catch(e){}
+  try{ t = (location.hash||'').replace('#','') || localStorage.getItem('PolyPanel.tab') || ''; }catch(e){}
   const known=['overview','settings','mods','server'];
   if(!known.includes(t)) t='overview';
   const b=document.querySelector('.tabs button[data-tab="'+t+'"]');
@@ -1186,7 +1186,7 @@ function _setField(v){
 function showSetGroup(g){
   document.querySelectorAll('#settings .setgroup').forEach(el=>el.classList.toggle('on', el.dataset.g===g));
   document.querySelectorAll('#settabs button').forEach(b=>b.classList.toggle('on', b.dataset.g===g));
-  try{ localStorage.setItem('noah2games.setgroup', g); }catch(e){}
+  try{ localStorage.setItem('PolyPanel.setgroup', g); }catch(e){}
 }
 
 
@@ -1341,7 +1341,7 @@ async function loadSettings(){
     return `<div class="setgroup" data-g="${g}">${inner}</div>`;
   }).join('');
   document.getElementById('settings').innerHTML=`<div class="settabs" id="settabs">${tabs}</div>`+blocks;
-  let g=''; try{ g=localStorage.getItem('noah2games.setgroup')||''; }catch(e){}
+  let g=''; try{ g=localStorage.getItem('PolyPanel.setgroup')||''; }catch(e){}
   if(!byGroup[g]) g=present[0]||'play';
   showSetGroup(g);
 }
@@ -1636,10 +1636,10 @@ setInterval(refresh,5000); setInterval(updCheck,60000);
 </body></html>"""
 
 LICENSE_PAGE = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>noah2games · __TITLE__</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>PolyPanel · __TITLE__</title>
 <style>""" + SHARED_CSS + """</style></head><body>
 <canvas id="bg"></canvas>
-<header><h1>noah2games</h1><span class="badge" data-t="license.title">__TITLE__</span>
+<header><h1>PolyPanel</h1><span class="badge" data-t="license.title">__TITLE__</span>
 <span class="hostbar"><a href="/?token=__TOK__"><button>← Dashboard</button></a></span>""" + HEADER_ICONS + """</header>
 <main>
   <section class="lic">
@@ -1661,7 +1661,7 @@ def license_text() -> str:
     """Lizenztext in der aktiven Sprache aus der Datei LICENSE neben dem Paket."""
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     for path in (os.path.join(root, "LICENSE"),
-                 os.path.expanduser("~/.local/share/noah2games/LICENSE")):
+                 os.path.expanduser("~/.local/share/PolyPanel/LICENSE")):
         if not os.path.isfile(path):
             continue
         with open(path, encoding="utf-8", errors="replace") as fh:
@@ -1848,7 +1848,7 @@ def _local_mods(inst) -> dict:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "noah2games"
+    server_version = "PolyPanel"
 
     def _auth(self) -> bool:
         q = urllib.parse.urlparse(self.path).query
@@ -1929,7 +1929,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if path.startswith("/static/maps/"):
             name = os.path.basename(path)
-            base = os.path.expanduser("~/.config/noah2games/static/maps")
+            base = os.path.expanduser("~/.config/polypanel/static/maps")
             full = os.path.join(base, name)
             if not name.endswith(".jpg") or not os.path.isfile(full):
                 self._send(404, b"kein Bild")
@@ -2316,7 +2316,7 @@ class Handler(BaseHTTPRequestHandler):
                 items = []
             if inst.game != "ark":
                 changed = inst.profile.apply_settings(inst, items)
-                inst.save(os.path.expanduser("~/.config/noah2games/%s.json" % inst.name))
+                inst.save(os.path.expanduser("~/.config/polypanel/%s.json" % inst.name))
                 inst.write_ini()
             else:
                 changed = 0
@@ -2459,5 +2459,5 @@ def serve(host: str = "127.0.0.1", port: int = 8790,
         ctx.load_cert_chain(cert, key)
         srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
         scheme = "https"
-    print("noah2games UI: %s://%s:%d/?token=%s" % (scheme, host, port, token()), flush=True)
+    print("PolyPanel UI: %s://%s:%d/?token=%s" % (scheme, host, port, token()), flush=True)
     srv.serve_forever()

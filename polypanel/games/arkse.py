@@ -365,7 +365,7 @@ class ArkSeProfile(GameProfile):
                "&section=readytouseitems&p=%d"
                % (self.WORKSHOP_APP, urllib.parse.quote_plus(query), max(1, page)))
         req = urllib.request.Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) noah2games",
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) PolyPanel",
             "Accept-Language": "de,en;q=0.8"})
         with urllib.request.urlopen(req, timeout=25) as resp:
             html = resp.read().decode("utf-8", "replace")

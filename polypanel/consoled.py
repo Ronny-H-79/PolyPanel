@@ -47,18 +47,18 @@ def _pump(master: int, out) -> None:
 
 
 def main(name: str) -> int:
-    conf = os.path.expanduser("~/.config/noah2games/%s.json" % name)
+    conf = os.path.expanduser("~/.config/polypanel/%s.json" % name)
     inst = Instance.load(conf)
     inst.write_ini()
 
-    sock_path = os.path.join(inst.directory, ".noah2games-console.sock")
+    sock_path = os.path.join(inst.directory, ".PolyPanel-console.sock")
     try:
         os.unlink(sock_path)
     except OSError:
         pass
 
     console = open(inst.console_log, "ab", buffering=0)
-    console.write(("\n=== noah2games start %s (%s) ===\n"
+    console.write(("\n=== PolyPanel start %s (%s) ===\n"
                    % (time.strftime("%F %T"), "pty" if inst.profile.use_pty else "direkt")).encode())
 
     use_pty = getattr(inst.profile, "use_pty", True)
@@ -99,7 +99,7 @@ def main(name: str) -> int:
                 else:
                     proc.stdin.write((data + "\n").encode())
                     proc.stdin.flush()
-                console.write(("[noah2games] >> %s\n" % data).encode())
+                console.write(("[PolyPanel] >> %s\n" % data).encode())
                 conn.sendall(b"ok")
             else:
                 conn.sendall(b"leer")
@@ -126,7 +126,7 @@ def main(name: str) -> int:
     except OSError:
         pass
     runner._cleanup(inst)
-    console.write(("=== noah2games: Server beendet (exit %s) ===\n" % proc.returncode).encode())
+    console.write(("=== PolyPanel: Server beendet (exit %s) ===\n" % proc.returncode).encode())
     return 0
 
 

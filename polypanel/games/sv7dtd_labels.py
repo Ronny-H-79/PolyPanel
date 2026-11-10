@@ -34,7 +34,7 @@ LABELS: dict[str, tuple[str, str]] = {
     "WebDashboardPort": ("Web-Dashboard-Port", "Port des Dashboards (Standard 8080)"),
     "WebDashboardUrl": ("Web-Dashboard-URL", "externe Adresse, falls nicht die Server-IP genutzt wird"),
     "EnableMapRendering": ("Kartenrendering", "erzeugt Kachelbilder der erkundeten Karte"),
-    "TelnetEnabled": ("Telnet aktiv", "Steuerkanal von noah2games - muss an bleiben"),
+    "TelnetEnabled": ("Telnet aktiv", "Steuerkanal von PolyPanel - muss an bleiben"),
     "TelnetPort": ("Telnet-Port", "Port des Steuerkanals (Standard 8081)"),
     "TelnetPassword": ("Telnet-Passwort", "Passwort fuer den Steuerkanal"),
     "TelnetFailedLoginLimit": ("Fehlversuche bis Sperre", "Anzahl falscher Passwoerter"),

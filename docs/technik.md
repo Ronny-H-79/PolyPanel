@@ -7,28 +7,28 @@ Structure, console usage, stop order and notes for developers.
 ## Usage
 
 ```bash
-noah2games web               # web UI on http://127.0.0.1:8790
-noah2games url               # ready-made address including the token
-noah2games status            # process, RCON, last log line
-noah2games start --wait 240
-noah2games stop              # SaveWorld → DoExit → SIGTERM → SIGKILL
-noah2games update --check    # is a new Steam build available?
-noah2games supervise --all   # auto-restart, schedule, backups
+polypanel web               # web UI on http://127.0.0.1:8790
+polypanel url               # ready-made address including the token
+polypanel status            # process, RCON, last log line
+polypanel start --wait 240
+polypanel stop              # SaveWorld → DoExit → SIGTERM → SIGKILL
+polypanel update --check    # is a new Steam build available?
+polypanel supervise --all   # auto-restart, schedule, backups
 ```
 
 ## Structure
 
 | File | Purpose |
 |---|---|
-| `noah2games/instance.py` | instance configuration (JSON), paths, writing INI files, start parameters |
-| `noah2games/runner.py` | start/stop/status/update, RCON shutdown, maintenance lock |
-| `noah2games/consoled.py` | starts the server on a PTY so Wine opens no window |
-| `noah2games/rcon.py` | own Source RCON client |
-| `noah2games/supervisor.py` | health check, auto-restart, schedule, countdown |
-| `noah2games/registry.py` | several instances, port picking, metrics |
-| `noah2games/mods.py` · `whitelist.py` · `config.py` · `backups.py` · `snapshots.py` | feature modules |
-| `noah2games/webui.py` | dashboard, instance pages, JSON API (stdlib `http.server`) |
-| `noah2games/cli.py` | command line including `wizard` |
+| `PolyPanel/instance.py` | instance configuration (JSON), paths, writing INI files, start parameters |
+| `PolyPanel/runner.py` | start/stop/status/update, RCON shutdown, maintenance lock |
+| `PolyPanel/consoled.py` | starts the server on a PTY so Wine opens no window |
+| `PolyPanel/rcon.py` | own Source RCON client |
+| `PolyPanel/supervisor.py` | health check, auto-restart, schedule, countdown |
+| `PolyPanel/registry.py` | several instances, port picking, metrics |
+| `PolyPanel/mods.py` · `whitelist.py` · `config.py` · `backups.py` · `snapshots.py` | feature modules |
+| `PolyPanel/webui.py` | dashboard, instance pages, JSON API (stdlib `http.server`) |
+| `PolyPanel/cli.py` | command line including `wizard` |
 
 ## Stop order (deliberate)
 

@@ -4,7 +4,7 @@ Der Kern ruft in allen Spielen `inst.control()` auf und bekommt ein Objekt mit
 `command(text)` (+ Kontextmanager). Welche Leitung dahinter steckt, entscheidet
 das Spielprofil:
 
-* ARK ASA/ASE  -> Source-RCON (`noah2games.rcon.RconClient`)
+* ARK ASA/ASE  -> Source-RCON (`PolyPanel.rcon.RconClient`)
 * 7 Days to Die -> Telnet (`TelnetClient`)
 * Satisfactory  -> HTTPS-API (`SatisfactoryApi`)
 """

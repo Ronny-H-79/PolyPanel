@@ -46,7 +46,7 @@ class SevenDaysProfile(GameProfile):
         return os.path.join(inst.directory, "serverconfig.xml")
 
     # ------------------------------------------------------------ NexusMods
-    NEXUS_KEY = os.path.expanduser("~/.config/noah2games/nexus.key")
+    NEXUS_KEY = os.path.expanduser("~/.config/polypanel/nexus.key")
 
     @classmethod
     def nexus_key(cls) -> str:
@@ -65,7 +65,7 @@ class SevenDaysProfile(GameProfile):
 
     def _nexus(self, pfad: str, timeout: float = 20.0):
         req = urllib.request.Request("https://api.nexusmods.com/v1" + pfad, headers={
-            "apikey": self.nexus_key(), "User-Agent": "noah2games",
+            "apikey": self.nexus_key(), "User-Agent": "PolyPanel",
             "accept": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8", "replace"))
@@ -81,7 +81,7 @@ class SevenDaysProfile(GameProfile):
                 "sort": {"field": "downloads", "direction": "desc"},
                 "pagination": {"type": "page", "page": 1, "page_size": min(limit, 100)}}
         req = urllib.request.Request(self.NEXUS_API, data=json.dumps(body).encode(),
-                                     headers={"apikey": key, "User-Agent": "noah2games",
+                                     headers={"apikey": key, "User-Agent": "PolyPanel",
                                               "Content-Type": "application/json",
                                               "accept": "application/json"}, method="POST")
         with urllib.request.urlopen(req, timeout=25) as resp:
@@ -111,7 +111,7 @@ class SevenDaysProfile(GameProfile):
             try:
                 url = ("https://api.github.com/search/repositories?q=%s&sort=stars&order=desc&per_page=15"
                        % urllib.parse.quote("%s 7d2d in:name,description" % query))
-                req = urllib.request.Request(url, headers={"User-Agent": "noah2games",
+                req = urllib.request.Request(url, headers={"User-Agent": "PolyPanel",
                                                            "accept": "application/vnd.github+json"})
                 with urllib.request.urlopen(req, timeout=20) as resp:
                     daten = json.loads(resp.read().decode("utf-8", "replace"))
@@ -138,7 +138,7 @@ class SevenDaysProfile(GameProfile):
                                "bitte über die Webseite laden")
         import io as _io
         import zipfile as _zip
-        kopf = {"User-Agent": "noah2games", "accept": "application/vnd.github+json"}
+        kopf = {"User-Agent": "PolyPanel", "accept": "application/vnd.github+json"}
 
         def _get(url: str) -> bytes:
             with urllib.request.urlopen(urllib.request.Request(url, headers=kopf), timeout=60) as r:
