@@ -213,52 +213,69 @@ max-height:80vh;overflow:auto;padding:18px 20px;position:relative}
 """
 
 BG_JS = """
-// Wandernde Farbwolken (Mesh-Gradient): niedrig aufgeloest zeichnen und weich hochskalieren
+// Sternenfeld: drei Tiefenebenen ziehen langsam, dazu ein zarter Nebel
 const cv=document.getElementById('bg');
 if(cv){
   const ctx=cv.getContext('2d',{alpha:false});
-  const SCALE=0.22;                     // klein rechnen = weiche Kanten, wenig CPU
-  let W=0,H=0,t0=performance.now(),lauf=true;
+  let W=0,H=0,dpr=Math.min(devicePixelRatio||1,2),steren=[],t0=performance.now(),lauf=true;
   const ruhig=matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  const wolken=[
-    {h:[46,230,164], x:.18, y:.16, ax:.26, ay:.18, sx:.19, sy:.27, r:.62, a:.60, rs:.26},
-    {h:[64,150,255], x:.82, y:.12, ax:.24, ay:.16, sx:.23, sy:.15, r:.58, a:.55, rs:.31},
-    {h:[150,110,255], x:.62, y:.86, ax:.28, ay:.20, sx:.14, sy:.29, r:.66, a:.48, rs:.19},
-    {h:[32,214,196], x:.10, y:.82, ax:.22, ay:.24, sx:.28, sy:.17, r:.54, a:.45, rs:.23},
-    {h:[255,146,88],  x:.94, y:.58, ax:.16, ay:.20, sx:.12, sy:.24, r:.44, a:.26, rs:.29}
+  const nebel=[
+    {h:[40,120,180], x:.22, y:.26, r:.62, a:.16, sx:.031, sy:.043},
+    {h:[110,70,170], x:.78, y:.20, r:.52, a:.13, sx:.026, sy:.037},
+    {h:[30,150,140], x:.62, y:.86, r:.58, a:.11, sx:.021, sy:.029}
   ];
 
   function build(){
-    W=cv.width=Math.max(160,Math.round(innerWidth*SCALE));
-    H=cv.height=Math.max(120,Math.round(innerHeight*SCALE));
+    W=cv.width=innerWidth*dpr; H=cv.height=innerHeight*dpr;
     cv.style.width=innerWidth+'px'; cv.style.height=innerHeight+'px';
+    const n=Math.round((innerWidth*innerHeight)/5200);
+    steren=Array.from({length:n},()=>{
+      const tiefe=Math.random();                       // 0 = fern, 1 = nah
+      return {x:Math.random()*W, y:Math.random()*H, z:tiefe,
+              gros:(0.4+tiefe*1.5)*dpr,                  // Groesse
+              vx:(0.02+tiefe*0.10)*dpr,                 // Drift nach rechts
+              vy:(0.01+tiefe*0.05)*dpr,
+              ph:Math.random()*6.283, tw:0.4+Math.random()*1.6};
+    });
   }
   addEventListener('resize',build);
   document.addEventListener('visibilitychange',()=>{ lauf=!document.hidden; if(lauf) requestAnimationFrame(frame); });
   build();
 
-  function wolke(w,t){
-    const cx=(w.x + Math.sin(t*w.sx + w.x*10)*w.ax)*W;
-    const cy=(w.y + Math.cos(t*w.sy + w.y*10)*w.ay)*H;
-    const atem=1 + Math.sin(t*w.rs*3.2 + w.x*7)*0.14;      // Radius atmet
-    const r=w.r*atem*Math.max(W,H);
+  function nebelFleck(n,t){
+    const cx=(n.x + Math.sin(t*n.sx)*0.06)*W;
+    const cy=(n.y + Math.cos(t*n.sy)*0.05)*H;
+    const r=n.r*Math.max(W,H)*0.7;
+    const [rh,rg,rb]=n.h;
     const g=ctx.createRadialGradient(cx,cy,0,cx,cy,r);
-    const [rh,rg,rb]=w.h;
-    g.addColorStop(0,   'rgba('+rh+','+rg+','+rb+','+w.a+')');
-    g.addColorStop(.45, 'rgba('+rh+','+rg+','+rb+','+(w.a*0.45)+')');
-    g.addColorStop(1,   'rgba('+rh+','+rg+','+rb+',0)');
-    ctx.fillStyle=g;
-    ctx.fillRect(0,0,W,H);
+    g.addColorStop(0,'rgba('+rh+','+rg+','+rb+','+n.a+')');
+    g.addColorStop(1,'rgba('+rh+','+rg+','+rb+',0)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
   }
 
   function frame(now){
     if(!lauf) return;
     const t=ruhig?0:(now-t0)/1000;
     ctx.globalCompositeOperation='source-over';
-    ctx.fillStyle='#05090f'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#04070c'; ctx.fillRect(0,0,W,H);
     ctx.globalCompositeOperation='lighter';
-    for(const w of wolken) wolke(w,t);
+    for(const n of nebel) nebelFleck(n,t);
+
+    for(const s of steren){
+      if(!ruhig){ s.x+=s.vx; s.y+=s.vy; }
+      if(s.x>W+4) s.x=-4;
+      if(s.y>H+4) s.y=-4;
+      const funkeln = ruhig ? 0.85 : 0.65 + Math.sin(t*s.tw + s.ph)*0.35;
+      const a=(0.25+s.z*0.65)*funkeln;
+      ctx.fillStyle='rgba(214,240,255,'+a.toFixed(3)+')';
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.gros,0,6.283); ctx.fill();
+      if(s.z>0.88 && !ruhig){                       // wenige grosse Sterne mit Hof
+        const g=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.gros*7);
+        g.addColorStop(0,'rgba(190,235,255,'+(a*0.35).toFixed(3)+')');
+        g.addColorStop(1,'rgba(190,235,255,0)');
+        ctx.fillStyle=g; ctx.fillRect(s.x-s.gros*7,s.y-s.gros*7,s.gros*14,s.gros*14);
+      }
+    }
     ctx.globalCompositeOperation='source-over';
     if(!ruhig) requestAnimationFrame(frame);
   }
