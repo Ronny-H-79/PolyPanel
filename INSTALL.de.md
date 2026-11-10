@@ -48,7 +48,7 @@ sudo ./install.sh --user polypanel      # legt den Benutzer an, installiert nach
 Normale Installation (im eigenen Benutzerkonto):
 
 ```bash
-git clone https://github.com/Ronny-H-79/Noah2Games.git polypanel   # oder Ordner kopieren
+git clone https://github.com/Ronny-H-79/PolyGames.git polypanel   # oder Ordner kopieren
 cd polypanel          # dieser Ordner enthaelt install.sh - NICHT PolyPanel/polypanel (das ist das Python-Paket)
 cd PolyPanel
 ./install.sh --check        # nur pruefen, was fehlt (aendert nichts)

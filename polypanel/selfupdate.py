@@ -14,7 +14,7 @@ import tempfile
 import time
 import urllib.request
 
-REPO = "Ronny-H-79/PolyPanel"
+REPO = "Ronny-H-79/PolyGames"
 BRANCH = "main"
 API_COMMIT = "https://api.github.com/repos/%s/commits/%s" % (REPO, BRANCH)
 RAW_INIT = "https://raw.githubusercontent.com/%s/%s/polypanel/__init__.py" % (REPO, BRANCH)
