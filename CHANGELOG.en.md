@@ -4,6 +4,16 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.3] — 2026-11-10
+
+### Changed
+- **The wizard is no longer part of the normal install flow.** README and INSTALL now name
+  `noah2games web` as the path (create and install the instance in the browser); the console wizard
+  is its own, explicitly optional paragraph ("console only"). The wrong statement "the web interface
+  cannot create an instance" is gone — it can, via the dashboard form.
+- The closing hints of `install.sh` name `noah2games web` first and the wizard as optional
+  (new line, own translation key).
+
 ## [0.6.2] — 2026-11-10
 
 ### Fixed

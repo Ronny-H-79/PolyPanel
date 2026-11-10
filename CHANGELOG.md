@@ -4,6 +4,16 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.3] — 2026-11-10
+
+### Geändert
+- **Der Wizard steht nicht mehr im normalen Installationsablauf.** README und INSTALL nennen jetzt
+  `noah2games web` als Weg (Instanz im Browser anlegen und installieren); der Konsolen-Assistent ist
+  ein eigener, ausdrücklich optionaler Absatz („nur Konsole"). Die falsche Aussage „die
+  Web-Oberfläche kann keine Instanz anlegen" ist raus — sie kann es seit dem Dashboard-Formular.
+- Die Abschlusshinweise von `install.sh` nennen `noah2games web` als ersten Schritt und den Wizard
+  als optional (neue Zeile, eigener Übersetzungsschlüssel).
+
 ## [0.6.2] — 2026-11-10
 
 ### Behoben

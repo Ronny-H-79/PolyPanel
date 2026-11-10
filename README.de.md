@@ -88,8 +88,17 @@ git clone https://github.com/Ronny-H-79/Noah2Games.git noah2games   # einmalig
 cd noah2games
 ./install.sh --check     # prüfen, was fehlt (ändert nichts)
 ./install.sh             # installieren
-noah2games wizard              # Instanz anlegen, Server laden, Dienst einrichten
+noah2games web           # Web-Oberfläche starten — die Adresse mit Token wird ausgegeben
 ```
+
+Instanzen legst du **im Browser** an: Adresse aus der Ausgabe öffnen, Namen eintragen, Spiel und Karte
+wählen, **Anlegen** drücken — die Karte bietet dann **Installieren** an (SteamCMD, danach Start).
+Nach dem ersten Befehl braucht es kein Terminal mehr.
+
+**Nur Konsole, optional:** `noah2games wizard` ist die Terminal-Alternative zum Browser — fragt Name,
+Karte, Port und Session-Namen ab, lädt die Serverdateien und richtet den systemd-Dienst ein. Er
+braucht eine interaktive Sitzung und ist **nicht** nötig: alles, was der Wizard macht, geht auch in
+der Web-Oberfläche. `./install.sh --wizard` startet ihn direkt nach der Installation.
 
 **Voraussetzungen:** Linux, Python ≥ 3.10, Wine, `curl` und `tar`. Fehlende Pakete fragt der Installer
 und installiert sie auf Wunsch (`pacman`, `apt`, `dnf`, `zypper`). SteamCMD lädt er selbst nach,

@@ -6,7 +6,7 @@
 #   ./install.sh --lang en       Sprache ohne Rueckfrage (de|en)
 #   ./install.sh --check         nur pruefen, was fehlt (aendert nichts)
 #   ./install.sh --auto          fehlende Pakete ohne Rueckfrage installieren (sudo)
-#   ./install.sh --wizard        danach den Einrichtungsassistenten starten
+#   ./install.sh --wizard        optional: danach den Konsolen-Assistenten starten
 #   ./install.sh --user noah2games     als eigener Dienst-Benutzer installieren (root, empfohlen)
 #   ./install.sh --uninstall     wieder entfernen (Instanzen bleiben erhalten)
 #
@@ -135,8 +135,10 @@ t() {
     de:path_hint)          echo "Hinweis: $2 ist nicht im PATH - z. B. in ~/.config/fish/config.fish ergaenzen:" ;;
     en:done)               echo "Done. Next steps:" ;;
     de:done)               echo "Fertig. Naechste Schritte:" ;;
-    en:wizard_step)        echo "  noah2games wizard          create an instance, download the server, set up a service" ;;
-    de:wizard_step)        echo "  noah2games wizard          Instanz anlegen, Server laden, Dienst einrichten" ;;
+    en:wizard_step)        echo "  noah2games web             open the web UI - create instances in the browser" ;;
+    de:wizard_step)        echo "  noah2games web             Web-Oberflaeche oeffnen - Instanzen im Browser anlegen" ;;
+    en:wizard_opt)         echo "  noah2games wizard          optional, console only: guided setup in the terminal" ;;
+    de:wizard_opt)         echo "  noah2games wizard          optional, nur Konsole: gefuehrte Einrichtung im Terminal" ;;
     en:supervise_step)     echo "  noah2games supervise --all   watch all instances" ;;
     en:uninstall_step)     echo "  ./install.sh --uninstall   remove noah2games (instances and backups stay)" ;;
     de:uninstall_step)     echo "  ./install.sh --uninstall   noah2games entfernen (Instanzen und Backups bleiben)" ;;
@@ -447,6 +449,7 @@ esac
 echo
 t done
 t wizard_step
+t wizard_opt
 t supervise_step
 t uninstall_step
 
