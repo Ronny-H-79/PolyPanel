@@ -4,6 +4,16 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.6.1] — 2026-11-10
+
+### Neu
+- **Mod-Beschreibungen automatisch auf Deutsch.** In der deutschen Oberfläche werden die Treffer
+  der Mod-Suche übersetzt (Steam-Workshop, CurseForge, Nexus/GitHub, ficsit.app) — inklusive der
+  Vorschläge beim Tippen. Übersetzungen liegen unter `~/.config/noah2games/cache/translations`
+  und werden wiederverwendet; schlägt die Übersetzung fehl, steht der Originaltext da.
+  Erste Suche dadurch ~2,5 s, jede weitere ~0,4 s.
+- Schon deutsche Texte werden erkannt und nicht erneut übersetzt.
+
 ## [0.6.0] — 2026-11-10
 
 ### Neu

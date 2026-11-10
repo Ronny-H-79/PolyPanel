@@ -4,6 +4,15 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.1] — 2026-11-10
+
+### Added
+- **Mod descriptions are translated to German automatically.** In the German UI the mod search hits
+  (Steam Workshop, CurseForge, Nexus/GitHub, ficsit.app) are translated — including the suggestions
+  while typing. Translations are cached in `~/.config/noah2games/cache/translations` and reused;
+  if a translation fails the original text stays. First search ~2.5 s, every repeat ~0.4 s.
+- Texts that are already German are detected and not translated again.
+
 ## [0.6.0] — 2026-11-10
 
 ### Added

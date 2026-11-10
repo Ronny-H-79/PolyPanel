@@ -1676,6 +1676,18 @@ def _start_install(inst: Instance) -> None:
 
 
 
+def _translate_hits(data: dict, field: str, limit: int = 12) -> dict:
+    """Mod-Beschreibungen in der deutschen Oberflaeche uebersetzen (Cache, fehlertolerant)."""
+    if i18n.lang() != "de":
+        return data
+    try:
+        from . import translate
+        translate.translate_items(data.get("results") or [], field, limit=limit)
+    except Exception:                       # noqa: BLE001 - Suche darf nie scheitern
+        pass
+    return data
+
+
 def _local_mods(inst) -> dict:
     """Mods im spieleigenen Ordner auflisten (7D2D, Satisfactory, Space Engineers)."""
     pfad = inst.profile.mods_path(inst)
@@ -1829,19 +1841,21 @@ class Handler(BaseHTTPRequestHandler):
             term = q.get("q", [""])[0]
             inst_m = self._inst(q)
             if inst_m is not None and inst_m.game != "ark":
-                # 7D2D/Satisfactory/SE: eigener Anbieter je Spielprofil
+                # 7D2D/Satisfactory/SE/ASE: eigener Anbieter je Spielprofil
                 try:
-                    self._json(inst_m.profile.mods_search(inst_m, term))
+                    payload = inst_m.profile.mods_search(inst_m, term)
+                    self._json(_translate_hits(payload, "description"))
                 except Exception as exc:          # noqa: BLE001
                     self._json({"results": [], "error": str(exc)})
                 return
             key = modlib._api_key()
             results = modlib.search(term, limit=50)
-            self._json({"results": results, "total": modlib.api_total(),
-                        "needs_key": not bool(key), "has_key": bool(key)})
+            self._json(_translate_hits({"results": results, "total": modlib.api_total(),
+                                        "needs_key": not bool(key), "has_key": bool(key)},
+                                       "summary"))
             return
         if path == "/api/mods/suggest":
-            self._json(modlib.suggest(q.get("q", [""])[0]))
+            self._json(_translate_hits(modlib.suggest(q.get("q", [""])[0]), "summary"))
             return
         if path == "/api/update/progress":
             inst_p = self._inst(q)
@@ -1898,7 +1912,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"results": [], "search_url": ""})
             else:
                 try:
-                    self._json(inst.profile.mods_search(inst, q))
+                    self._json(_translate_hits(inst.profile.mods_search(inst, q), "description"))
                 except Exception as exc:      # noqa: BLE001 - Suche darf nie 500en
                     self._json({"results": [], "error": str(exc)})
         elif path == "/api/mods":
