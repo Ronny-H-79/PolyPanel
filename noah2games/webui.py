@@ -695,6 +695,12 @@ body[data-game="ark"] #mods-nonark{display:none !important}
       </div>
       <div id="modhits-local"></div>
       <div id="mods-local-list">…</div>
+      <div id="nexusbox" style="display:none;margin-top:14px">
+        <div class="setrow"><label><b>NexusMods-API-Key</b>
+          <small data-t="mods.nexus_hint">optional</small></label>
+          <input id="nexuskey" type="password" placeholder="…"></div>
+        <div class="row"><button onclick="saveNexusKey()" data-t="common.save">Speichern</button></div>
+      </div>
     </div>
     <div id="mods">…</div>
     <div class="row" style="margin-top:8px">
@@ -962,7 +968,11 @@ function showTab(name, btn){
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));
   if(btn) btn.classList.add('on');
   try{ localStorage.setItem('noah2games.tab', name); if(history.replaceState) history.replaceState(null,'','#'+name); }catch(e){}
-  if(name==='mods' && document.body.dataset.game!=='ark'){ loadLocalMods(); }
+  if(name==='mods' && document.body.dataset.game!=='ark'){
+    loadLocalMods();
+    const nb=document.getElementById('nexusbox');
+    if(nb) nb.style.display = (document.body.dataset.game==='7d2d') ? '' : 'none';
+  }
   if(name==='overview'){ const l=document.getElementById('log');
     if(l){ requestAnimationFrame(()=>{ l.scrollTop=l.scrollHeight; }); } }
 }
@@ -1082,6 +1092,16 @@ function showSetGroup(g){
   document.querySelectorAll('#settings .setgroup').forEach(el=>el.classList.toggle('on', el.dataset.g===g));
   document.querySelectorAll('#settabs button').forEach(b=>b.classList.toggle('on', b.dataset.g===g));
   try{ localStorage.setItem('noah2games.setgroup', g); }catch(e){}
+}
+
+
+async function saveNexusKey(){
+  const el=document.getElementById('nexuskey');
+  if(!el) return;
+  try{
+    const msg=await api('/api/mods/nexuskey?key='+encodeURIComponent(el.value),{method:'POST'});
+    el.value=''; alert(msg);
+  }catch(e){ alert('Fehler: '+e); }
 }
 
 async function loadLocalMods(){
@@ -1769,6 +1789,13 @@ class Handler(BaseHTTPRequestHandler):
             if result.get("ok"):
                 threading.Timer(1.0, selfupdate.restart_service).start()
             self._json(result)
+            return
+
+        if path == "/api/mods/nexuskey":
+            key = q.get("key", [""])[0].strip()
+            from .games.sv7dtd import SevenDaysProfile
+            SevenDaysProfile.set_nexus_key(key)
+            self._send(200, ("Nexus-Key gespeichert" if key else "Nexus-Key gelöscht").encode())
             return
 
         if path == "/api/mods/install":

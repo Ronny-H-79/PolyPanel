@@ -5,8 +5,11 @@ Steam-App-ID 294420, Start ueber `startserver.sh`, Konfiguration in
 """
 from __future__ import annotations
 
+import json
 import os
 import re
+import urllib.parse
+import urllib.request
 import xml.etree.ElementTree as ET
 
 from .base import GameProfile
@@ -42,12 +45,52 @@ class SevenDaysProfile(GameProfile):
     def config_file(self, inst) -> str:
         return os.path.join(inst.directory, "serverconfig.xml")
 
+    # ------------------------------------------------------------ NexusMods
+    NEXUS_KEY = os.path.expanduser("~/.config/noah2games/nexus.key")
+
+    @classmethod
+    def nexus_key(cls) -> str:
+        try:
+            with open(cls.NEXUS_KEY, encoding="utf-8") as fh:
+                return fh.read().strip()
+        except OSError:
+            return ""
+
+    @classmethod
+    def set_nexus_key(cls, key: str) -> None:
+        os.makedirs(os.path.dirname(cls.NEXUS_KEY), exist_ok=True)
+        with open(cls.NEXUS_KEY, "w", encoding="utf-8") as fh:
+            fh.write(key.strip() + "\n")
+        os.chmod(cls.NEXUS_KEY, 0o600)
+
+    def _nexus(self, pfad: str, timeout: float = 20.0):
+        req = urllib.request.Request("https://api.nexusmods.com/v1" + pfad, headers={
+            "apikey": self.nexus_key(), "User-Agent": "noah2games",
+            "accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8", "replace"))
+
     def mods_search(self, inst, query: str) -> dict:
-        # 7D2D hat keinen Steam Workshop; NexusMods bietet keine oeffentliche Such-API.
-        return {"provider": "nexusmods",
-                "note": "Suche bei NexusMods - Mod als Ordner nach Mods/ entpacken",
+        treffer = []
+        key = self.nexus_key()
+        if key:
+            # Nexus-API hat keine freie Suche: Neuheiten + Trends laden und lokal filtern
+            for pfad in ("/games/7daystodie/mods/latest_added.json",
+                         "/games/7daystodie/mods/trending.json"):
+                try:
+                    for m in self._nexus(pfad) or []:
+                        name = m.get("name") or ""
+                        if query.lower() in name.lower():
+                            treffer.append({"id": m.get("mod_id"), "name": name,
+                                            "description": (m.get("summary") or "")[:160],
+                                            "downloads": m.get("mod_downloads") or 0})
+                except Exception:               # noqa: BLE001 - Suche darf nicht scheitern
+                    continue
+        return {"provider": "nexusmods", "results": treffer, "has_key": bool(key),
+                "note": ("Nexus hat keine freie Such-API - Treffer stammen aus Neuheiten und "
+                         "Trends. Alles andere über die Webseite; Mod als Ordner nach Mods/."),
                 "search_url": "https://www.nexusmods.com/7daystodie/search/?gsearch=%s"
-                              % __import__("urllib.parse", fromlist=["quote"]).quote(query)}
+                              % urllib.parse.quote(query)}
 
     def mods_path(self, inst) -> str:
         return os.path.join(inst.directory, "Mods")
