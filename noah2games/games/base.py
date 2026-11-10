@@ -58,6 +58,7 @@ class GameProfile:
     needs_display: bool = False   # True = DISPLAY/WAYLAND nicht entfernen
     supports_cluster: bool = False
     install_note: str = ""
+    maps: tuple = ()              # ((Wert, Anzeigename), ...) - leer = keine Kartenauswahl
 
     # Einstellungen, die im Reiter "Einstellungen" erscheinen:
     # (Instanz-Attribut, Label, Hinweis, Typ)

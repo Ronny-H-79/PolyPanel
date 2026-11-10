@@ -4,6 +4,28 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.5.0] — 2026-11-10
+
+### Neu
+- **ARK: Survival Evolved als fünftes Spiel** (`--game arkse`, Steam-App 376030). Anders als
+  Ascended läuft ASE **nativ** unter Linux (`ShooterGame/Binaries/Linux/ShooterGameServer`),
+  deshalb ohne Wine und ohne Prefix:
+  - **Konfiguration**: `GameUserSettings.ini` und `Game.ini` unter
+    `ShooterGame/Saved/Config/LinuxServer/` — Ports, Spieleserver-Name, Admin-Passwort und
+    Workshop-Mods schreibt der Manager, die Karte steht in der Startzeile.
+  - **Steuerung** über Source-RCON (`ServerAdminPassword`), inklusive Spielerliste, Kick/Ban,
+    `SaveWorld` + `DoExit` beim Stop.
+  - **Einstellungen**: alle Eigenschaften beider INI-Dateien als Formular, mit deutschen
+    Beschriftungen und den bekannten Reitern (Server, Spiel & Tempo, PvP, Strukturen, Dinos,
+    Transfer, Anzeige, MOTD, Game.ini).
+  - **Mods**: Workshop-IDs im Feld „Mods", der Server lädt sie beim Start (`-automanagedmods`).
+  - **Kartenauswahl** im Dashboard: The Island, Ragnarok, Scorched Earth, The Center, Aberration,
+    Extinction, Valguero, Genesis, Crystal Isles, Genesis 2, Lost Island, Fjordur.
+- **Kartenliste hängt jetzt am Spielprofil** — ARK ASA und ASE haben eigene Weltennamen, die
+  Auswahl im Dashboard wird beim Wechsel des Spiels neu gefüllt (andere Spiele ohne Kartenauswahl).
+- **Befehls-Knöpfe (Speichern, Broadcast, Dino-Wipe …)** gelten für ASE wie für ASA; Whitelist,
+  Cluster-Reiter und INI-Roheditor bleiben ARK-Ascended-spezifisch.
+
 ## [0.4.3] — 2026-11-10
 
 ### Neu

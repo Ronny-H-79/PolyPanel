@@ -11,18 +11,7 @@ from .instance import Instance
 
 CONF_DIR = os.path.expanduser("~/.config/noah2games")
 
-MAPS = [
-    ("Ragnarok_WP", "Ragnarok"),
-    ("TheIsland_WP", "The Island"),
-    ("ScorchedEarth_WP", "Scorched Earth"),
-    ("Aberration_WP", "Aberration"),
-    ("Extinction_WP", "Extinction"),
-    ("TheCenter_WP", "The Center"),
-    ("Astraeos_WP", "Astraeos"),
-    ("Valguero_WP", "Valguero"),
-    ("LostColony_WP", "Lost Colony"),
-    ("Genesis_WP", "Genesis"),
-]
+MAPS = list(games.get("ark").maps)     # ASA-Karten (aeltere Aufrufer nutzen diese Liste)
 
 
 def conf_path(name: str) -> str:
@@ -118,7 +107,7 @@ def create(name: str, map_name: str = "", port: int | None = None,
         name=name,
         directory=os.path.expanduser("~/noah2games-instances/%s" % name),
         game=prof.key,
-        map=map_name or ("Ragnarok_WP" if prof.key == "ark" else ""),
+        map=map_name or (prof.maps[0][0] if prof.maps else ""),
         session_name=session_name or prof.label,
         port=game_port,
         query_port=game_port + 1,

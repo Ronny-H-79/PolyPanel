@@ -17,6 +17,18 @@ class ArkProfile(GameProfile):
     supports_cluster = True
     install_note = "Windows-Binary, laeuft unter Wine"
     wine_overrides = "mscoree,mshtml="   # ARK braucht kein .NET
+    maps = (
+        ("Ragnarok_WP", "Ragnarok"),
+        ("TheIsland_WP", "The Island"),
+        ("ScorchedEarth_WP", "Scorched Earth"),
+        ("Aberration_WP", "Aberration"),
+        ("Extinction_WP", "Extinction"),
+        ("TheCenter_WP", "The Center"),
+        ("Astraeos_WP", "Astraeos"),
+        ("Valguero_WP", "Valguero"),
+        ("LostColony_WP", "Lost Colony"),
+        ("Genesis_WP", "Genesis"),
+    )
 
     # Die ARK-Logik liegt unveraendert in Instance (Bestandscode) - das Profil
     # reicht sie nur durch, damit der Kern spielunabhaengig aufrufen kann.

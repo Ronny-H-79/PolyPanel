@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 from .ark import ArkProfile
+from .arkse import ArkSeProfile
 from .base import GameProfile
 from .satisfactory import SatisfactoryProfile
 from .spaceengineers import SpaceEngineersProfile
 from .sv7dtd import SevenDaysProfile
 
 PROFILES: dict[str, GameProfile] = {
-    p.key: p for p in (ArkProfile(), SatisfactoryProfile(), SpaceEngineersProfile(), SevenDaysProfile())
+    p.key: p for p in (ArkProfile(), ArkSeProfile(), SatisfactoryProfile(),
+                       SpaceEngineersProfile(), SevenDaysProfile())
 }
 
 DEFAULT_GAME = "ark"

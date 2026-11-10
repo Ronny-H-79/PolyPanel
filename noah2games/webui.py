@@ -354,23 +354,32 @@ DASH = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
 <script>
 const GAMESHINT = {
   ark:            {install: "~50 GB über SteamCMD (Windows-Binary, Wine)", ports: "Spiel 7777 · Query 27016 · RCON 27025", ram: "8–16 GB (ohne Mods)"},
+  arkse:          {install: "~20 GB über SteamCMD (nativ, Linux)",         ports: "Spiel 7777 · Query 7778 · RCON 27020", ram: "6–10 GB (ohne Mods)"},
   satisfactory:   {install: "~12 GB über SteamCMD (nativ)",                 ports: "Spiel 7777 · Query 15777 · Beacon 15000", ram: "6–12 GB (ohne Mods)"},
   "7d2d":         {install: "~18 GB über SteamCMD (nativ)",                 ports: "Spiel 26900 · Telnet 8081",        ram: "4–8 GB (ohne Mods)"},
   spaceengineers: {install: "~8 GB über SteamCMD (Windows-Binary, Wine)",   ports: "Spiel 27016 · Steam 27015",        ram: "4–8 GB (ohne Mods)"}
 };
+const GAMEMAPS = __GAMEMAPS__;
+function fillMap(){
+  const g=(document.getElementById('ngame')||{}).value||'ark';
+  const m=document.getElementById('nmap'); if(!m) return;
+  const list=GAMEMAPS[g]||[];
+  m.style.display=list.length?'':'none';
+  m.innerHTML=list.map(function(x){ return '<option value="'+x[0]+'">'+x[1]+'</option>'; }).join('');
+}
 function updateHint(){
   const g=(document.getElementById('ngame')||{}).value||'ark';
   const h=GAMESHINT[g]; if(!h) return;
   const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
   set('hint_install', h.install); set('hint_ports', h.ports); set('hint_ram', h.ram);
 }
-document.addEventListener('DOMContentLoaded', updateHint);
+document.addEventListener('DOMContentLoaded', function(){ updateHint(); fillMap(); });
 </script>
 <main>
   <section><h2 data-t="dash.new_instance">Neue Instanz</h2>
     <input id="nname" data-tp="dash.name_ph" placeholder="Name">
     <select id="ngame" onchange="toggleMap()">__GAMES__</select>
-    <select id="nmap">__MAPS__</select>
+    <select id="nmap"></select>
     <input id="nport" data-tp="dash.port_ph" placeholder="Port">
     <input id="nsession" data-tp="dash.session_ph" placeholder="Spieleserver-Name">
     <div class="row"><button class="primary" onclick="createInst()" data-t="dash.create">Anlegen</button></div>
@@ -562,8 +571,7 @@ async function delInst(name, sizeGb){
   }catch(e){ alert(String(e)); }
 }
 function toggleMap(){
-  const g=document.getElementById('ngame').value, m=document.getElementById('nmap');
-  if(m) m.style.display = (g==='ark') ? '' : 'none';
+  if(typeof fillMap==='function') fillMap();
   if(typeof updateHint==='function') updateHint();
 }
 async function createInst(){
@@ -686,6 +694,7 @@ INST = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>noah2games · __NAME__</title>
 <style>""" + SHARED_CSS + """
 body:not([data-game="ark"]) .ark-only{display:none !important}
+body:not([data-game="ark"]):not([data-game="arkse"]) .arkcmd{display:none !important}
 body:not([data-game="ark"]) .tab-mods > *:not(h2):not(#mods-nonark){display:none !important}
 body[data-game="ark"] #mods-nonark{display:none !important}
 </style></head><body data-game="__GAME__">
@@ -713,7 +722,7 @@ body[data-game="ark"] #mods-nonark{display:none !important}
   <section class="tab tab-overview on wide" id="logsec"><h2 data-t="inst.log">Server-Log</h2><pre id="log">…</pre></section>
 
   <section class="tab tab-overview on"><h2 data-t="inst.commands">Befehle</h2>
-    <div id="cmds" class="ark-only"></div>
+    <div id="cmds" class="arkcmd"></div>
     <input id="cmd" data-tp="inst.rcon_free" placeholder="RCON"
       onkeydown="if(event.key==='Enter')rcon()" style="margin-top:10px">
     <div class="row"><button onclick="rcon()" data-t="common.send">Senden</button></div>
@@ -1243,8 +1252,9 @@ async function loadSettings(){
     const bySect={};
     byGroup[g].forEach(v=>{ (bySect[v.file+'|'+v.section]=bySect[v.file+'|'+v.section]||[]).push(v); });
     const inner=Object.entries(bySect).map(([k,list])=>{
-      const p=k.split('|'), file=p[0]==='gus'?'GameUserSettings.ini':
-        (p[0]==='instance'?(document.body.dataset.game==='7d2d'?'serverconfig.xml':'ServerSettings.ini'):'Game.ini');
+      const p=k.split('|'), g=document.body.dataset.game;
+      const file=p[0]==='gus'?'GameUserSettings.ini':
+        (p[0]==='instance'?(g==='7d2d'?'serverconfig.xml':(g==='arkse'?'Startzeile / Instanz':'ServerSettings.ini')):'Game.ini');
       return `<div class="meta" style="margin:10px 0 2px;opacity:.75">${file} · ${p[1]}</div>`+
         list.map(_setField).join('');
     }).join('');
@@ -1722,11 +1732,13 @@ class Handler(BaseHTTPRequestHandler):
         tok = q.get("token", [""])[0]
 
         if path == "/":
-            maps = "".join('<option value="%s">%s</option>' % (m, l) for m, l in registry.MAPS)
             games_opts = "".join('<option value="%s">%s</option>' % (k, v)
                                  for k, v in games.labels().items())
+            gamemaps = json.dumps({k: [list(m) for m in p.maps]
+                                   for k, p in games.PROFILES.items() if p.maps},
+                                  ensure_ascii=False)
             self._html(_render(DASH.replace("__GAMES__", games_opts)
-                                  .replace("__MAPS__", maps)))
+                                  .replace("__GAMEMAPS__", gamemaps)))
             return
         if path.startswith("/i/"):
             inst = self._inst(q)

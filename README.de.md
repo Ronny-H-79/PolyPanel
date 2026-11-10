@@ -1,6 +1,6 @@
 # noah2games — Multigame-Servermanager für Linux · Web-UI im Browser
 
-ARK: Survival Ascended · Satisfactory · 7 Days to Die · Space Engineers — ein Manager, eine Oberfläche.
+ARK: Survival Ascended · ARK: Survival Evolved · Satisfactory · 7 Days to Die · Space Engineers — ein Manager, eine Oberfläche.
 
 [Deutsch](README.de.md) · [English](README.md) — der Installer fragt beim Start nach der Sprache, die Oberfläche lässt sich
 jederzeit umschalten (Knopf oben rechts, `noah2games lang en` in der Konsole).
@@ -30,7 +30,7 @@ Serverprozess, RCON für alles, was der Server von außen anbietet.
 
 ![Dashboard](docs/screenshot-dashboard-de.png)
 
-## Weitere Spiele (Satisfactory, 7 Days to Die, Space Engineers)
+## Weitere Spiele (ARK: Survival Evolved, Satisfactory, 7 Days to Die, Space Engineers)
 
 noah2games kann neben ARK: Survival Ascended auch andere Dedicated Server verwalten. Der Kern
 (Start/Stop, Updates, Backups, Zeitplan, Web-UI, Mehrinstanzen) ist spielunabhängig; ein
@@ -39,6 +39,7 @@ noah2games kann neben ARK: Survival Ascended auch andere Dedicated Server verwal
 | Profil | Steam-App | Start | Steuerung |
 |---|---|---|---|
 | `ark` | 2430930 | `ArkAscendedServer.exe` unter Wine | Source-RCON |
+| `arkse` | 376030 | `ShooterGame/Binaries/Linux/ShooterGameServer` (nativ) | Source-RCON (`ServerAdminPassword`) |
 | `satisfactory` | 1690800 | `FactoryServer.sh` (nativ) | HTTPS-API `/api/v1` (Bearer-Token) |
 | `7d2d` | 294420 | `startserver.sh` (nativ) | Telnet (`TelnetPassword` in `serverconfig.xml`) |
 | `spaceengineers` | 298740 | `DedicatedServer64/SpaceEngineersDedicated.exe` unter Wine | kein RCON — Start/Stop, XML-Config, Serverkonsole |
@@ -46,11 +47,19 @@ noah2games kann neben ARK: Survival Ascended auch andere Dedicated Server verwal
 Instanz anlegen:
 
 ```bash
+noah2games --name insel  init --game arkse --map Ragnarok
 noah2games --name fabrik init --game satisfactory
 noah2games --name horde  init --game 7d2d
 noah2games --name werft  init --game spaceengineers
 noah2games --name fabrik start
 ```
+
+**ARK: Survival Evolved** ist die ältere ARK-Generation und braucht kein Wine: SteamCMD liefert einen
+Linux-Server. Die Konfiguration liegt in `ShooterGame/Saved/Config/LinuxServer/`
+(`GameUserSettings.ini` und `Game.ini`); der Manager schreibt Ports, Namen, Admin-Passwort und
+Workshop-Mods hinein, Karte und Cluster-Argumente stehen in der Startzeile. Mods sind
+Steam-Workshop-IDs (`-automanagedmods`). Der Einstellungs-Reiter liest **alle** Eigenschaften aus
+beiden INI-Dateien, mit deutschen Beschriftungen.
 
 Im Web-UI nimmt `POST /api/instances` zusätzlich den Parameter `game` an. Ports: Satisfactory
 braucht drei (Spiel `-Port`, `-QueryPort`, `-BeaconPort`), 7 Days to Die Spiel-, Query- und

@@ -4,6 +4,28 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] — 2026-11-10
+
+### Added
+- **ARK: Survival Evolved as the fifth game** (`--game arkse`, Steam app 376030). Unlike Ascended
+  it runs **natively** on Linux (`ShooterGame/Binaries/Linux/ShooterGameServer`) — no Wine, no
+  prefix:
+  - **Configuration**: `GameUserSettings.ini` and `Game.ini` in
+    `ShooterGame/Saved/Config/LinuxServer/` — ports, server name, admin password and workshop mods
+    are written by the manager, the map goes into the launch line.
+  - **Control** via Source RCON (`ServerAdminPassword`), including player list, kick/ban and
+    `SaveWorld` + `DoExit` on stop.
+  - **Settings**: every property of both INI files as a form, with German labels and the familiar
+    tabs (server, gameplay, PvP, structures, dinos, transfer, display, MOTD, Game.ini).
+  - **Mods**: workshop IDs in the "Mods" field, the server downloads them on start
+    (`-automanagedmods`).
+  - **Map list** in the dashboard: The Island, Ragnarok, Scorched Earth, The Center, Aberration,
+    Extinction, Valguero, Genesis, Crystal Isles, Genesis 2, Lost Island, Fjordur.
+- **The map list now belongs to the game profile** — ASA and ASE use different world names, so the
+  dashboard refills the select when the game changes (other games have no map select).
+- **Console command buttons (save, broadcast, dino wipe …)** work for ASE as for ASA; whitelist,
+  cluster tab and the raw INI editor stay Ascended-specific.
+
 ## [0.4.3] — 2026-11-10
 
 ### Added

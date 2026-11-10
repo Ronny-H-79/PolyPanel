@@ -1,8 +1,8 @@
 # Installing noah2games
 
-An installer for your own multigame server manager (ARK: Survival Ascended, Satisfactory,
-7 Days to Die, Space Engineers). Everything runs locally: Python standard library plus
-SteamCMD and Wine.
+An installer for your own multigame server manager (ARK: Survival Ascended, ARK: Survival Evolved,
+Satisfactory, 7 Days to Die, Space Engineers). Everything runs locally: Python standard library
+plus SteamCMD and Wine.
 
 [← back to the README](README.md) · [Deutsch](INSTALL.de.md)
 

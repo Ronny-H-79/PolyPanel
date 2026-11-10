@@ -7,6 +7,7 @@ import os
 import sys
 
 from .instance import Instance
+from . import games
 from . import i18n
 from . import runner
 from .rcon import RconClient
@@ -26,15 +27,16 @@ def load(name: str) -> Instance:
 
 
 def cmd_init(args: argparse.Namespace) -> None:
+    prof = games.get(args.game)
     inst = Instance(
         name=args.name,
         directory=os.path.abspath(os.path.join(args.dir, args.name)) if args.dir.endswith("noah2games-instances") else os.path.abspath(args.dir),
-        game=args.game,
-        map=args.map,
+        game=prof.key,
+        map=args.map or (prof.maps[0][0] if prof.maps else ""),
         session_name=args.session or "Gameserver %s" % args.name,
-        port=args.port,
-        query_port=args.port + 1,
-        rcon_port=args.rcon_port,
+        port=args.port or prof.default_game_port,
+        query_port=(args.port or prof.default_game_port) + 1,
+        rcon_port=args.rcon_port or prof.default_control_port,
         rcon_password=args.rcon_password or os.urandom(8).hex(),
     )
     inst.save(conf_path(args.name))
@@ -379,20 +381,20 @@ def cmd_wizard(args: argparse.Namespace) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
-    p = argparse.ArgumentParser(prog="noah2games", description="noah2games - Multigame-Server-Manager (ARK, Satisfactory, 7 Days to Die, Space Engineers)")
+    p = argparse.ArgumentParser(prog="noah2games", description="noah2games - Multigame-Server-Manager (ARK Ascended/Evolved, Satisfactory, 7 Days to Die, Space Engineers)")
     p.add_argument("--name", default=None, help="Instanzname (default: test)")
     sub = p.add_subparsers(dest="cmd", required=True)
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--name", default=argparse.SUPPRESS, help="Instanzname")
 
     pi = sub.add_parser("init", parents=[common], help="Konfiguration anlegen")
-    pi.add_argument("--game", default="ark", choices=["ark", "satisfactory", "spaceengineers", "7d2d"],
+    pi.add_argument("--game", default="ark", choices=games.keys(),
                     help="Spielprofil der Instanz")
     pi.add_argument("--dir", default=os.path.expanduser("~/noah2games-instances"))
-    pi.add_argument("--map", default="Ragnarok_WP")
+    pi.add_argument("--map", default="")
     pi.add_argument("--session", default="")
-    pi.add_argument("--port", type=int, default=7790)
-    pi.add_argument("--rcon-port", type=int, default=27025)
+    pi.add_argument("--port", type=int, default=0)
+    pi.add_argument("--rcon-port", type=int, default=0)
     pi.add_argument("--rcon-password", default="")
     pi.set_defaults(func=cmd_init)
 

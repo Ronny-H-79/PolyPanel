@@ -1,6 +1,6 @@
 # noah2games — multigame server manager for Linux · web UI in the browser
 
-ARK: Survival Ascended · Satisfactory · 7 Days to Die · Space Engineers — one manager, one web UI.
+ARK: Survival Ascended · ARK: Survival Evolved · Satisfactory · 7 Days to Die · Space Engineers — one manager, one web UI.
 
 English · [Deutsch](README.de.md) — the installer asks for the language up front, and the UI can switch
 any time (button in the top right, `noah2games lang en` on the console).
@@ -30,7 +30,7 @@ RCON for everything the server exposes.
 
 ![Dashboard](docs/screenshot-dashboard.png)
 
-## More games (Satisfactory, 7 Days to Die, Space Engineers)
+## More games (ARK: Survival Evolved, Satisfactory, 7 Days to Die, Space Engineers)
 
 noah2games manages other dedicated servers besides ARK: Survival Ascended. The core (start/stop,
 updates, backups, schedules, web UI, multi-instance) is game-agnostic; a **game profile** only
@@ -39,6 +39,7 @@ provides what the game needs:
 | Profile | Steam app | Launch | Control |
 |---|---|---|---|
 | `ark` | 2430930 | `ArkAscendedServer.exe` under Wine | Source RCON |
+| `arkse` | 376030 | `ShooterGame/Binaries/Linux/ShooterGameServer` (native) | Source RCON (`ServerAdminPassword`) |
 | `satisfactory` | 1690800 | `FactoryServer.sh` (native) | HTTPS API `/api/v1` (bearer token) |
 | `7d2d` | 294420 | `startserver.sh` (native) | Telnet (`TelnetPassword` in `serverconfig.xml`) |
 | `spaceengineers` | 298740 | `DedicatedServer64/SpaceEngineersDedicated.exe` under Wine | no RCON — start/stop, XML config, server console |
@@ -46,11 +47,18 @@ provides what the game needs:
 Create an instance:
 
 ```bash
+noah2games --name island  init --game arkse --map Ragnarok
 noah2games --name factory init --game satisfactory
 noah2games --name horde   init --game 7d2d
 noah2games --name yard    init --game spaceengineers
 noah2games --name factory start
 ```
+
+**ARK: Survival Evolved** is the older ARK generation and needs no Wine: SteamCMD ships a Linux
+server. Configuration lives in `ShooterGame/Saved/Config/LinuxServer/` (`GameUserSettings.ini` and
+`Game.ini`), the manager writes ports, name, admin password and workshop mods there, and the map
+plus cluster arguments go into the launch line. Mods are Steam Workshop IDs (`-automanagedmods`);
+the settings tab reads **every** property from both INI files, with German labels.
 
 The web UI accepts the extra `game` parameter on `POST /api/instances`. Ports: Satisfactory needs
 three (`-Port`, `-QueryPort`, `-BeaconPort`), 7 Days to Die game, query and telnet ports. Instance
