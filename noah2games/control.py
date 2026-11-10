@@ -80,6 +80,12 @@ class TelnetClient:
 
     def close(self) -> None:
         if self._sock is not None:
+            # sauber abmelden, sonst protokolliert 7D2D "socket has been shut down"
+            try:
+                self._sock.sendall(b"exit\r\n")
+                self._sock.shutdown(1)          # SHUT_WR: dem Server das Ende mitteilen
+            except OSError:
+                pass
             try:
                 self._sock.close()
             finally:
