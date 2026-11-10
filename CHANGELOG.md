@@ -1,0 +1,622 @@
+# Changelog
+
+Alle nennenswerten Änderungen an noah2games. Format nach
+[Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
+[Semantic Versioning](https://semver.org/lang/de/).
+
+## [0.4.0] — 2026-11-10
+
+### Neu
+- **Spielprofile: Satisfactory und 7 Days to Die neben ARK.** Der Kern bleibt spielunabhängig,
+  ein Profil liefert Startzeile, Konfigurationsdatei, Pfade und Steuerkanal:
+  - `ark` — ARK: Survival Ascended (App 2430930, Source-RCON, Wine) wie bisher
+  - `satisfactory` — Satisfactory Dedicated Server (App 1690800, `FactoryServer.sh`, Ports
+    Spiel/Query/Beacon, Steuerung über die HTTPS-API `/api/v1` mit Bearer-Token)
+  - `7d2d` — 7 Days to Die (App 294420, `startserver.sh`, `serverconfig.xml`, Steuerung über Telnet)
+- Anlegen per `noah2games --name <name> init --game satisfactory|7d2d`, im Web-UI über den
+  Parameter `game` an `/api/instances`.
+- Neue Felder je Instanz: `beacon_port`, `api_token` (Satisfactory), `telnet_password` (7D2D).
+
+### Geändert
+- Wine wird nur noch für ARK verwendet; Satisfactory und 7D2D starten nativ.
+- Instanzverzeichnis jetzt `~/noah2games-instances/<name>` (getrennt von noah).
+
+## [0.3.70] — 2026-11-09
+
+### Geändert
+- **Stop ist deutlich schneller und meldet die Dauer.** Bisher wurde nur die PID des Starters
+  beobachtet: der verschwindet zuerst, während `ArkAscendedServer.exe` und `wineserver` noch liefen —
+  deshalb wartete noah2games die volle Kulanzzeit ab (bis 90 s) und ließ Reste stehen. Jetzt werden alle
+  Prozesse der Instanz über die Kommandozeile gefunden, das Warten endet, sobald wirklich keiner mehr
+  läuft, und die Meldung nennt die gebrauchte Zeit („beendet nach 6 s"). Notausstieg bleibt:
+  SIGTERM an die Gruppe, danach SIGKILL auf die Reste.
+
+## [0.3.68] — 2026-11-08
+
+### Geändert
+- **Die Backup-Box ist ganz entfernt.** Welt-Sicherungen laufen ausschließlich als Aufgabe im Zeitplan
+  (Aktion „Backup"); Snapshots bleiben in ihrer Box. Über die Oberfläche lassen sich damit auch keine
+  Backups mehr einzeln zurückholen — die Dateien unter `~/noah2games-backups` und die API bleiben bestehen.
+
+## [0.3.67] — 2026-11-08
+
+### Geändert
+- **„Backup-Uhrzeiten" ist entfallen** — Backups laufen ausschließlich als Aufgabe im Zeitplan
+  (Aktion „Backup"), damit es nicht zwei Stellen mit derselben Wirkung gibt. Die Backup-Box zeigt jetzt
+  den Hinweis darauf und behält „Jetzt sichern" für eine sofortige Welt-Sicherung.
+
+## [0.3.66] — 2026-11-08
+
+### Behoben
+- **Geleerte Uhrzeiten-Felder wurden ignoriert:** ein leer gelassenes Feld (Neustart, Backup, Snapshot)
+  kam beim Server gar nicht an, weil leere Query-Werte wegfielen — die alten Zeiten blieben stehen und
+  ließen sich so nicht abschalten. Jetzt werden leere Werte mitgesendet und leeren die Liste.
+
+## [0.3.65] — 2026-11-08
+
+### Geändert
+- **Snapshots haben eigene Uhrzeiten** („Snapshot-Uhrzeiten" in der Snapshot-Box, kommagetrennt wie bei
+  den Backups) statt einer Aktion im Zeitplan. Der Zeitplan bleibt für die übrigen Aktionen.
+- „Auto-Snapshots behalten" bleibt unverändert und greift weiter für die automatischen Sicherungen.
+
+## [0.3.64] — 2026-11-08
+
+### Geändert
+- **„Auto-Snapshots behalten" steht jetzt unter dem Knopf** statt darüber, und der Hinweis nennt die
+  Platzrechnung (3 = ein Tag bei 3 pro Tag, 15 ≈ 180 GB).
+
+## [0.3.63] — 2026-11-08
+
+### Neu
+- **Snapshots lassen sich jetzt ebenfalls per Zeitplan anlegen** (Aktion „Snapshot"), z. B. sonntags
+  04:00. Damit die 12-GB-Kopien nicht auflaufen, bleiben nur die letzten drei Auto-Snapshots; die Zahl
+  steht als „Auto-Snapshots behalten" bei der Snapshot-Box.
+- Manuelle Snapshots werden dabei nie angefasst — aufgeräumt werden nur die mit dem Namen `auto_*`,
+  sortiert nach Änderungszeit.
+- **Zwei Snapshots in derselben Sekunde** hätten sich überschrieben (`FileExistsError`); der Name bekommt
+  jetzt einen Zähler.
+
+## [0.3.62] — 2026-11-08
+
+### Geändert
+- **Der Zeitplan nimmt die volle Breite ein**, die Backup-Box steht jetzt darunter. Damit haben die
+  Aufgabenzeilen Platz für Aktion, Uhrzeit, Tage, Argument und Schalter in einer Zeile.
+- „Backup-Uhrzeiten" bleibt in der Backup-Box (Backups sind keine Snapshots).
+
+## [0.3.61] — 2026-11-08
+
+### Geändert
+- **„Backup-Uhrzeiten" steht jetzt bei den Snapshots** statt in der Backup-Box — dort, wo die Sicherungen
+  hingehören. Der Hinweis nennt zusätzlich die neue Zeitplan-Aufgabe „Backup" als Alternative.
+
+## [0.3.60] — 2026-11-08
+
+### Behoben
+- **Der Supervisor las den Zeitplan nur beim Start.** In der Oberfläche gespeicherte Aufgaben wurden erst
+  nach einem Supervisor-Neustart ausgeführt. Er liest die Zeitplan-Felder jetzt bei jeder Runde neu,
+  sobald sich die Instanzdatei geändert hat (Ports und Mods bleiben bewusst unberührt).
+- **Das Selbst-Update startete den Supervisor nicht mit** — er lief weiter mit altem Code. Jetzt werden
+  `noah2games-web` und `noah2games-supervise` neu gestartet, sofern sie laufen.
+
+## [0.3.59] — 2026-11-08
+
+### Behoben
+- **Zeitplan-Aufgaben konnten dieselbe ID bekommen**, wenn sie in derselben Millisekunde angelegt wurden
+  (z. B. beim Senden der ganzen Liste). Die ID ist jetzt zusätzlich durchnummeriert — sonst hätte der
+  Supervisor zwei Aufgaben als „schon gelaufen" verwechselt.
+
+## [0.3.58] — 2026-11-08
+
+### Neu
+- **Zeitplan mit Aufgaben** (Verwaltung → Zeitplan), ähnlich den Scheduled Tasks in AMP: je Aufgabe
+  **Aktion, Uhrzeit, Wochentage** (leer = täglich) und ein Freitextfeld für Broadcast oder RCON-Befehl.
+  Aktionen: Neustart, Start, Stop, Update + Neustart, Backup, Welt speichern, wilde Dinos löschen,
+  Broadcast, freier RCON-Befehl.
+- Neustart-Aufgaben nutzen die Vorwarnung (Countdown im Spiel), die übrigen laufen sofort; jede
+  Ausführung geht an den Discord-Webhook, Fehler als Fehlermeldung.
+- Die alten „Neustart-Uhrzeiten" bleiben als Rückfallebene erhalten.
+
+## [0.3.57] — 2026-11-08
+
+### Geändert
+- **Der Hinweis nennt jetzt den Grund:** „Die CurseForge-API liefert höchstens 50 Treffer pro Abfrage —
+  mehr lässt sich technisch nicht abrufen." An der Trefferzeile entsprechend
+  „CurseForge-API: maximal 50 pro Abfrage".
+
+## [0.3.56] — 2026-11-08
+
+### Neu
+- **Hinweis zur Trefferbegrenzung** unter dem Suchfeld: maximal 50 Treffer pro Suche, für mehr den
+  Begriff eingrenzen. Steht zusätzlich an der Trefferzeile, sobald die Liste abgeschnitten ist
+  („50 / 7.291 Treffer · mehr pro Suche nicht möglich").
+
+## [0.3.55] — 2026-11-08
+
+### Geändert
+- **Mod-Suche holt 50 Treffer** statt 30 (mehr erlaubt die CurseForge-Suche pro Abfrage nicht).
+  Für gezieltes Suchen reicht das; sonst den Begriff eingrenzen.
+
+## [0.3.54] — 2026-11-08
+
+### Geändert
+- **Trefferzahl steht jetzt deutlich über der Mod-Liste** (12,5 px, Akzentfarbe statt 11 px gedämpft):
+  „30 / 7.290 Treffer". Auch die Vorschlagsliste beim Tippen nennt ihre Anzahl.
+
+## [0.3.53] — 2026-11-08
+
+### Behoben
+- **Zwischengespeicherte Suchergebnisse konnten die API-Suche verdecken.** Ein Ergebnis vom Notbehelf
+  (wenige Treffer, ohne Key) wurde eine Stunde lang auch dann ausgeliefert, wenn inzwischen ein Key
+  gesetzt war — die Suche zeigte weiter 8 statt 30 Treffer. Der Cache unterscheidet jetzt Key/ohne Key
+  und die Trefferzahl; die Gesamtzahl wird mitgespeichert. Alte Cache-Dateien werden ignoriert.
+
+## [0.3.52] — 2026-11-08
+
+### Geändert
+- **Mod-Suche zeigt bis zu 30 Treffer** statt 10, mit Trefferzahl darüber („30 / 1.412 Treffer",
+  Gesamtzahl aus der CurseForge-Antwort). Die Liste ist scrollbar, statt die Seite zu verlängern.
+
+## [0.3.51] — 2026-11-08
+
+### Geändert
+- **`console.curseforge.com` im Feld „CurseForge-API-Key" ist jetzt ein Link** (öffnet in neuem Tab),
+  statt nur als Text dazustehen.
+
+## [0.3.50] — 2026-11-08
+
+### Geändert
+- **Discord- und PayPal-Symbol größer und in den Markenfarben** (34 px Feld, 22 px Symbol; Discord
+  #5865F2, PayPal #003087) statt einfarbig klein.
+
+## [0.3.49] — 2026-11-08
+
+### Neu
+- **Discord und PayPal als Symbole oben rechts** — auf jeder Seite (Dashboard, Instanzseite, Mods,
+  Verwaltung). Die Symbole sind eingebettet, es geht keine Anfrage an fremde Server, solange niemand
+  klickt.
+
+## [0.3.48] — 2026-11-08
+
+### Neu
+- **Reiter im Einstellungs-Formular:** die 90 bekannten INI-Werte sind in neun Gruppen sortiert —
+  Server & Zugang, Spiel & Tempo, PvP & Regeln, Strukturen & Verfall, Dinos & Zucht, Transfer & Cluster,
+  Anzeige, MOTD und Game.ini. Jeder Reiter nennt seine Anzahl; die Auswahl merkt sich der Browser.
+- Gespeichert wird weiterhin alles auf einmal — die Felder der anderen Reiter bleiben erhalten.
+
+## [0.3.47] — 2026-11-08
+
+### Geändert
+- **Der Knopf heißt „Menü" und führt direkt in die Instanz** — Beschriftung wie gewünscht, ohne
+  Zwischenschritt oder Aufklappliste.
+
+## [0.3.46] — 2026-11-08
+
+### Geändert
+- **Zurück zum direkten Weg:** „Öffnen" führt wieder ohne Zwischenschritt in die Instanz; Menü-Knopf und
+  Dialog sind entfernt.
+
+## [0.3.45] — 2026-11-08
+
+### Geändert
+- **Kein Dropdown mehr in der Karte:** ein einfacher Knopf **„Menü"** öffnet eine Auswahl mit Übersicht,
+  Einstellungen, Mods und Verwaltung.
+
+## [0.3.44] — 2026-11-08
+
+### Geändert
+- **Das Auswahlfeld in der Karte heißt „Menü …"** statt „Öffnen …" — es ist ja eine Auswahl, kein Knopf.
+
+## [0.3.43] — 2026-11-08
+
+### Geändert
+- **Startseite neu geordnet:** „Neue Instanz" und „Hinweis" stehen jetzt oben, darunter die Instanzen —
+  die Erzeugung bleibt damit immer an derselben Stelle und wandert nicht, wenn Instanzen dazukommen.
+- **„Öffnen" ist ein Menü:** Übersicht, Einstellungen, Mods oder Verwaltung direkt anwählen; die
+  Detailseite springt in den passenden Reiter.
+- Karten- und Log-Größen wieder wie in 0.3.39 (Log nur bei laufenden Instanzen, 9,5 px, Karten ab 300 px).
+
+## [0.3.39] — 2026-11-08
+
+### Geändert
+- **Laufende Instanzen nehmen im Dashboard zwei Spalten ein** (ab 900 px Fensterbreite). Sonst war die
+  Karte so schmal, dass das Log unter die Kennzahlen rutschte statt daneben zu stehen.
+
+## [0.3.38] — 2026-11-08
+
+### Neu
+- **Lebendes Server-Log in der Dashboard-Karte.** Rechts neben Status und Kennzahlen laufen die
+  letzten Logzeilen mit (Aktualisierung alle 2,5 s), damit man ohne die Detailseite sieht, was der
+  Server gerade tut. Bei schmalen Karten rutscht das Log unter die Kennzahlen.
+- Die angezeigte Zeilenzahl folgt der Kartenhöhe; leere Ausgabe erscheint als „keine Ausgabe".
+
+## [0.3.37] — 2026-11-08
+
+### Geändert
+- **CPU-Kachel zeigt jetzt den Anteil des Servers (0–100 %)** statt der Summe über alle Kerne.
+  755 % auf 64 Kernen erscheint damit als „11,8 %"; der Verlaufsgraph endet ebenfalls bei 100 %.
+  Die Kern-Aufschlüsselung („7,6 von 64 Kernen") steht im Tooltip, der Rohwert bleibt in der API
+  unter `cpu` erhalten.
+
+## [0.3.36] — 2026-11-08
+
+### Behoben
+- **CPU-Tooltip zeigte `undefined`/`NaN`**, wenn die Gegenstelle keine Kernzahl liefert (ältere
+  Antwort im Browser-Cache). Ersatzwert ist jetzt die Kernzahl des Browsers, sonst 1.
+
+## [0.3.35] — 2026-11-08
+
+### Behoben
+- **Selbst-Update startete den Benutzerdienst nicht neu.** Ohne angemeldete Sitzung (per `su`, `ssh`
+  oder aus einem Skript) fehlten `XDG_RUNTIME_DIR` und `DBUS_SESSION_BUS_ADDRESS`, `systemctl --user`
+  scheiterte und die Oberfläche lief weiter mit dem alten Code. Beide Variablen werden jetzt gesetzt,
+  der Dienststart klappt damit auch aus einer Nicht-Login-Sitzung.
+
+## [0.3.34] — 2026-11-08
+
+### Behoben
+- **Selbst-Update konnte die Installation zerstören.** `apply()` löschte das laufende Paketverzeichnis
+  und kopierte erst danach das neue hinein — brach der Kopiervorgang ab (oder existierte das Ziel noch),
+  blieb ein halbes Verzeichnis zurück und `noah2games` war nicht mehr startbar. Das neue Paket wird jetzt
+  vollständig daneben aufgebaut und per `rename` getauscht; schlägt der Tausch fehl, wird der alte
+  Stand zurückgerollt.
+- **Sicherungen sammelten sich unbegrenzt.** Bei jedem Update entstand ein `noah2games.bak-<Zeitstempel>`.
+  Es bleiben jetzt die letzten zwei.
+
+## [0.3.33] — 2026-11-08
+
+### Behoben
+- **CPU-Graph schnitt alles über 100 % ab.** Die Sparkline im Dashboard war fest auf 100 % skaliert,
+  ein ARK-Server mit 700 % Last erschien als flache Linie am oberen Rand. Sie skaliert jetzt auf den
+  tatsächlichen Höchstwert (mindestens 100 %).
+- **CPU-Zahl war erklärungsbedürftig.** Der Wert ist der Summenwert über alle Threads (wie `top`/`htop`),
+  kann also deutlich über 100 % liegen. Die Kachel nennt im Tooltip jetzt Kerne und Anteil am Server,
+  z. B. „7,5 von 64 Kernen ausgelastet (11,8 % des Servers)".
+
+## [0.3.32] — 2026-11-08
+
+### Behoben
+- **`--user` ließ die Dateien root gehören**, wenn kein Web-Dienst eingerichtet wurde (`--no-web`) — der
+  Benutzer konnte danach seine eigenen Configs nicht schreiben. Die Rechte werden jetzt direkt nach dem
+  Kopieren gesetzt.
+
+## [0.3.31] — 2026-11-08
+
+### Behoben
+- **`--user NAME` wurde nicht erkannt** („Unbekannte Option"): die Argumentschleife konnte mit `shift` kein
+  zweites Wort lesen. Sie läuft jetzt als `while`-Schleife, damit funktionieren `--user noah2games` und
+  `--user=noah2games` (ebenso `--lang de`).
+
+## [0.3.30] — 2026-11-08
+
+### Behoben
+- **Selbst-Update konnte stillschweigend denselben Stand einspielen.** Das Archiv wurde über den Branch
+  `main` geladen; codeload liefert dafür minutenlang eine zwischengespeicherte Fassung. Jetzt wird das
+  Archiv **zum geprüften Commit** geladen (`/tar.gz/<sha>`) — was die Prüfung meldet, wird auch installiert.
+
+## [0.3.29] — 2026-11-08
+
+### Neu
+- **`sudo ./install.sh --user noah2games`** — Installation unter einem eigenen Dienst-Benutzer. Der Installer legt
+  den Benutzer samt Home an, kopiert nach `/home/noah2games/…`, setzt die Rechte, richtet die Oberfläche als
+  **User-Dienst** ein und aktiviert `loginctl enable-linger`, damit sie ohne Login startet. Damit läuft
+  kein Teil mehr als root (empfohlen für Server).
+
+## [0.3.28] — 2026-11-08
+
+### Behoben
+- **Spielserver starb beim Neustart der Oberfläche, wenn noah2games als normaler Benutzer läuft.** Die eigene
+  systemd-Scope wurde nur auf dem System-Bus versucht, was ohne root scheitert — der Start fiel still auf
+  einen normalen Kindprozess zurück. Jetzt läuft sie als `systemd-run --user --scope` über den
+  Benutzer-Manager (dafür einmalig `loginctl enable-linger <benutzer>`), damit der Server einen
+  Web-Neustart überlebt.
+
+## [0.3.27] — 2026-11-08
+
+### Neu
+- **Portprüfung vor dem Start.** Belegt ein fremdes Programm (z. B. ein AMP-Server) den Spiel-, Query-
+  oder RCON-Port, bricht noah2games mit einer klaren Meldung ab, statt einen Server zu starten, der nicht
+  erreichbar ist — und statt RCON-Anfragen versehentlich an den falschen Server zu schicken.
+
+## [0.3.26] — 2026-11-08
+
+### Behoben
+- **Startzeile nach AMP-Vorbild.** Port, Query-Port, RCON und Passwort stehen jetzt ausschließlich in der
+  Map-URL (`?listen?Port=…?QueryPort=…?RCONEnabled=True?RCONServerGameLogBuffer=600?RCONPort=…?ServerAdminPassword=…`),
+  das Passwort als **letzte** Option — ASA liest sonst den Rest der Zeile mit hinein. Die getrennten
+  `-port`/`-RCONPort`-Argumente sind entfallen.
+- `-SessionName` wird nicht mehr als Argument übergeben (Leerzeichen im Namen zerlegten die Zeile);
+  der Name kommt aus `[SessionSettings]` der INI.
+
+## [0.3.25] — 2026-11-08
+
+### Behoben
+- **RCON blieb trotz `RCONEnabled=True` bei „Passwort falsch".** ASA übernimmt das Admin-Passwort nur aus
+  der Kommandozeile; jetzt steht `?ServerAdminPassword=…` in der Map-URL (genau wie bei AMP). Hinweis:
+  damit ist das Passwort wie bei jedem ARK-Server in `ps` sichtbar.
+
+## [0.3.24] — 2026-11-08
+
+### Behoben
+- **RCON antwortete auf frisch angelegten Instanzen mit „Passwort falsch".** noah2games übergab nur
+  `-RCONPort` und verließ sich beim Aktivieren auf die INI; ASA wertet das aber erst mit
+  `?RCONEnabled=True` in der Map-URL aus (so macht es auch AMP). Die URL enthält jetzt
+  `?listen?Port=…?RCONEnabled=True?RCONServerGameLogBuffer=600?RCONPort=…`. Das Passwort bleibt in der
+  INI — es taucht damit nicht in der Prozessliste auf.
+
+## [0.3.23] — 2026-11-08
+
+### Geändert
+- Beispiel für das Cluster-Verzeichnis im Hinweis: `/home/Noah2Games/arkcluster` statt `/home/benutzer/arkcluster`.
+
+## [0.3.22] — 2026-11-08
+
+### Geändert
+- **Cluster-Felder zeigen ihre Vorgabewerte direkt im Feld** — Cluster-ID ist der Instanzname, Verzeichnis
+  ist `<instanz>/clusters`. Man sieht also den Pfad, muss ihn nur überschreiben, wenn geteilt werden soll.
+  Der Hinweis nennt zusätzlich ein Beispiel (`/home/benutzer/arkcluster`).
+
+## [0.3.21] — 2026-11-08
+
+### Neu
+- **Cluster-Einstellungen.** Bisher steckten `-clusterid=noah2games` und ein Verzeichnis pro Instanz fest im Code —
+  Karten konnten also nie etwas teilen. Jetzt gibt es im Reiter Einstellungen eine eigene Karte **Cluster**:
+  Cluster-ID, gemeinsames Verzeichnis und die Option „Übertragungen ohne Filterprüfung"
+  (`-NoTransferFromFiltering`). Ohne eigene Angabe bleibt es beim alten Verhalten.
+- **53 weitere INI-Einstellungen** aus dem vollen ARK-Satz, u. a. Transfer-Sperren (Download/Upload von
+  Spielern, Items, Dinos), Offline-Raid-Schutz, Tribe-Allianzen, Struktur-Verfall und -Aufheben,
+  Dino-Verfall, gezähmte Dinos pro Spieler, Prägung, Treffer-Markierungen sowie Futter-/Torpor- und
+  Ernteschaden-Multiplikatoren. Das Formular ist jetzt nach Datei **und** Abschnitt gruppiert.
+
+## [0.3.20] — 2026-11-08
+
+### Behoben
+- **„leer" in der Whitelist-Liste** war noch fest deutsch; läuft jetzt über `i18n.py` (`empty`).
+
+## [0.3.19] — 2026-11-08
+
+### Behoben
+- **Zwei weitere deutsche Texte in der englischen Oberfläche:** „kein Snapshot vorhanden" und die
+  Meldung beim Speichern der Sprache kamen fest verdrahtet aus dem Code. Beide laufen jetzt über `i18n.py`.
+
+## [0.3.18] — 2026-11-08
+
+### Behoben
+- **Mod-Status war fest auf Deutsch** („nicht heruntergeladen", „für alte Engine gebacken") und blieb
+  auch in der englischen Oberfläche deutsch. Jetzt kommen Codes aus `mods.py` und die Übersetzung aus
+  `i18n.py` — `not downloaded` / `built for an older engine`.
+
+## [0.3.17] — 2026-11-08
+
+### Neu
+- **Englische Beschreibung:** eigener Knopf im Kopfbereich (neben „Changelog") öffnet
+  `README.en.md` auf GitHub. Das README verlinkt jetzt oben zwischen Deutsch und English.
+
+## [0.3.16] — 2026-11-08
+
+### Behoben (wichtig)
+- **Die Oberfläche war tot, sobald die Seite geladen war:** im Update-Fortschritt (0.3.13) stand ein
+  Zeilenumbruch als echtes Zeichen im JavaScript, das war ein Syntaxfehler — damit war das ganze Skript
+  ungültig. Folge: Reiter ließen sich nicht wechseln, Mod-Knöpfe, Einstellungen und alles andere
+  reagierten nicht. Ersetzt durch `String.fromCharCode(10)`, JavaScript wird jetzt vor dem Push mit
+  `node --check` geprüft.
+
+## [0.3.15] — 2026-11-08
+
+### Behoben
+- **Der Spielserver hängt nicht mehr am Web-Dienst.** Bisher startete er als Kindprozess von
+  `noah2games-web`; Wine-Prozesse blieben beim Stoppen in dessen Prozessgruppe zurück („Unit process …
+  remains running after unit stopped") und blockierten jeden Neustart der Oberfläche. Jetzt läuft jede
+  Instanz in einer eigenen transienten Unit (`noah2games-<name>.scope`, via `systemd-run --scope`), damit
+  überlebt der Server einen Neustart der Oberfläche und umgekehrt. Ohne systemd fällt noah2games auf den
+  bisherigen Start zurück (`NOAH_NO_SCOPE=1` erzwingt das).
+
+## [0.3.14] — 2026-11-08
+
+### Geändert
+- **RAM-Hinweis im Dashboard war irreführend** („ca. 11,5 GB pro laufendem Server"). Der Wert hängt an
+  Mods, Weltgröße und Spielerzahl: leer und ohne Mods sind es rund 4 GB, mit Mods und Welt 11–12 GB,
+  nach oben offen. Text in Oberfläche und `INSTALL.md` entsprechend korrigiert.
+
+## [0.3.13] — 2026-11-08
+
+### Neu
+- **Update-Fortschritt ist sichtbar.** Bisher ging die SteamCMD-Ausgabe an das Dienst-Protokoll, im
+  Server-Log stand während des Updates nichts. Jetzt schreibt noah2games sie nach `.update.log` und die
+  Oberfläche zeigt sie im Ausgabefeld, während das Update läuft (`/api/update/progress`, Abfrage alle 2 s).
+
+## [0.3.12] — 2026-11-08
+
+### Behoben
+- **Der Changelog-Knopf zeigte den Stand der Erstinstallation.** Das Selbst-Update ersetzt nur das
+  Paketverzeichnis, die `CHANGELOG*.md` daneben blieben liegen. Jetzt zieht das Update beide Dateien mit,
+  und die Oberfläche holt den Text frisch, wenn die eigene Version darin fehlt.
+
+## [0.3.11] — 2026-11-08
+
+### Behoben
+- **`noah2games url` zeigte auf einem Server `127.0.0.1`.** Bei Zugriffsart „IP" steht jetzt die Adresse,
+  unter der die Oberfläche wirklich erreichbar ist (die lokale Adresse ermittelt noah2games selbst).
+
+## [0.3.10] — 2026-11-08
+
+### Behoben
+- **Selbst-Update scheiterte stillschweigend.** Ein einzelner `504 Gateway Timeout` beim Archiv-Download
+  beendete den Vorgang, die Oberfläche meldete trotzdem nichts — der Knopf wirkte wirkungslos. Jetzt:
+  drei Versuche mit Pause und ein zweiter Weg über `codeload.github.com`, und die Oberfläche zeigt
+  „Update fehlgeschlagen: …" statt Stille.
+- Das Einspielen läuft synchron; der Neustart des Dienstes passiert eine Sekunde später, damit die
+  Antwort noch ankommt.
+
+## [0.3.9] — 2026-11-08
+
+### Neu
+- **Der Build-Badge ist ein Knopf.** Auf der Instanzseite stand bisher nur `AKTUELL 26515168` — das
+  Update ließ sich nur von der Übersicht starten. Jetzt gilt: `UPDATE a→b` anklicken startet das Update
+  (mit Rückfrage, Sicherung und Stop), `AKTUELL b` prüft beim Klick erneut. Tooltip erklärt beides,
+  per Tastatur (Enter/Leertaste) genauso bedienbar.
+
+## [0.3.8] — 2026-11-08
+
+### Sicherheit
+- **Token-Vergleich in konstanter Zeit** (`hmac.compare_digest`) statt `==`.
+- **Sicherheits-Header** auf jeder Antwort: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+  `Referrer-Policy: no-referrer` (damit der Token nicht über die Herkunftsangabe abfließt) und eine
+  restriktive `Content-Security-Policy`.
+- **Mod-IDs werden geprüft** (nur Ziffern, max. 10 Stellen). Vorher landete der Wert ungefiltert in der
+  Server-Kommandozeile (`-mods=…`).
+- **Spieler-IDs** (Whitelist/Bans) nur als Steam64 (Ziffern) oder Hex-UniqueNetId — Zeilenumbrüche und
+  Sonderzeichen werden abgelehnt, statt in die Textdatei zu wandern.
+
+## [0.3.7] — 2026-11-08
+
+### Geändert
+- **Mod-Suche funktioniert ohne Instanz.** `/api/mods/search`, `/api/mods/suggest` und das Speichern des
+  API-Keys hingen hinter der Instanz-Prüfung und antworteten ohne angelegte Instanz mit „keine Instanz".
+- Der Mods-Reiter zeigt, womit gesucht wird: `CurseForge-API aktiv · Suche nach Titel und Beschreibung,
+  sortiert nach Downloads` (grün, mit maskiertem Key) oder `Kein API-Key · nur genaue Mod-ID oder
+  CurseForge-Link, keine Volltextsuche`.
+
+## [0.3.6] — 2026-11-08
+
+### Geändert
+- Der Versionsknopf zeigt den Zustand im Text: `aktueller Stand` bzw. `neuer Stand`, nicht nur
+  im Tooltip.
+
+## [0.3.5] — 2026-11-08
+
+### Geändert
+- Meldet noah2games „gleiche Version, nur neuer Build", ist der Knopf nicht mehr klickbar — es gibt
+  nichts zu holen. Änderungen, die ankommen sollen, bekommen einen Versionssprung.
+
+## [0.3.4] — 2026-11-08
+
+### Geändert
+- Copyright nur noch unter dem Handle `ronny79privat` (statt Klarname).
+
+## [0.3.3] — 2026-11-08
+
+### Geändert
+- Copyright-Hinweis im README und in der `LICENSE` (ronny79privat).
+- „Für Entwickler" aus der Technik-Doku ausgelagert nach `docs/entwicklung.md` — für Anwender
+  unwichtig, für Mitlesende weiterhin erreichbar.
+
+## [0.3.2] — 2026-11-08
+
+### Geändert
+- README auf das Wesentliche gekürzt (111 statt 420 Zeilen). Funktionen, Zugriff, Betrieb und
+  Technik stehen jetzt in `docs/funktionen.md`, `docs/zugriff.md`, `docs/betrieb.md` und
+  `docs/technik.md`.
+
+## [0.3.1] — 2026-11-08
+
+### Geändert
+- README neu sortiert: Installation und Deinstallation stehen oben, danach Zugriff von außen und
+  der Token; Feature-Liste und Screenshots folgen weiter unten.
+
+## [0.3.0] — 2026-11-08
+
+### Hinzugefügt
+- **Changelog-Knopf** im Kopf: öffnet die Änderungen als Popup, in der eingestellten Sprache
+  (Deutsch/Englisch). Der Inhalt kommt aus der eigenen Installation, kein Netzzugriff nötig.
+- Englische Fassung: `CHANGELOG.en.md`.
+
+### Geändert
+- Der Update-Dialog zeigt die Änderungen der neuen Version direkt an.
+- Benachrichtigungen: Routine-Meldungen bleiben im Log, nur Ereignisse gehen an Discord.
+
+## [0.2.9] — 2026-11-08
+
+### Hinzugefügt
+- **CHANGELOG.md** — was sich je Version geändert hat.
+- Der Update-Dialog zeigt die Änderungen der neuen Version an, bevor man zustimmt.
+- **`scripts/release.sh`**: Version setzen, committen, taggen, pushen (mit `--release` auch das
+  GitHub-Release, sofern `gh` installiert ist).
+
+## [0.2.8] — 2026-11-08
+
+### Behoben
+- Modsuche lieferte mit API-Key **null Treffer**: der Parameter `classId` schränkte die
+  CurseForge-Abfrage auf eine Kategorie ein, die für ARK-ASA-Mods nichts liefert. Ohne
+  Einschränkung kommen die erwarteten Ergebnisse.
+- Leere Suchergebnisse werden nicht mehr eine Stunde zwischengespeichert.
+
+## [0.2.7] — 2026-11-08
+
+### Geändert
+- Update-Prüfung wird **10 Minuten gecacht** — GitHub erlaubt ohne Token nur 60 Anfragen pro Stunde.
+  `noah2games version` und `noah2games self-update` prüfen weiterhin frisch.
+
+## [0.2.6] — 2026-11-08
+
+### Hinzugefügt
+- **„← Dashboard"** im Kopf der Instanzseite.
+
+### Geändert
+- Das Update-Badge der Instanz erscheint nur noch bei belastbarer Prüfung (vorher stand dort
+  dauerhaft „UPDATE ?", solange die Serverdateien fehlten).
+- `install.sh` startet einen laufenden `noah2games-web`-Dienst nach dem Kopieren neu, damit der neue
+  Code sofort aktiv ist.
+
+## [0.2.5] — 2026-11-08
+
+### Geändert
+- Update-Knopf im Badge-Stil statt als vollflächiger Block.
+
+## [0.2.4] — 2026-11-08
+
+### Geändert
+- Update-Knopf ist beschriftet: `noah2games update: 0.2.3 → 0.2.4` statt nur Versionsnummern.
+
+## [0.2.3] — 2026-11-08
+
+### Behoben
+- Selbst-Update holte das Quellarchiv über `codeload.github.com`, das nach einem Push noch den
+  alten Stand ausliefert. Jetzt über die GitHub-API.
+
+## [0.2.2] — 2026-11-08
+
+### Behoben
+- Versionsprüfung las `raw.githubusercontent.com` (bis zu 5 Minuten veraltet) — jetzt über die
+  GitHub-API.
+
+## [0.2.1] — 2026-11-08
+
+### Behoben
+- `/api/selfupdate` war nur mit vorhandener Instanz erreichbar.
+
+## [0.2.0] — 2026-11-08
+
+### Hinzugefügt
+- **Selbst-Update**: Knopf im Kopf (`noah2games update: alt → neu`) und `noah2games self-update`.
+- **Modsuche**: Mod-ID, CurseForge-Link oder Name; Vorschläge erscheinen beim Tippen, mit Bild,
+  Downloads und einem Klick zum Übernehmen. Namen brauchen einen CurseForge-API-Key.
+- **Mod-Updates im Blick**: installed-Datei vs. neueste Datei auf CurseForge, Kennzeichen „UPDATE".
+- **Discord-Benachrichtigungen**: Absturz, Hänger, Update verfügbar, Backup-Fehler, geplanter
+  Neustart — Routine bleibt im Log.
+- **Hänger- und Absturzerkennung** im Supervisor; ein manueller Stop wird respektiert.
+- **`noah2games proxy`**: richtet nginx mit HTTPS ein (Zertifikat per certbot, optional Basic Auth),
+  prüft mit `nginx -t` und rollt bei Fehlern zurück.
+- **HTTPS direkt** im Webserver (`--tls-cert` / `--tls-key`).
+- **Instanz löschen** auf der Dashboard-Karte (Config ins `.trash`, Dateien nur auf Wunsch).
+- **Update-Knopf** und **Löschen** direkt auf der Karte.
+- **MOTD** als mehrzeiliges Formularfeld.
+- **Zweisprachig** (Deutsch/Englisch): Sprachwahl im Installer, Knopf in der Oberfläche,
+  `noah2games lang`.
+- **Drei Zugriffswege** im Installer: client-seitig per SSH-Tunnel, öffentlich per Domain+HTTPS,
+  direkt über IP und Port.
+- Der **Supervisor-Dienst** wird nach der Installation einer Instanz automatisch eingerichtet
+  (als root ein Systemdienst, der beim Booten startet).
+
+### Geändert
+- Instanzseite: Server-Log oben über die volle Breite und ziehbar (48 % Höhe, 150 Zeilen),
+  Steuerknöpfe liegen auf der Dashboard-Karte.
+- Server-Log springt beim Öffnen ans Ende; der aktive Reiter bleibt beim Neuladen erhalten.
+- Kartenhintergrund deutlich sichtbar (Deckkraft 0.28 → 0.62).
+- Einstellungen: mehrzeilige Felder (Textarea) möglich.
+- `settings.json` wird mit `0600` geschrieben, weil sie den API-Key enthält.
+
+## [0.1.0] — 2026-11-07
+
+Erster öffentlicher Stand: Instanzen anlegen, Start/Stop/Restart/Update über SteamCMD, RCON-Konsole
+mit Klick-Befehlen, Spielerverwaltung, Mod-Verwaltung, Config-Editor, Welt-Backups, Snapshots,
+Whitelist/Bans, Zeitplan, Live-Metriken und Weboberfläche.

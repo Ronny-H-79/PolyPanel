@@ -1,0 +1,361 @@
+"""Space Engineers Dedicated Server (Linux nativ, App 298740).
+
+Kein RCON: Steuerung ueber Prozess (Start/Stop), die XML-Konfiguration und die
+Server-Konsole auf stdin. Pfade/Startzeile werden nach der Installation geprueft.
+"""
+from __future__ import annotations
+
+import os
+import re
+import shutil
+import subprocess
+import xml.etree.ElementTree as ET
+
+from .base import GameProfile
+
+CFG_NAME = "SpaceEngineers-Dedicated.cfg"
+TEMPLATE = os.path.join(os.path.dirname(__file__), "spaceengineers_template.cfg")
+LOG_REL = os.path.join("Instance", "SpaceEngineersDedicated.log")
+
+# Wichtige Felder mit deutschen Bezeichnungen (Rest kommt aus der XML)
+LABELS = {
+    "ServerName": ("Servername", "Name in der Serverliste"),
+    "ServerPort": ("Spiel-Port", "UDP, Standard 27016"),
+    "SteamPort": ("Steam-Port", "UDP, Steam-Netzwerk"),
+    "WorldName": ("Weltname", "Save-Ordner der Welt"),
+    "LoadWorld": ("Welt laden", "Pfad zur vorhandenen Welt, leer = neue"),
+    "IP": ("Bind-Adresse", "0.0.0.0 = alle Schnittstellen"),
+    "MaxPlayers": ("Max. Spieler", "gleichzeitige Spieler"),
+    "GameMode": ("Spielmodus", "Survival oder Creative"),
+    "OnlineMode": ("Online-Modus", "public, friends oder offline"),
+    "Password": ("Server-Passwort", "leer = offen"),
+    "PauseGameWhenEmpty": ("Pausieren ohne Spieler", "true/false"),
+    "AutoSaveInMinutes": ("Autosave (Minuten)", "0 = aus"),
+    "Scenario": ("Szenario", "z. B. StarSystem"),
+    "Mods": ("Mods", "Workshop-IDs, kommagetrennt"),
+    "ServerDescription": ("Beschreibung", "Text in der Serverliste"),
+    "ServerPasswordHash": ("Passwort-Hash", "intern, nicht aendern"),
+}
+
+
+# Gruppierung fuer die Einstellungsseite (nur diese Gruppen kennt die UI)
+_SRV = {"ServerName", "ServerPort", "SteamPort", "IP", "OnlineMode", "Password",
+        "ServerPassword", "ServerDescription", "GroupID", "MaxPlayers"}
+_WELT = {"WorldName", "LoadWorld", "PremadeCheckpointPath", "WorldSizeKm",
+         "VoxelGeneratorVersion", "Scenario", "AsteroidAmount", "ScenarioEditMode",
+         "EnableSunRotation", "SunRotationIntervalMinutes", "EnableEncounters", "EnableFlora"}
+_SPIELER = {"Administrators", "Banned", "Mods", "CanJoinRunning", "EnableSpectator"}
+
+
+def _group_of(name: str) -> str:
+    if name in _SRV:
+        return "server"
+    if name in _WELT:
+        return "welt"
+    if name in _SPIELER:
+        return "spieler"
+    if name.startswith(("Remote", "Steam", "Master")):
+        return "netz"
+    return "weitere"
+
+
+class SpaceEngineersProfile(GameProfile):
+    key = "spaceengineers"
+    label = "Space Engineers"
+    server_app_id = "298740"
+    control_kind = "none"
+    needs_wine = True    # es gibt nur SpaceEngineersDedicated.exe (.NET, Windows)
+    default_game_port = 27016
+    default_query_port = 27015
+    default_control_port = 0          # kein RCON
+    supports_mods = True
+    has_control = False  # keine RCON/API-Anbindung
+    use_pty = False      # .NET-Server bricht mit PTY sofort ab (exit 53)
+    needs_display = True # SE legt ein (unsichtbares) Fenster an - ohne Display: nodrv_CreateWindow
+    install_note = "Windows-Binary (.NET) unter Wine; kein RCON - Start/Stop und XML-Config"
+    settings_fields = (
+        ("session_name", "Servername", "Name in der Serverliste", "text"),
+        ("max_players", "Max. Spieler", "gleichzeitige Spieler", "int"),
+        ("port", "Spiel-Port", "UDP, Standard 27016", "int"),
+        ("rcon_password", "Server-Passwort", "leer = offen", "password"),
+    )
+
+    # Ein gemeinsames Prefix fuer alle SE-Instanzen: dotnet48 nur einmal installieren
+    SHARED_PREFIX = os.path.expanduser("~/.noah2games-wine-se")
+
+    def wine_prefix(self, inst) -> str:
+        return os.path.expanduser(inst.wine_prefix) if getattr(inst, "wine_prefix", "") else self.SHARED_PREFIX
+
+    def runtime_ready(self, inst) -> bool:
+        pref = self.wine_prefix(inst)
+        return (os.path.exists(os.path.join(pref, ".dotnet48-ok"))
+                and os.path.exists(os.path.join(pref, "drive_c", "windows", "system32", "msvcp140.dll")))
+
+    def post_install(self, inst, log=print) -> None:
+        self.ensure_runtime(inst, log)
+
+    def ensure_runtime(self, inst, log=print) -> bool:
+        """dotnet48 einmalig in das gemeinsame Prefix installieren (SE braucht .NET)."""
+        pref = self.wine_prefix(inst)
+        if self.runtime_ready(inst):
+            log("SE: Laufzeit .NET 4.8 bereits vorhanden (%s)" % pref)
+            return True
+        tricks = shutil.which("winetricks")
+        if not tricks:
+            log("SE: winetricks fehlt - bitte 'winetricks' installieren (Paket winetricks)")
+            return False
+        os.makedirs(pref, exist_ok=True)
+        env = {**os.environ, "WINEPREFIX": pref, "WINEDEBUG": "-all"}
+        for paket, marker, dauer in (("dotnet48", ".dotnet48-ok", "10-20 min"),
+                                     ("vcrun2019", None, "2 min")):
+            if marker and os.path.exists(os.path.join(pref, marker)):
+                continue
+            log("SE: installiere %s in %s (einmalig, %s)" % (paket, pref, dauer))
+            try:
+                rc = subprocess.run([tricks, "-q", paket], env=env,
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
+                                    timeout=2400).returncode
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                log("SE: %s fehlgeschlagen: %s" % (paket, exc))
+                return False
+            if rc != 0:
+                log("SE: winetricks %s endete mit %s" % (paket, rc))
+                return False
+            if marker:
+                open(os.path.join(pref, marker), "w").write("ok\n")
+            log("SE: %s fertig" % paket)
+        return self.runtime_ready(inst)
+
+    def exe(self, inst) -> str:
+        # Installation liefert nur die Windows-Variante (DedicatedServer64), daher Wine.
+        return os.path.join(inst.directory, "DedicatedServer64", "SpaceEngineersDedicated.exe")
+
+    def config_file(self, inst) -> str:
+        for rel in (CFG_NAME, os.path.join("DedicatedServer", CFG_NAME)):
+            p = os.path.join(inst.directory, rel)
+            if os.path.exists(p):
+                return p
+        return os.path.join(inst.directory, CFG_NAME)
+
+    def log_path(self, inst) -> str:
+        """SE schreibt pro Start eine eigene Logdatei - immer die neueste zeigen."""
+        import glob
+        dateien = glob.glob(os.path.join(inst.directory, "SpaceEngineersDedicated_*.log"))
+        if dateien:
+            return max(dateien, key=os.path.getmtime)
+        return os.path.join(inst.directory, LOG_REL)
+
+    def workdir(self, inst) -> str:
+        # MUSS DedicatedServer64 sein, sonst findet der Server seine Bibliotheken nicht
+        return os.path.dirname(self.exe(inst))
+
+    @staticmethod
+    def _win(path: str) -> str:
+        return "Z:" + path.replace("/", chr(92))
+
+    def save_world(self, inst) -> str:
+        """Save-Ordner im Wine-Prefix (SE schreibt immer in AppData)."""
+        user = "ronny"
+        pref = self.wine_prefix(inst)
+        users = os.path.join(pref, "drive_c", "users")
+        if os.path.isdir(users):
+            echte = [u for u in os.listdir(users) if u not in ("Public", "Default")]
+            if echte:
+                user = echte[0]
+        bs = chr(92)
+        return ("C:" + bs + "users" + bs + user + bs + "AppData" + bs + "Roaming"
+                + bs + "SpaceEngineersDedicated" + bs + "Saves" + bs + inst.name)
+
+    def premade_world(self, inst) -> str:
+        return os.path.join(inst.directory, "Content", "CustomWorlds", "Star System")
+
+    def launch_argv(self, inst) -> list[str]:
+        # ohne diese Schalter startet nur der GUI-Konfigurator (bleibt stumm stehen)
+        argv = [self.exe(inst), "-noconsole", "-ignorelastsession",
+                "-ip", "0.0.0.0", "-path", self._win(inst.directory)]
+        if inst.extra_args:
+            argv.extend(inst.extra_args.split())
+        return argv
+
+    # ------------------------------------------------------------ Einstellungen
+    def _read_cfg(self, inst) -> list[tuple[str, str]]:
+        try:
+            tree = ET.parse(self.config_file(inst))
+        except (OSError, ET.ParseError):
+            return []
+        out: list[tuple[str, str]] = []
+        seen = set()
+
+        def _add(tag, text):
+            if tag in seen:
+                return
+            seen.add(tag)
+            out.append((tag, text or ""))
+
+        root = tree.getroot()
+        # SessionSettings zuerst (Spielregeln), danach die Dedicated-Elemente des Wurzelknotens
+        for node in root:
+            tag = node.tag.split("}")[-1]
+            if tag in ("SessionSettings", "DedicatedConfig"):
+                for child in node:
+                    _add(child.tag, child.text)
+        for node in root:
+            tag = node.tag.split("}")[-1]
+            if tag not in ("SessionSettings", "DedicatedConfig"):
+                _add(tag, node.text)
+        return out
+
+    def settings(self, inst) -> list[dict]:
+        props = self._read_cfg(inst)
+        if not props:
+            return super().settings(inst)
+        aliases = {"ServerName": "session_name", "MaxPlayers": "max_players",
+                   "ServerPort": "port", "Password": "rcon_password"}
+        out = []
+        for name, value in props:
+            alias = aliases.get(name)
+            if alias:
+                value = str(getattr(inst, alias, value))
+            label, hint = LABELS.get(name, (name, ""))
+            out.append({"file": "instance", "section": "", "key": name, "label": label,
+                        "hint": hint, "type": "text", "value": str(value),
+                        "group": _group_of(name)})
+        return out
+
+    def apply_settings(self, inst, items) -> int:
+        path = self.config_file(inst)
+        try:
+            text = open(path, encoding="utf-8", errors="replace").read()
+        except OSError:
+            return super().apply_settings(inst, items)
+        aliases = {"ServerName": "session_name", "MaxPlayers": "max_players",
+                   "ServerPort": "port", "Password": "rcon_password"}
+        changed = 0
+        for item in items:
+            key, val = item.get("key"), str(item.get("value", ""))
+            if not key:
+                continue
+            pattern = re.compile(r"(<%s>)(.*?)(</%s>)" % (re.escape(key), re.escape(key)), re.S)
+            if not pattern.search(text):
+                continue
+            text = pattern.sub(lambda m: m.group(1) + val + m.group(3), text, count=1)
+            alias = aliases.get(key)
+            if alias:
+                cur = getattr(inst, alias, "")
+                setattr(inst, alias, int(val) if isinstance(cur, int) and val.isdigit() else val)
+            changed += 1
+        if changed:
+            open(path, "w", encoding="utf-8").write(text)
+        return changed
+
+    def write_config(self, inst) -> None:
+        path = self.config_file(inst)
+        if not os.path.exists(path):
+            # SE legt die Datei nicht selbst an - noah2games bringt die Vorlage mit
+            try:
+                text = open(TEMPLATE, encoding="utf-8").read()
+            except OSError:
+                return
+            text = (text.replace("{{SERVERNAME}}", inst.session_name)
+                        .replace("{{MAXPLAYERS}}", str(inst.max_players))
+                        .replace("{{PORT}}", str(inst.port))
+                        .replace("{{STEAMPORT}}", str(inst.query_port or 8766))
+                        .replace("{{IP}}", "0.0.0.0")
+                        .replace("{{WORLDNAME}}", inst.name)
+                        .replace("{{LOADWORLD}}", self.save_world(inst))
+                        .replace("{{PREMADE}}", self._win(self.premade_world(inst)))
+                        .replace("{{SCENARIO}}", "StarSystem")
+                        .replace("{{ONLINEMODE}}", "PUBLIC" if inst.rcon_password else "FRIENDS"))
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            open(path, "w", encoding="utf-8").write(text)
+            return
+        text = open(path, encoding="utf-8", errors="replace").read()
+        for key, val in (("ServerName", inst.session_name), ("MaxPlayers", str(inst.max_players)),
+                         ("ServerPort", str(inst.port)), ("Password", inst.rcon_password or "")):
+            text = re.sub(r"(<%s>)(.*?)(</%s>)" % (key, key),
+                          lambda m: m.group(1) + val + m.group(3), text, count=1, flags=re.S)
+        open(path, "w", encoding="utf-8").write(text)
+
+    def ready(self, inst) -> bool:
+        from .base import _tcp_open
+        return _tcp_open("127.0.0.1", inst.port, timeout=2) or \
+            os.path.exists(self.log_path(inst))
+
+    def graceful_stop(self, inst) -> list[str]:
+        # SE versteht Konsolenbefehle auf stdin: erst speichern, dann beenden
+        from .. import runner
+        steps = []
+        for cmd in ("save", "stop"):
+            try:
+                steps.append("%s: %s" % (cmd, runner.send_console(inst, cmd)))
+            except Exception as exc:            # noqa: BLE001 - Stop darf nie scheitern
+                steps.append("%s fehlgeschlagen (%s)" % (cmd, exc.__class__.__name__))
+                break
+        return steps
+
+# Restliche SessionSettings-Felder (deutsch)
+LABELS.update({
+    "GameMode": ("Spielmodus", "Survival oder Creative"),
+    "InventorySizeMultiplier": ("Inventargroesse (Faktor)", "1 = normal, 10 = riesig"),
+    "AssemblerSpeedMultiplier": ("Montierer-Geschwindigkeit", "Faktor"),
+    "AssemblerEfficiencyMultiplier": ("Montierer-Effizienz", "Faktor"),
+    "RefinerySpeedMultiplier": ("Raffinerie-Geschwindigkeit", "Faktor"),
+    "OnlineMode": ("Online-Modus", "Public, Friends oder Offline"),
+    "MaxPlayers": ("Max. Spieler", "gleichzeitige Spieler"),
+    "MaxFloatingObjects": ("Max. freie Objekte", "schwebende Teile, Performance"),
+    "MaxBackupSaves": ("Backup-Speicherstaende", "Anzahl automatischer Backups"),
+    "EnvironmentHostility": ("Umgebung", "SAFE, NORMAL, EASY, HARD"),
+    "AutoHealing": ("Auto-Heilung", "true/false"),
+    "EnableCopyPaste": ("Kopieren/Einfuegen", "true = Blueprint-Copy erlaubt"),
+    "WeaponsEnabled": ("Waffen", "true = Waffen aktiv"),
+    "ShowPlayerNamesOnHud": ("Spielernamen im HUD", "true/false"),
+    "ThrusterDamage": ("Triebwerksschaden", "true = Triebwerke verursachen Schaden"),
+    "CargoShipsEnabled": ("Frachtschiffe", "true = NPC-Frachter unterwegs"),
+    "EnableSpectator": ("Zuschauermodus", "true = Spectator erlaubt"),
+    "RemoveTrash": ("Muell entfernen", "true = alte Objekte loeschen"),
+    "WorldSizeKm": ("Weltgroesse (km)", "0 = unbegrenzt"),
+    "RespawnShipDelete": ("Respawn-Schiff loeschen", "true = nach Verlassen entfernen"),
+    "ResetOwnership": ("Eigentum zuruecksetzen", "true = Bloecke werden herrenlos"),
+    "WelderSpeedMultiplier": ("Schweisser-Geschwindigkeit", "Faktor"),
+    "GrinderSpeedMultiplier": ("Schleifer-Geschwindigkeit", "Faktor"),
+    "RealisticSound": ("Realistischer Sound", "true/false"),
+    "HackSpeedMultiplier": ("Hack-Geschwindigkeit", "Faktor"),
+    "PermanentDeath": ("Permanenter Tod", "true = kein Respawn"),
+    "AutoSaveInMinutes": ("Autosave (Minuten)", "0 = aus"),
+    "SpawnShipTimeMultiplier": ("Respawn-Zeit (Faktor)", "hoeher = laenger"),
+    "DestructibleBlocks": ("Zerstoerbare Bloecke", "true/false"),
+    "EnableIngameScripts": ("Ingame-Skripte", "true = Programmable Block erlaubt"),
+    "ViewDistance": ("Sichtweite", "in Metern"),
+    "FloraDensity": ("Pflanzendichte", "0-100"),
+    "EnableToolShake": ("Werkzeug-Ruckeln", "true/false"),
+    "VoxelGeneratorVersion": ("Voxel-Generator", "Version der Weltgenerierung"),
+    "EnableOxygen": ("Sauerstoff", "true = Sauerstoffsystem aktiv"),
+    "EnableOxygenPressurization": ("Druckluft", "true = Raume luftdicht"),
+    "Enable3rdPersonView": ("Third-Person-Kamera", "true/false"),
+    "EnableEncounters": ("Begegnungen", "true = NPC-Stationen/Schiffe"),
+    "EnableFlora": ("Pflanzen", "true = Flora vorhanden"),
+    "EnableConvertToStation": ("Zu Station umbauen", "true = Grids umwandelbar"),
+    "EnableSunRotation": ("Sonnenrotation", "true = Tag/Nacht-Zyklus"),
+    "DisableRespawnShips": ("Respawn-Schiffe aus", "true = keine Startschiffe"),
+    "ScenarioEditMode": ("Szenario-Editor", "true = Bearbeitungsmodus"),
+    "Battle": ("Kampfmodus", "true = Battle-Szenario"),
+    "Scenario": ("Szenario aktiv", "true = Szenario statt Sandbox"),
+    "CanJoinRunning": ("Beitritt im Lauf", "true = spaeter einsteigen erlaubt"),
+    "PhysicsIterations": ("Physik-Iterationen", "hoeher = genauer, langsamer"),
+    "SunRotationIntervalMinutes": ("Sonnenumlauf (Minuten)", "Laenge eines Tages"),
+    "EnableJetpack": ("Jetpack", "true/false"),
+    "SpawnWithTools": ("Start mit Werkzeug", "true/false"),
+    "StartInRespawnScreen": ("Start im Respawn-Screen", "true/false"),
+    "EnableVoxelDestruction": ("Voxel-Zerstoerung", "true = Gestein zerstörbar"),
+    "MaxDrones": ("Max. Drohnen", "Anzahl"),
+    "EnableDrones": ("Drohnen", "true/false"),
+    "EnableCyberhounds": ("Cyberhounds", "true/false"),
+    "EnableSpiders": ("Spinnen", "true/false"),
+    "FloraDensityMultiplier": ("Pflanzendichte (Faktor)", "Faktor auf die Basis"),
+    "EnableStructuralSimulation": ("Struktur-Simulation", "true = Verbindungen brechen"),
+    "MaxActiveFracturePieces": ("Max. Bruchstuecke", "Performance"),
+})
+
+# Restliche Optionen (ausgelagert, damit die Datei lesbar bleibt)
+from .se_labels import EXTRA as _SE_EXTRA   # noqa: E402
+LABELS.update(_SE_EXTRA)

@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+noah2games/.build
+*.bak-*
+
+# Laufzeitdaten, Logs, Sockets
+*.log
+*.pid
+.noah2games*
+*.sock
+noah2games-instances/
+backups/
+
+# Editor/OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
