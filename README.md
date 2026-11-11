@@ -176,6 +176,21 @@ rm -rf ~/.wine-arkserver       # Wine prefix
 Only the last step is irreversible: worlds and configs live in `~/polypanel-backups` — keep those and you can
 restore everything later.
 
+**SteamCMD** (`~/steamcmd`, `~/.steam`, `~/Steam`) is removed by `--uninstall` as well.
+
+### Remove everything (instances and worlds too)
+
+```bash
+./install.sh --uninstall
+rm -rf ~/arkserver-* ~/.config/ascendedpanel ~/ascendedpanel-backups ~/ascendedpanel-snapshots
+rm -f /etc/systemd/system/ascendedpanel-*.service
+systemctl daemon-reload
+```
+
+Where things live: program `~/.local/share/ascendedpanel` and `~/.local/bin/ascendedpanel`, settings and
+token `~/.config/ascendedpanel`, instances with worlds `~/arkserver-<name>`, SteamCMD `~/steamcmd`,
+`~/.steam` and `~/Steam`.
+
 ## More
 
 | Topic | File |

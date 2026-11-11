@@ -193,6 +193,21 @@ rm -rf ~/.wine-arkserver       # Wine-Prefix
 Der letzte Schritt ist der einzige, der wirklich unwiederbringlich ist: Welt und Configs liegen in
 `~/polypanel-backups` — wer die behält, kann später alles wieder herstellen.
 
+**SteamCMD** (`~/steamcmd`, `~/.steam`, `~/Steam`) wird von `--uninstall` ebenfalls entfernt.
+
+### Alles entfernen (auch Instanzen und Welten)
+
+```bash
+./install.sh --uninstall
+rm -rf ~/arkserver-* ~/.config/ascendedpanel ~/ascendedpanel-backups ~/ascendedpanel-snapshots
+rm -f /etc/systemd/system/ascendedpanel-*.service
+systemctl daemon-reload
+```
+
+Was wo liegt: Programm `~/.local/share/ascendedpanel` und `~/.local/bin/ascendedpanel`, Einstellungen und
+Token `~/.config/ascendedpanel`, Instanzen mit Welten `~/arkserver-<name>`, SteamCMD `~/steamcmd`,
+`~/.steam` und `~/Steam`.
+
 ## Mehr
 
 | Thema | Datei |

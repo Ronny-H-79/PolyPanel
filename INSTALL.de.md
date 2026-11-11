@@ -165,6 +165,21 @@ loginctl enable-linger $USER      # läuft auch ohne angemeldete Sitzung
 Entfernt Programm und Launcher. **Bleiben:** Instanzen (`~/arkserver-*`), Einstellungen
 (`~/.config/polypanel`), Backups (`~/polypanel-backups`), Snapshots (`~/polypanel-snapshots`).
 
+**SteamCMD** (`~/steamcmd`, `~/.steam`, `~/Steam`) wird von `--uninstall` ebenfalls entfernt.
+
+### Alles entfernen (auch Instanzen und Welten)
+
+```bash
+./install.sh --uninstall
+rm -rf ~/arkserver-* ~/.config/ascendedpanel ~/ascendedpanel-backups ~/ascendedpanel-snapshots
+rm -f /etc/systemd/system/ascendedpanel-*.service
+systemctl daemon-reload
+```
+
+Was wo liegt: Programm `~/.local/share/ascendedpanel` und `~/.local/bin/ascendedpanel`, Einstellungen und
+Token `~/.config/ascendedpanel`, Instanzen mit Welten `~/arkserver-<name>`, SteamCMD `~/steamcmd`,
+`~/.steam` und `~/Steam`.
+
 ## Wo was liegt
 
 | Pfad | Inhalt |
