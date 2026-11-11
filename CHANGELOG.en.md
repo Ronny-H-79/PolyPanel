@@ -4,6 +4,17 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.10] — 2026-11-11
+
+### Fixed
+- **The log stayed empty during installation.** SteamCMD reports download progress with a carriage
+  return (`\r`) and no newline. The installer read line by line, so the first line only arrived after
+  the whole download — with 10-15 GB that looks like "nothing is happening". Output is now read in
+  blocks, split on `\r` and `\n`, stripped of ANSI colour codes and every progress line is written to
+  `.install.log` immediately (flushed per line). The SteamCMD fetch and the exact command are logged
+  as well.
+- **The update log now shows real lines instead of one endless line** — same path as the install.
+
 ## [0.7.9] — 2026-11-11
 
 ### Fixed

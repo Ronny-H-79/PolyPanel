@@ -4,6 +4,18 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.10] — 2026-11-11
+
+### Behoben
+- **Beim Installieren blieb das Protokoll leer.** SteamCMD meldet den Download-Fortschritt mit
+  Wagenrücklauf (`\r`) ohne Zeilenumbruch. Der Installer las zeilenweise und bekam deshalb erst nach
+  dem kompletten Download eine Zeile — bei 10–15 GB sieht das aus wie „es passiert nichts".
+  Jetzt wird blockweise gelesen, an `\r` und `\n` getrennt, ANSI-Farbcode entfernt und jede
+  Fortschrittszeile sofort ins `.install.log` geschrieben (`flush` je Zeile). Auch das Laden von
+  SteamCMD und der genaue Befehl stehen jetzt im Protokoll.
+- **Update-Protokoll zeigt jetzt ebenfalls Zeilen statt einer Riesenzeile** — derselbe Weg wie bei
+  der Installation.
+
 ## [0.7.9] — 2026-11-11
 
 ### Behoben

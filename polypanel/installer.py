@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import tarfile
@@ -43,26 +44,63 @@ def ensure_steamcmd(log=print) -> str:
     return target
 
 
+_ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07")
+
+
+def pump_output(stream, emit) -> None:
+    """Zeilen aus der SteamCMD-Ausgabe ziehen - auch solche, die nur mit \\r enden.
+
+    SteamCMD meldet Fortschritt mit Wagenruecklauf ohne Zeilenumbruch. Wer zeilenweise
+    liest, bekommt deshalb waehrend des gesamten Downloads nichts zu sehen. Hier wird
+    blockweise gelesen und an \\r und \\n getrennt, jeder Teil sofort gemeldet.
+    """
+    pending = ""
+    while True:
+        chunk = stream.read1(4096)
+        if not chunk:
+            break
+        text = pending + chunk.decode("utf-8", "replace")
+        parts = re.split(r"[\r\n]+", text)
+        pending = parts.pop()
+        for part in parts:
+            part = _ANSI.sub("", part).strip()
+            if part:
+                emit(part)
+    rest = _ANSI.sub("", pending).strip()
+    if rest:
+        emit(rest)
+
+
 def install_server(inst: Instance, log=None) -> dict:
     """Serverdateien ueber SteamCMD holen; Ausgabe landet in <dir>/.install.log."""
-    emit = log or (lambda _msg: None)
-    cmd = ensure_steamcmd(log=emit)
-    log_path = os.path.join(inst.directory, ".install.log")
     os.makedirs(inst.directory, exist_ok=True)
-    argv = [cmd, "+force_install_dir", inst.directory, "+login", "anonymous",
-            "+app_update", inst.profile.server_app_id, "validate", "+quit"]
+    log_path = os.path.join(inst.directory, ".install.log")
+    extra = log or (lambda _msg: None)
+
     with open(log_path, "w", buffering=1) as fh:
-        fh.write("Installation gestartet %s\n" % time.strftime("%F %T"))
+        def emit(text: str) -> None:
+            text = _ANSI.sub("", str(text)).rstrip()
+            if not text:
+                return
+            fh.write(text + "\n")
+            fh.flush()
+            extra(text)
+
+        emit("Installation gestartet %s" % time.strftime("%F %T"))
+        cmd = ensure_steamcmd(log=emit)
+        argv = [cmd, "+force_install_dir", inst.directory, "+login", "anonymous",
+                "+app_update", inst.profile.server_app_id, "validate", "+quit"]
+        emit("steamcmd %s" % " ".join(argv[1:]))
         proc = subprocess.Popen(argv, cwd=os.path.dirname(cmd),
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        for line in proc.stdout:  # type: ignore[union-attr]
-            fh.write(line)
-            emit(line.rstrip())
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        pump_output(proc.stdout, emit)
         proc.wait()
-        fh.write("Installation beendet (exit %s)\n" % proc.returncode)
+        emit("Installation beendet (exit %s)" % proc.returncode)
+
     if proc.returncode == 0:
         try:
             inst.profile.post_install(inst, log=emit)   # z. B. .NET fuer Space Engineers
         except Exception as exc:                        # noqa: BLE001 - Installation bleibt gueltig
             emit("Nachbereitung fehlgeschlagen: %s" % exc)
+
     return {"ok": proc.returncode == 0, "log": log_path, "exit": proc.returncode}

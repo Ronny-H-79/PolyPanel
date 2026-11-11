@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 
+from .installer import pump_output
 from .instance import Instance
 from .rcon import RconClient, RconError
 
@@ -444,7 +445,8 @@ def update(inst: Instance, validate: bool = True) -> int:
             fh.write("steamcmd %s\n" % " ".join(argv[3:]))
             fh.flush()
             proc = subprocess.Popen(argv, cwd=os.path.expanduser("~/steamcmd"),
-                                    stdout=fh, stderr=subprocess.STDOUT)
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            pump_output(proc.stdout, lambda t: (fh.write(t + "\n"), fh.flush()))
             return proc.wait()
     finally:
         UPDATE_STATE["running"] = False
