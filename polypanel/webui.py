@@ -1004,7 +1004,11 @@ async function refresh(){
       :'<span style="color:var(--dim)">– '+L['inst.no_players']+' –</span>';
   }catch(e){}
 }
-async function act(a){ await api('/api/'+a,{method:'POST'}); setTimeout(refresh,1200); }
+async function act(a){
+  try{ await api('/api/'+a,{method:'POST'}); }
+  catch(e){ alert((L['inst.action_failed']||'Aktion fehlgeschlagen:')+'\n\n'+(e&&e.message?e.message:e)); return; }
+  setTimeout(refresh,1200);
+}
 async function updCheck(){
   try{ const u=JSON.parse(await api('/api/update'+(window.__updForce?'?refresh=1':''))); window.__updForce=false; const b=document.getElementById('upd');
     if(u.installed==null || u.available==null){

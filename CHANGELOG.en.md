@@ -4,6 +4,13 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.18] — 2026-11-11
+
+### Fixed
+- **"Start" appeared to do nothing.** The UI swallowed every error (`catch(e){}`), so a busy port,
+  missing server files or a supervisor problem stayed completely silent. It now shows the real
+  message, e.g. "Port 7780 is already in use …" or "server not installed".
+
 ## [0.7.17] — 2026-11-11
 
 ### Added

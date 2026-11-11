@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.18] — 2026-11-11
+
+### Behoben
+- **„Start" tat scheinbar nichts.** Die Oberfläche verschluckte jede Fehlermeldung
+  (`catch(e){}`), also blieb bei belegtem Port, fehlenden Serverdateien oder einem Problem mit dem
+  Supervisor einfach alles stumm. Jetzt erscheint ein Hinweis mit dem echten Text, z. B.
+  „Port 7780 ist schon belegt …" oder „Server nicht installiert".
+
 ## [0.7.17] — 2026-11-11
 
 ### Neu
