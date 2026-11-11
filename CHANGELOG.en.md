@@ -4,6 +4,15 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.13] — 2026-11-11
+
+### Fixed
+- **Self-update did nothing ("panel does not update").** `apply()` looked for the package folder
+  inside the GitHub archive under the repo name (`AscendedPanel/`), but it is installed as
+  `ascendedpanel/`. On Linux those are two different folders, so the update aborted with "package
+  folder missing from archive" while the badge kept offering the update. The folder is now matched
+  case-insensitively, so the update applies and the header shows the new version afterwards.
+
 ## [0.7.12] — 2026-11-11
 
 ### Changed

@@ -296,12 +296,18 @@ def apply(target: str = "", timeout: int = 60) -> dict:
         roots = [d for d in os.listdir(work) if os.path.isdir(os.path.join(work, d))]
         if not roots:
             return {"ok": False, "error": "Archiv enthaelt kein Verzeichnis"}
-        new_pkg = os.path.join(work, roots[0], "PolyPanel")
-        if not os.path.isdir(new_pkg):
-            return {"ok": False, "error": "Paketordner PolyPanel/ fehlt im Archiv"}
+        # Paketordner ohne Ruecksicht auf Gross-/Kleinschreibung suchen: im Archiv heisst er
+        # "PolyPanel", installiert aber "polypanel" - auf Linux zwei verschiedene Ordner.
+        root = os.path.join(work, roots[0])
+        new_pkg = ""
+        for _name in sorted(os.listdir(root)):
+            if _name.lower() == "polypanel" and os.path.isdir(os.path.join(root, _name)):
+                new_pkg = os.path.join(root, _name)
+                break
+        if not new_pkg:
+            return {"ok": False, "error": "Paketordner polypanel/ fehlt im Archiv"}
 
         # Changelog mitziehen, sonst zeigt die Oberflaeche den Stand der Erstinstallation
-        root = os.path.join(work, roots[0])
         for extra in ("CHANGELOG.md", "CHANGELOG.en.md"):
             src = os.path.join(root, extra)
             if os.path.isfile(src):

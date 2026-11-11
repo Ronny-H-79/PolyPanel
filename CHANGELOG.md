@@ -4,6 +4,16 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.13] — 2026-11-11
+
+### Behoben
+- **Selbst-Update tat nichts: „Panel wird nicht aktualisiert".** `apply()` suchte den Paketordner im
+  GitHub-Archiv unter dem Repo-Namen (`AscendedPanel/`), installiert heißt er aber `ascendedpanel/`.
+  Auf Linux sind das zwei verschiedene Ordner — das Update brach mit „Paketordner fehlt im Archiv"
+  ab, während die Anzeige weiter „update verfügbar" meldete. Der Ordner wird jetzt ohne Rücksicht
+  auf Groß-/Kleinschreibung gesucht, damit greift das Update wieder und die Kopfzeile zeigt danach
+  die neue Version.
+
 ## [0.7.12] — 2026-11-11
 
 ### Geändert
