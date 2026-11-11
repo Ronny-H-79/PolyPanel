@@ -109,6 +109,8 @@ t() {
     de:no_sudo)            echo "sudo fehlt - bitte als root installieren: $2" ;;
     en:multilib_label)     echo "32-bit libraries for SteamCMD" ;;
     de:multilib_label)     echo "32-Bit-Bibliotheken fuer SteamCMD" ;;
+    en:multilib_ask)       echo "32-bit libraries for SteamCMD are missing. Install now? [y/N] " ;;
+    de:multilib_ask)       echo "32-Bit-Bibliotheken fuer SteamCMD fehlen. Jetzt installieren? [j/N] " ;;
     en:multilib_ok)        echo "32-bit libraries (SteamCMD): present" ;;
     de:multilib_ok)        echo "32-Bit-Bibliotheken (SteamCMD): vorhanden" ;;
     en:multilib_failed)    echo "32-bit libraries are still missing - SteamCMD aborts with 'exit 127'. Install manually: $2" ;;
@@ -251,7 +253,7 @@ ask_install() {
     warn "$(t check_missing "$label" "$(pkg_name "$logical")")"
     return 0
   fi
-  printf '  %s ' "$(t missing_ask "" "$label")"
+  printf '  %s ' "$(t missing_ask "$label")"
   read -r answer || answer=""
   case "$answer" in
     j|J|y|Y|ja|Ja|yes|Yes)
@@ -385,7 +387,7 @@ else
     say "$(t auto_install "$(t multilib_label)")"
     install_multilib >/dev/null 2>&1 || true
   elif [ "$CHECK_ONLY" != "1" ] && [ -t 0 ]; then
-    printf '  %s ' "$(t missing_ask "" "$(t multilib_label)")"
+    printf '  %s ' "$(t multilib_ask)"
     read -r _ml || _ml=""
     case "$_ml" in
       j|J|y|Y|ja|Ja|yes|Yes) install_multilib >/dev/null 2>&1 || true ;;

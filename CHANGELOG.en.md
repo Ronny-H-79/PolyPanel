@@ -4,6 +4,15 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.15] — 2026-11-11
+
+### Fixed
+- **The "… is missing. Install now?" prompt had no package name.** The call passed an empty argument
+  to the text function (`t missing_ask "" "$label"`) while the message prints `$2`, so the name was
+  blank — for every missing dependency (Wine, iproute2, 32-bit libraries). It now reads
+  "Wine fehlt. Jetzt installieren? [j/N]", and the libraries got their own sentence so the German
+  grammar fits.
+
 ## [0.7.14] — 2026-11-11
 
 ### Fixed

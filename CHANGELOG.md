@@ -4,6 +4,15 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.15] — 2026-11-11
+
+### Behoben
+- **Bei „… fehlt. Jetzt installieren?" stand kein Paketname davor.** Der Aufruf übergab ein leeres
+  Argument an die Textfunktion (`t missing_ask "" "$label"`), die Meldung liest aber `$2` — dadurch
+  blieb der Name leer. Betraf jede fehlende Abhängigkeit (Wine, iproute2, 32-Bit-Bibliotheken).
+  Jetzt steht dort z. B. „Wine fehlt. Jetzt installieren? [j/N]"; für die Bibliotheken gibt es einen
+  eigenen Satz („32-Bit-Bibliotheken fuer SteamCMD fehlen. …"), damit die Grammatik stimmt.
+
 ## [0.7.14] — 2026-11-11
 
 ### Behoben
