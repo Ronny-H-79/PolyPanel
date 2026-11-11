@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.7] — 2026-11-10
+
+### Geändert
+- **Zugriffsabfrage warnt jetzt vorab.** In der Frage steht bei `[3] direkt ueber IP und Port` nun
+  „HTTP, nicht empfohlen". Die ausführliche Warnung samt Rückfrage (`Trotzdem so einrichten? [j/N]`)
+  kommt wie bisher direkt nach der Wahl von `[3]`; wer `[1]` (SSH-Tunnel) nimmt, sieht sie bewusst
+  nicht — dabei ist nichts aus dem Netz erreichbar.
+
 ## [0.7.6] — 2026-11-10
 
 ### Behoben

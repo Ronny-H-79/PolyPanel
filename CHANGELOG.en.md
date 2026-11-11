@@ -4,6 +4,14 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.7] — 2026-11-10
+
+### Changed
+- **The access question now flags the risky option up front.** `[3] direct via IP and port` is labelled
+  "HTTP, NOT recommended". The detailed warning and the `Really set it up this way? [j/N]` prompt still
+  appear right after choosing `[3]`; picking `[1]` (SSH tunnel) deliberately shows none, because then
+  nothing is exposed to the network.
+
 ## [0.7.6] — 2026-11-10
 
 ### Fixed

@@ -149,8 +149,8 @@ t() {
     de:net_note)           echo "nur mit: polypanel web --host 0.0.0.0" ;;
     en:token_hint)         echo "  token is also stored in ~/.config/polypanel/token - show it again with: polypanel url" ;;
     de:token_hint)         echo "  Token auch in ~/.config/polypanel/token - erneut anzeigen mit: polypanel url" ;;
-    en:access_q)          echo "How should the web interface be reachable?  [1] client-side only (SSH tunnel)  [2] public via domain with HTTPS  [3] direct via IP and port (HTTP)   [1] " ;;
-    de:access_q)          echo "Wie soll die Oberflaeche erreichbar sein?  [1] nur Client-seitig (SSH-Tunnel)  [2] oeffentlich ueber Domain mit HTTPS  [3] direkt ueber IP und Port (HTTP)   [1] " ;;
+    en:access_q)          echo "How should the web interface be reachable?  [1] client-side only (SSH tunnel)  [2] public via domain with HTTPS  [3] direct via IP and port (HTTP, NOT recommended)   [1] " ;;
+    de:access_q)          echo "Wie soll die Oberflaeche erreichbar sein?  [1] nur Client-seitig (SSH-Tunnel)  [2] oeffentlich ueber Domain mit HTTPS  [3] direkt ueber IP und Port (HTTP, nicht empfohlen)   [1] " ;;
     en:access_domain_q)   echo "Domain (must point to this server): " ;;
     de:access_domain_q)   echo "Domain (muss auf diesen Server zeigen): " ;;
     en:access_tunnel)     echo "Access from another machine: ssh -N -L 8790:127.0.0.1:8790 $(id -un)@$MYIP" ;;
