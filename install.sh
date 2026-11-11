@@ -302,7 +302,7 @@ if [ "$UNINSTALL" = "1" ]; then
   rm -rf "$DEST"
   say "$(t removed)"
   # SteamCMD mitnehmen: mehrere GB, ohne das Panel nutzt es hier niemand mehr
-  for _d in "$HOME/steamcmd" "$HOME/.steam"; do
+  for _d in "$HOME/steamcmd" "$HOME/.steam" "$HOME/Steam" "$HOME/steam"; do
     if [ -d "$_d" ]; then
       printf '  %s ' "$(t steam_removed "$_d")"
       rm -rf "$_d" && echo ok
