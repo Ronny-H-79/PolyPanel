@@ -1,4 +1,4 @@
-## [0.7.20] — 2026-11-11
+## [0.7.21] — 2026-11-11
 
 ### Added
 - **Progress bar while installing.** SteamCMD prints `Update state (0x61) downloading, progress: 42.31`;
@@ -64,6 +64,7 @@
   instructions still said `polypanel web`. They now say `polypanel url`, which only prints the ready
   address with the token.
 - **`xvfb` is now part of the installation.** Without the virtual display the ARK Ascended server aborts under Wine before writing anything to its log — start button seemingly dead, empty log. The installer checks `Xvfb` like Wine and installs it with `--auto` (apt `xvfb`, dnf `xorg-x11-server-Xvfb`, pacman `xorg-server-xvfb`, zypper `xvfb`).
+- **The server would not start.** `runner.start()` launched the supervisor as `-m AscendedPanel.consoled` while the module is `ascendedpanel.consoled` — on Linux that process never starts, no console log is created, and `stderr` also went to `/dev/null`: no process, no log, no message. The call is fixed and start output now lands in `<instance>/.start.log` instead of nowhere.
 
 ## [0.7.7] — 2026-11-10
 
