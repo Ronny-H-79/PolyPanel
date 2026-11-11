@@ -88,6 +88,7 @@ T: dict[str, dict[str, str]] = {
     "act.working": {"de": "{n} wird bearbeitet …", "en": "{n} working …"},
     "act.stopped": {"de": "{n} ist heruntergefahren", "en": "{n} stopped"},
     "act.stop_timeout": {"de": "{n} reagiert nicht — Prozess wird erzwungen beendet", "en": "{n} not responding — killing process"},
+    "set.search": {"de": "Einstellungen durchsuchen (Name oder ini-Schlüssel)", "en": "search settings (name or ini key)"},
     "setg.srv": {"de": "Server & Zugang", "en": "Server & access"},
     "setg.play": {"de": "Spiel & Tempo", "en": "Gameplay & rates"},
     "setg.pvp": {"de": "PvP & Regeln", "en": "PvP & rules"},

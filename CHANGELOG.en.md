@@ -1,4 +1,4 @@
-## [0.7.26] — 2026-11-11
+## [0.7.28] — 2026-11-11
 
 ### Added
 - **Progress bar while installing.** SteamCMD prints `Update state (0x61) downloading, progress: 42.31`;
@@ -71,7 +71,7 @@
 - **SteamCMD now repairs itself.** A self-test (`steamcmd +quit`) runs before every install; if it fails or SteamCMD reports `Missing configuration`, the client is downloaded again and the attempt repeated **once** — no manual steps. That was needed for a reliable install on a fresh VPS.
 - **`--uninstall` now removes SteamCMD as well** (`~/steamcmd`, `~/.steam`); previously the multi-GB
   client files stayed behind after the panel was gone.
-
+- **Search field in the settings.** A search box above the tabs filters all groups at once by name or ini key (`NoTributeDownloads`), hides empty sections and restores the previously selected tab when cleared.
 ## [0.7.7] — 2026-11-10
 
 ### Changed

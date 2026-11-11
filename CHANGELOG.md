@@ -1,4 +1,4 @@
-## [0.7.26] — 2026-11-11
+## [0.7.28] — 2026-11-11
 
 ### Neu
 - **Fortschrittsbalken bei der Installation.** SteamCMD meldet während des Downloads
@@ -77,7 +77,7 @@
 - **SteamCMD repariert sich jetzt selbst.** Vor jeder Installation läuft ein Selbsttest (`steamcmd +quit`); scheitert er oder meldet SteamCMD `Missing configuration`, wird der Client automatisch neu geladen und der Versuch **einmal** wiederholt — ohne Handarbeit. Nur so ließ sich die Installation auf einem frischen VPS zuverlässig durchziehen.
 - **`--uninstall` räumt jetzt auch SteamCMD weg** (`~/steamcmd`, `~/.steam`) — vorher blieben die
   mehrere GB großen Clientdateien liegen, obwohl das Panel weg war.
-
+- **Suchfeld in den Einstellungen.** Über den Reitern liegt jetzt ein Suchfeld; es filtert alle Gruppen gleichzeitig nach Name oder ini-Schlüssel (`NoTributeDownloads`), blendet leere Abschnitte aus und stellt beim Leeren den vorher gewählten Reiter wieder her.
 ## [0.7.7] — 2026-11-10
 
 ### Geändert
