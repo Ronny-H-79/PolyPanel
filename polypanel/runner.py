@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 
-from .installer import pump_output
+from .installer import pump_output, _plattform_flagge
 from .instance import Instance
 from .rcon import RconClient, RconError
 
@@ -434,8 +434,9 @@ def update(inst: Instance, validate: bool = True) -> int:
     if is_running(inst):
         raise RunnerError("Server laeuft - vor dem Update stoppen")
     inst.write_ini()        # Konfiguration vor dem Update sichern (SteamCMD ueberschreibt sie ggf.)
-    argv = [STEAMCMD, "+force_install_dir", inst.directory, "+login", "anonymous",
-            "+app_update", inst.profile.server_app_id]
+    argv = ([STEAMCMD] + _plattform_flagge(inst.profile.server_app_id) +
+            ["+force_install_dir", inst.directory, "+login", "anonymous",
+             "+app_update", inst.profile.server_app_id])
     if validate:
         argv.append("validate")
     argv.append("+quit")

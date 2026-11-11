@@ -44,6 +44,19 @@ def ensure_steamcmd(log=print) -> str:
     return target
 
 
+ASA_APP = "2430930"
+
+
+def _plattform_flagge(app_id: str) -> list[str]:
+    """ARR Ascended hat keinen Linux-Server: SteamCMD muss den Windows-Zweig laden.
+
+    Ohne diesen Schalter endet die Installation mit "Failed to install app ... (Missing configuration)".
+    """
+    if str(app_id) == ASA_APP:
+        return ["""+@sSteamCmdForcePlatformType windows"""]
+    return []
+
+
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07")
 
 
@@ -88,8 +101,9 @@ def install_server(inst: Instance, log=None) -> dict:
 
         emit("Installation gestartet %s" % time.strftime("%F %T"))
         cmd = ensure_steamcmd(log=emit)
-        argv = [cmd, "+force_install_dir", inst.directory, "+login", "anonymous",
-                "+app_update", inst.profile.server_app_id, "validate", "+quit"]
+        argv = ([cmd] + _plattform_flagge(inst.profile.server_app_id) +
+                ["+force_install_dir", inst.directory, "+login", "anonymous",
+                 "+app_update", inst.profile.server_app_id, "validate", "+quit"])
         emit("steamcmd %s" % " ".join(argv[1:]))
         proc = subprocess.Popen(argv, cwd=os.path.dirname(cmd),
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
