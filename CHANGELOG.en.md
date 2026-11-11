@@ -4,6 +4,13 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.16] — 2026-11-11
+
+### Changed
+- **Checker for the installer texts** (`tools/check_texts.py`): compares every `$(t KEY …)` call with
+  the placeholders used by the text and reports missing arguments and unknown keys — the exact class
+  of bug that produced the prompt without a package name.
+
 ## [0.7.15] — 2026-11-11
 
 ### Fixed

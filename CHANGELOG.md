@@ -4,6 +4,13 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.16] — 2026-11-11
+
+### Geändert
+- **Prüfskript für die Installer-Texte** (`tools/check_texts.py`): vergleicht jeden Aufruf
+  `$(t SCHLUESSEL …)` mit den Platzhaltern im Text und meldet fehlende Argumente sowie unbekannte
+  Schlüssel. Genau diese Klasse Fehler hatte die Abfrage ohne Paketnamen erzeugt.
+
 ## [0.7.15] — 2026-11-11
 
 ### Behoben
