@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.19] — 2026-11-11
+
+### Behoben
+- **Seite war nach dem Update tot.** Der eingefügte Fehlertext enthielt ein echtes Zeilenende im JavaScript-String; damit war der ganze `<script>`-Block ungültig (SyntaxError) und keine Schaltfläche reagierte mehr. Der Text ist jetzt korrekt maskiert (`\\n`), `node --check` über alle Vorlagen läuft fehlerfrei.
+
 ## [0.7.18] — 2026-11-11
 
 ### Behoben

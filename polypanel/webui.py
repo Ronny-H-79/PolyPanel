@@ -1006,7 +1006,7 @@ async function refresh(){
 }
 async function act(a){
   try{ await api('/api/'+a,{method:'POST'}); }
-  catch(e){ alert((L['inst.action_failed']||'Aktion fehlgeschlagen:')+'\n\n'+(e&&e.message?e.message:e)); return; }
+  catch(e){ alert((L['inst.action_failed']||'Aktion fehlgeschlagen:')+'\\n\\n'+(e&&e.message?e.message:e)); return; }
   setTimeout(refresh,1200);
 }
 async function updCheck(){

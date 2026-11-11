@@ -4,6 +4,11 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.19] — 2026-11-11
+
+### Fixed
+- **The page was dead after the update.** The inserted error text contained a real newline inside the JavaScript string, which broke the whole `<script>` block (SyntaxError) and left every button unresponsive. The text is escaped properly now (`\\n`) and `node --check` passes on all templates.
+
 ## [0.7.18] — 2026-11-11
 
 ### Fixed
