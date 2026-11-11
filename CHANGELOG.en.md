@@ -4,6 +4,13 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.14] — 2026-11-11
+
+### Fixed
+- **Missing text on language switch.** The UI showed `undefined` plus the error when switching the
+  language failed, because `msg.lang_failed` was not in the catalog. It now reads
+  "Sprache wechseln fehlgeschlagen:" / "language switch failed:".
+
 ## [0.7.13] — 2026-11-11
 
 ### Fixed

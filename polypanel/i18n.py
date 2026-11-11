@@ -306,6 +306,7 @@ T: dict[str, dict[str, str]] = {
     "sched.keep_hint": {"de": "ältere Sicherungen werden automatisch gelöscht",
                         "en": "older backups are cleaned up automatically"},
     # ---------------------------------------------------------------- Meldungen
+    "msg.lang_failed": {"de": "Sprache wechseln fehlgeschlagen:", "en": "language switch failed:"},
     "msg.restart_needed": {"de": "wirksam nach Neustart", "en": "takes effect after restart"},
     "self.failed": {"de": "Update fehlgeschlagen:", "en": "Update failed:"},
     "self.new_build": {"de": "neuer Stand", "en": "new build"},
