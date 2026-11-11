@@ -4,6 +4,16 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.9] — 2026-11-11
+
+### Behoben
+- **SteamCMD scheiterte auf frischen Servern mit `Exit 127`.** Ursache waren fehlende
+  32-Bit-Bibliotheken (`ld-linux.so.2`, `libstdc++.so.6` i386) — ein Anfaengerfehler, den das
+  Programm selbst abfangen muss. Der Installer prueft die i386-Bibliotheken jetzt in `--check`,
+  installiert sie mit `--auto` (apt: `dpkg --add-architecture i386` + `lib32gcc-s1`,
+  `lib32stdc++6`, `libc6:i386`; dnf: `glibc.i686`; zypper: `glibc-32bit`;
+  pacman: `lib32-glibc`) und nennt sonst den genauen Befehl, der von Hand noetig ist.
+
 ## [0.7.8] — 2026-11-10
 
 ### Behoben

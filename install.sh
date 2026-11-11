@@ -107,6 +107,12 @@ t() {
     de:no_pkgmgr)          echo "keine Paketverwaltung erkannt - bitte von Hand installieren: $2" ;;
     en:no_sudo)            echo "sudo missing - please install as root: $2" ;;
     de:no_sudo)            echo "sudo fehlt - bitte als root installieren: $2" ;;
+    en:multilib_label)     echo "32-bit libraries for SteamCMD" ;;
+    de:multilib_label)     echo "32-Bit-Bibliotheken fuer SteamCMD" ;;
+    en:multilib_ok)        echo "32-bit libraries (SteamCMD): present" ;;
+    de:multilib_ok)        echo "32-Bit-Bibliotheken (SteamCMD): vorhanden" ;;
+    en:multilib_failed)    echo "32-bit libraries are still missing - SteamCMD aborts with 'exit 127'. Install manually: $2" ;;
+    de:multilib_failed)    echo "32-Bit-Bibliotheken fehlen weiterhin - SteamCMD bricht mit 'Exit 127' ab. Von Hand installieren: $2" ;;
     en:check_missing)      echo "$2 missing${3:+ (package: $3)}" ;;
     de:check_missing)      echo "$2 fehlt${3:+ (Paket: $3)}" ;;
     en:uninstall)          echo "PolyPanel entfernen" ;;
@@ -333,6 +339,64 @@ for tool in tar curl; do
     warn "$tool: $(t still_missing "$tool")"
   fi
 done
+
+# ---------------------------------------------------------------- 32-Bit-Bibliotheken (SteamCMD)
+# SteamCMD ist ein 32-bit-Programm. Fehlen die i386-Bibliotheken, bricht es mit "Exit 127" ab,
+# bevor ueberhaupt ein Server installiert ist - deshalb richtet der Installer das selbst ein.
+have_multilib() {
+  for _p in /lib/ld-linux.so.2 /lib32/ld-linux.so.2 /lib/i386-linux-gnu/ld-linux.so.2 \
+            /usr/lib32/ld-linux.so.2 /usr/lib/i386-linux-gnu/ld-linux.so.2; do
+    [ -e "$_p" ] && return 0
+  done
+  return 1
+}
+
+multilib_pkgs() {
+  case "$PKG_MGR" in
+    apt)    echo "lib32gcc-s1 lib32stdc++6 libc6:i386" ;;
+    dnf)    echo "glibc.i686 libstdc++.i686" ;;
+    zypper) echo "glibc-32bit libstdc++6-32bit" ;;
+    pacman) echo "lib32-glibc lib32-gcc-libs" ;;
+    *)      echo "" ;;
+  esac
+}
+
+install_multilib() {
+  local pkgs; pkgs="$(multilib_pkgs)"
+  [ -n "$pkgs" ] || { warn "$(t no_pkgmgr "$(t multilib_label)")"; return 1; }
+  have_sudo || { warn "$(t no_sudo "$(t multilib_label)")"; return 1; }
+  case "$PKG_MGR" in
+    apt)
+      sudo dpkg --add-architecture i386 || true
+      sudo apt-get update -qq
+      sudo apt-get install -y $pkgs || sudo apt-get install -y lib32gcc1 lib32stdc++6 libc6:i386
+      ;;
+    dnf)    sudo dnf install -y $pkgs ;;
+    zypper) sudo zypper --non-interactive install $pkgs ;;
+    pacman) sudo pacman -S --needed --noconfirm $pkgs ;;
+  esac
+}
+
+if have_multilib; then
+  say "$(t multilib_ok)"
+else
+  MISSING=1
+  if [ "$AUTO" = "1" ]; then
+    say "$(t auto_install "$(t multilib_label)")"
+    install_multilib >/dev/null 2>&1 || true
+  elif [ "$CHECK_ONLY" != "1" ] && [ -t 0 ]; then
+    printf '  %s ' "$(t missing_ask "" "$(t multilib_label)")"
+    read -r _ml || _ml=""
+    case "$_ml" in
+      j|J|y|Y|ja|Ja|yes|Yes) install_multilib >/dev/null 2>&1 || true ;;
+    esac
+  fi
+  if have_multilib; then
+    say "$(t installed "$(t multilib_label)")"
+  else
+    warn "$(t multilib_failed "$(multilib_pkgs)")"
+  fi
+fi
 
 if command -v steamcmd >/dev/null 2>&1 || [ -x "$HOME/steamcmd/steamcmd.sh" ]; then
   say "$(t present "SteamCMD")"
