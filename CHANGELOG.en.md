@@ -1,4 +1,4 @@
-## [0.7.25] — 2026-11-11
+## [0.7.26] — 2026-11-11
 
 ### Added
 - **Progress bar while installing.** SteamCMD prints `Update state (0x61) downloading, progress: 42.31`;
@@ -69,6 +69,8 @@
 - **Installs can be cancelled.** While downloading there is a button "cancel installation" above the log (`POST /api/install/cancel`); it kills the SteamCMD process group, notes it in the log and clears the progress. The partial download stays and is reused on the next attempt.
 - **`Xvfb` is installed without asking.** The prompt for a "virtual display" sounded optional, yet the ARK Ascended server cannot start under Wine without it. The installer now pulls the package silently (also as root without `sudo`), `--check` only reports it. If the install fails the package name is shown.
 - **SteamCMD now repairs itself.** A self-test (`steamcmd +quit`) runs before every install; if it fails or SteamCMD reports `Missing configuration`, the client is downloaded again and the attempt repeated **once** — no manual steps. That was needed for a reliable install on a fresh VPS.
+- **`--uninstall` now removes SteamCMD as well** (`~/steamcmd`, `~/.steam`); previously the multi-GB
+  client files stayed behind after the panel was gone.
 
 ## [0.7.7] — 2026-11-10
 
