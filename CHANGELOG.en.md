@@ -6,18 +6,6 @@ Notable changes to noah2games. Format based on
 
 ## [0.7.19] — 2026-11-11
 
-### Fixed
-- **The page was dead after the update.** The inserted error text contained a real newline inside the JavaScript string, which broke the whole `<script>` block (SyntaxError) and left every button unresponsive. The text is escaped properly now (`\\n`) and `node --check` passes on all templates.
-
-## [0.7.18] — 2026-11-11
-
-### Fixed
-- **"Start" appeared to do nothing.** The UI swallowed every error (`catch(e){}`), so a busy port,
-  missing server files or a supervisor problem stayed completely silent. It now shows the real
-  message, e.g. "Port 7780 is already in use …" or "server not installed".
-
-## [0.7.17] — 2026-11-11
-
 ### Added
 - **Progress bar while installing.** SteamCMD prints `Update state (0x61) downloading, progress: 42.31`;
   that line is now parsed (`GET /api/install/progress`) and the UI shows a bar with phase and
@@ -26,57 +14,37 @@ Notable changes to noah2games. Format based on
 - The first phase (Steam API, client config) has no percentage, so the bar appears when the actual
   download starts.
 
-## [0.7.16] — 2026-11-11
-
 ### Changed
 - **Checker for the installer texts** (`tools/check_texts.py`): compares every `$(t KEY …)` call with
   the placeholders used by the text and reports missing arguments and unknown keys — the exact class
   of bug that produced the prompt without a package name.
-
-## [0.7.15] — 2026-11-11
-
-### Fixed
-- **The "… is missing. Install now?" prompt had no package name.** The call passed an empty argument
-  to the text function (`t missing_ask "" "$label"`) while the message prints `$2`, so the name was
-  blank — for every missing dependency (Wine, iproute2, 32-bit libraries). It now reads
-  "Wine fehlt. Jetzt installieren? [j/N]", and the libraries got their own sentence so the German
-  grammar fits.
-
-## [0.7.14] — 2026-11-11
-
-### Fixed
-- **Missing text on language switch.** The UI showed `undefined` plus the error when switching the
-  language failed, because `msg.lang_failed` was not in the catalog. It now reads
-  "Sprache wechseln fehlgeschlagen:" / "language switch failed:".
-
-## [0.7.13] — 2026-11-11
-
-### Fixed
-- **Self-update did nothing ("panel does not update").** `apply()` looked for the package folder
-  inside the GitHub archive under the repo name (`AscendedPanel/`), but it is installed as
-  `ascendedpanel/`. On Linux those are two different folders, so the update aborted with "package
-  folder missing from archive" while the badge kept offering the update. The folder is now matched
-  case-insensitively, so the update applies and the header shows the new version afterwards.
-
-## [0.7.12] — 2026-11-11
-
-### Changed
 - **The build badge used to disappear silently.** If the server was not installed yet, or the Steam
   query failed (e.g. missing 32-bit libraries), the badge was simply hidden — it looked as if the
   update check never ran. It now reads "UPDATE STATUS UNKNOWN" with the reason in the tooltip
   ("not installed yet" or "Steam query failed"), and a click retries right away.
-
-## [0.7.11] — 2026-11-11
-
-### Changed
 - **The update check no longer asks Steam every minute.** Every open browser tab called `/api/update`
   once a minute, and the server spawned a separate `steamcmd` process each time (`+app_info_print`,
   timeout up to 180 s). The result is now cached for **15 minutes** and the UI asks only every
   **5 minutes**; clicking the build badge forces a fresh query.
 
-## [0.7.10] — 2026-11-11
-
 ### Fixed
+- **The page was dead after the update.** The inserted error text contained a real newline inside the JavaScript string, which broke the whole `<script>` block (SyntaxError) and left every button unresponsive. The text is escaped properly now (`\\n`) and `node --check` passes on all templates.
+- **"Start" appeared to do nothing.** The UI swallowed every error (`catch(e){}`), so a busy port,
+  missing server files or a supervisor problem stayed completely silent. It now shows the real
+  message, e.g. "Port 7780 is already in use …" or "server not installed".
+- **The "… is missing. Install now?" prompt had no package name.** The call passed an empty argument
+  to the text function (`t missing_ask "" "$label"`) while the message prints `$2`, so the name was
+  blank — for every missing dependency (Wine, iproute2, 32-bit libraries). It now reads
+  "Wine fehlt. Jetzt installieren? [j/N]", and the libraries got their own sentence so the German
+  grammar fits.
+- **Missing text on language switch.** The UI showed `undefined` plus the error when switching the
+  language failed, because `msg.lang_failed` was not in the catalog. It now reads
+  "Sprache wechseln fehlgeschlagen:" / "language switch failed:".
+- **Self-update did nothing ("panel does not update").** `apply()` looked for the package folder
+  inside the GitHub archive under the repo name (`AscendedPanel/`), but it is installed as
+  `ascendedpanel/`. On Linux those are two different folders, so the update aborted with "package
+  folder missing from archive" while the badge kept offering the update. The folder is now matched
+  case-insensitively, so the update applies and the header shows the new version afterwards.
 - **The log stayed empty during installation.** SteamCMD reports download progress with a carriage
   return (`\r`) and no newline. The installer read line by line, so the first line only arrived after
   the whole download — with 10-15 GB that looks like "nothing is happening". Output is now read in
@@ -84,10 +52,6 @@ Notable changes to noah2games. Format based on
   `.install.log` immediately (flushed per line). The SteamCMD fetch and the exact command are logged
   as well.
 - **The update log now shows real lines instead of one endless line** — same path as the install.
-
-## [0.7.9] — 2026-11-11
-
-### Fixed
 - **SteamCMD failed on fresh servers with `exit 127`.** The cause was missing 32-bit libraries
   (`ld-linux.so.2`, i386 `libstdc++.so.6`) - a beginner trap the program has to handle itself. The
   installer now checks for i386 libraries in `--check`, installs them with `--auto` (apt:
@@ -95,7 +59,7 @@ Notable changes to noah2games. Format based on
   `glibc.i686`; zypper: `glibc-32bit`; pacman: `lib32-glibc`) and otherwise prints the exact command
   needed by hand.
 
-## [0.7.8] — 2026-11-10
+0.7.8] — 2026-11-10
 
 ### Fixed
 - **`polypanel web` raised a traceback when the port was taken.** If the web service was already

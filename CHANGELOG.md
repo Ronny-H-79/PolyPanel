@@ -6,19 +6,6 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 
 ## [0.7.19] — 2026-11-11
 
-### Behoben
-- **Seite war nach dem Update tot.** Der eingefügte Fehlertext enthielt ein echtes Zeilenende im JavaScript-String; damit war der ganze `<script>`-Block ungültig (SyntaxError) und keine Schaltfläche reagierte mehr. Der Text ist jetzt korrekt maskiert (`\\n`), `node --check` über alle Vorlagen läuft fehlerfrei.
-
-## [0.7.18] — 2026-11-11
-
-### Behoben
-- **„Start" tat scheinbar nichts.** Die Oberfläche verschluckte jede Fehlermeldung
-  (`catch(e){}`), also blieb bei belegtem Port, fehlenden Serverdateien oder einem Problem mit dem
-  Supervisor einfach alles stumm. Jetzt erscheint ein Hinweis mit dem echten Text, z. B.
-  „Port 7780 ist schon belegt …" oder „Server nicht installiert".
-
-## [0.7.17] — 2026-11-11
-
 ### Neu
 - **Fortschrittsbalken bei der Installation.** SteamCMD meldet während des Downloads
   `Update state (0x61) downloading, progress: 42.31`. Diese Zeile wird jetzt ausgewertet
@@ -28,60 +15,41 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 - Die erste Phase (Steam-API, Client-Konfiguration) hat keinen Prozentwert — der Balken erscheint
   erst, wenn der eigentliche Download beginnt.
 
-## [0.7.16] — 2026-11-11
-
 ### Geändert
 - **Prüfskript für die Installer-Texte** (`tools/check_texts.py`): vergleicht jeden Aufruf
   `$(t SCHLUESSEL …)` mit den Platzhaltern im Text und meldet fehlende Argumente sowie unbekannte
   Schlüssel. Genau diese Klasse Fehler hatte die Abfrage ohne Paketnamen erzeugt.
-
-## [0.7.15] — 2026-11-11
-
-### Behoben
-- **Bei „… fehlt. Jetzt installieren?" stand kein Paketname davor.** Der Aufruf übergab ein leeres
-  Argument an die Textfunktion (`t missing_ask "" "$label"`), die Meldung liest aber `$2` — dadurch
-  blieb der Name leer. Betraf jede fehlende Abhängigkeit (Wine, iproute2, 32-Bit-Bibliotheken).
-  Jetzt steht dort z. B. „Wine fehlt. Jetzt installieren? [j/N]"; für die Bibliotheken gibt es einen
-  eigenen Satz („32-Bit-Bibliotheken fuer SteamCMD fehlen. …"), damit die Grammatik stimmt.
-
-## [0.7.14] — 2026-11-11
-
-### Behoben
-- **Fehlender Text beim Sprachwechsel.** Die Oberfläche zeigte bei einem Fehler im Sprachwechsel
-  `undefined` plus Fehlertext, weil der Schlüssel `msg.lang_failed` im Katalog fehlte. Jetzt steht
-  dort „Sprache wechseln fehlgeschlagen:" bzw. „language switch failed:".
-
-## [0.7.13] — 2026-11-11
-
-### Behoben
-- **Selbst-Update tat nichts: „Panel wird nicht aktualisiert".** `apply()` suchte den Paketordner im
-  GitHub-Archiv unter dem Repo-Namen (`AscendedPanel/`), installiert heißt er aber `ascendedpanel/`.
-  Auf Linux sind das zwei verschiedene Ordner — das Update brach mit „Paketordner fehlt im Archiv"
-  ab, während die Anzeige weiter „update verfügbar" meldete. Der Ordner wird jetzt ohne Rücksicht
-  auf Groß-/Kleinschreibung gesucht, damit greift das Update wieder und die Kopfzeile zeigt danach
-  die neue Version.
-
-## [0.7.12] — 2026-11-11
-
-### Geändert
 - **Die Build-Anzeige verschwand bisher stillschweigend.** Wenn der Server noch nicht installiert war
   oder die Steam-Abfrage scheiterte (z. B. fehlende 32-Bit-Bibliotheken), wurde das Abzeichen einfach
   ausgeblendet — es sah aus, als würde die Update-Prüfung gar nicht laufen. Jetzt steht dort
   „UPDATE-STATUS UNBEKANNT" mit Begründung im Tooltip („noch nicht installiert" bzw. „Steam-Abfrage
   fehlgeschlagen"), und ein Klick fragt sofort neu an.
-
-## [0.7.11] — 2026-11-11
-
-### Geändert
 - **Update-Prüfung fragt nicht mehr jede Minute bei Steam nach.** Jede offene Browserseite rief alle
   60 Sekunden `/api/update` auf, und der Server startete dafür jedes Mal einen eigenen
   `steamcmd`-Prozess (`+app_info_print`, Timeout bis 180 s). Das Ergebnis wird jetzt **15 Minuten**
   zwischengespeichert, die Oberfläche fragt nur noch alle **5 Minuten** nach. Ein Klick auf die
   Build-Anzeige erzwingt eine frische Abfrage bei Steam.
 
-## [0.7.10] — 2026-11-11
-
 ### Behoben
+- **Seite war nach dem Update tot.** Der eingefügte Fehlertext enthielt ein echtes Zeilenende im JavaScript-String; damit war der ganze `<script>`-Block ungültig (SyntaxError) und keine Schaltfläche reagierte mehr. Der Text ist jetzt korrekt maskiert (`\\n`), `node --check` über alle Vorlagen läuft fehlerfrei.
+- **„Start" tat scheinbar nichts.** Die Oberfläche verschluckte jede Fehlermeldung
+  (`catch(e){}`), also blieb bei belegtem Port, fehlenden Serverdateien oder einem Problem mit dem
+  Supervisor einfach alles stumm. Jetzt erscheint ein Hinweis mit dem echten Text, z. B.
+  „Port 7780 ist schon belegt …" oder „Server nicht installiert".
+- **Bei „… fehlt. Jetzt installieren?" stand kein Paketname davor.** Der Aufruf übergab ein leeres
+  Argument an die Textfunktion (`t missing_ask "" "$label"`), die Meldung liest aber `$2` — dadurch
+  blieb der Name leer. Betraf jede fehlende Abhängigkeit (Wine, iproute2, 32-Bit-Bibliotheken).
+  Jetzt steht dort z. B. „Wine fehlt. Jetzt installieren? [j/N]"; für die Bibliotheken gibt es einen
+  eigenen Satz („32-Bit-Bibliotheken fuer SteamCMD fehlen. …"), damit die Grammatik stimmt.
+- **Fehlender Text beim Sprachwechsel.** Die Oberfläche zeigte bei einem Fehler im Sprachwechsel
+  `undefined` plus Fehlertext, weil der Schlüssel `msg.lang_failed` im Katalog fehlte. Jetzt steht
+  dort „Sprache wechseln fehlgeschlagen:" bzw. „language switch failed:".
+- **Selbst-Update tat nichts: „Panel wird nicht aktualisiert".** `apply()` suchte den Paketordner im
+  GitHub-Archiv unter dem Repo-Namen (`AscendedPanel/`), installiert heißt er aber `ascendedpanel/`.
+  Auf Linux sind das zwei verschiedene Ordner — das Update brach mit „Paketordner fehlt im Archiv"
+  ab, während die Anzeige weiter „update verfügbar" meldete. Der Ordner wird jetzt ohne Rücksicht
+  auf Groß-/Kleinschreibung gesucht, damit greift das Update wieder und die Kopfzeile zeigt danach
+  die neue Version.
 - **Beim Installieren blieb das Protokoll leer.** SteamCMD meldet den Download-Fortschritt mit
   Wagenrücklauf (`\r`) ohne Zeilenumbruch. Der Installer las zeilenweise und bekam deshalb erst nach
   dem kompletten Download eine Zeile — bei 10–15 GB sieht das aus wie „es passiert nichts".
@@ -90,10 +58,6 @@ Alle nennenswerten Änderungen an noah2games. Format nach
   SteamCMD und der genaue Befehl stehen jetzt im Protokoll.
 - **Update-Protokoll zeigt jetzt ebenfalls Zeilen statt einer Riesenzeile** — derselbe Weg wie bei
   der Installation.
-
-## [0.7.9] — 2026-11-11
-
-### Behoben
 - **SteamCMD scheiterte auf frischen Servern mit `Exit 127`.** Ursache waren fehlende
   32-Bit-Bibliotheken (`ld-linux.so.2`, `libstdc++.so.6` i386) — ein Anfaengerfehler, den das
   Programm selbst abfangen muss. Der Installer prueft die i386-Bibliotheken jetzt in `--check`,
@@ -101,7 +65,7 @@ Alle nennenswerten Änderungen an noah2games. Format nach
   `lib32stdc++6`, `libc6:i386`; dnf: `glibc.i686`; zypper: `glibc-32bit`;
   pacman: `lib32-glibc`) und nennt sonst den genauen Befehl, der von Hand noetig ist.
 
-## [0.7.8] — 2026-11-10
+0.7.8] — 2026-11-10
 
 ### Behoben
 - **`polypanel web` warf bei belegtem Port einen Traceback.** Wer den Web-Dienst schon laufen hatte,
