@@ -88,7 +88,7 @@ git clone https://github.com/Ronny-H-79/PolyPanel.git polypanel   # einmalig
 cd polypanel
 ./install.sh --check     # prüfen, was fehlt (ändert nichts)
 ./install.sh             # installieren
-polypanel web           # Web-Oberfläche starten — die Adresse mit Token wird ausgegeben
+polypanel url           # Adresse mit Token - der Web-Dienst laeuft bereits
 ```
 
 Instanzen legst du **im Browser** an: Adresse aus der Ausgabe öffnen, Namen eintragen, Spiel und Karte

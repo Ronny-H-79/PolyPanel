@@ -253,7 +253,15 @@ def cmd_web(args: argparse.Namespace) -> None:
         print("  %s http://127.0.0.1:%d/?token=%s" % (t("cli.url"), args.port, token()))
         if ip:
             print("  %s http://%s:%d/?token=%s" % (t("cli.url"), ip, args.port, token()))
-    serve(host=args.host, port=args.port, cert=cert, key=key)
+    try:
+        serve(host=args.host, port=args.port, cert=cert, key=key)
+    except OSError as e:
+        if getattr(e, "errno", None) in (98, 48, 10048):  # Linux, macOS, Windows
+            print()
+            print("  ! %s" % t("cli.port_busy", port=args.port))
+            print("  %s" % t("cli.port_busy_hint", port=args.port, alt=args.port + 1))
+            raise SystemExit(1)
+        raise
 
 
 def cmd_version(args: argparse.Namespace) -> None:

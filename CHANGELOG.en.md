@@ -4,6 +4,17 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.8] — 2026-11-10
+
+### Fixed
+- **`polypanel web` raised a traceback when the port was taken.** If the web service was already
+  running you got `OSError: [Errno 98] Address already in use` plus a full stack trace. It now prints a
+  clear message with three options — check the service (`systemctl --user status polypanel-web`), use another
+  port (`polypanel web --port <free>`), or just print the address (`polypanel url`) — and exits 1.
+- **Docs started the service twice.** After `install.sh` the service already runs, yet the install
+  instructions still said `polypanel web`. They now say `polypanel url`, which only prints the ready
+  address with the token.
+
 ## [0.7.7] — 2026-11-10
 
 ### Changed
