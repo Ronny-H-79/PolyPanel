@@ -4,6 +4,14 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.12] — 2026-11-11
+
+### Changed
+- **The build badge used to disappear silently.** If the server was not installed yet, or the Steam
+  query failed (e.g. missing 32-bit libraries), the badge was simply hidden — it looked as if the
+  update check never ran. It now reads "UPDATE STATUS UNKNOWN" with the reason in the tooltip
+  ("not installed yet" or "Steam query failed"), and a click retries right away.
+
 ## [0.7.11] — 2026-11-11
 
 ### Changed

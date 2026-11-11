@@ -4,6 +4,15 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.12] — 2026-11-11
+
+### Geändert
+- **Die Build-Anzeige verschwand bisher stillschweigend.** Wenn der Server noch nicht installiert war
+  oder die Steam-Abfrage scheiterte (z. B. fehlende 32-Bit-Bibliotheken), wurde das Abzeichen einfach
+  ausgeblendet — es sah aus, als würde die Update-Prüfung gar nicht laufen. Jetzt steht dort
+  „UPDATE-STATUS UNBEKANNT" mit Begründung im Tooltip („noch nicht installiert" bzw. „Steam-Abfrage
+  fehlgeschlagen"), und ein Klick fragt sofort neu an.
+
 ## [0.7.11] — 2026-11-11
 
 ### Geändert

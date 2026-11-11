@@ -979,7 +979,15 @@ async function refresh(){
 async function act(a){ await api('/api/'+a,{method:'POST'}); setTimeout(refresh,1200); }
 async function updCheck(){
   try{ const u=JSON.parse(await api('/api/update'+(window.__updForce?'?refresh=1':''))); window.__updForce=false; const b=document.getElementById('upd');
-    if(u.up_to_date===null || u.installed==null){b.style.display='none';return;}
+    if(u.installed==null || u.available==null){
+      b.style.display=''; b.className='badge';
+      b.textContent=L['status.update_unknown'];
+      b.title=(u.reason==='not_installed')?L['status.reason_not_installed']:L['status.reason_steam_unreachable'];
+      b.style.cursor='pointer';
+      b.onclick=()=>{window.__updForce=true;updCheck();};
+      b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();window.__updForce=true;updCheck();}};
+      return;
+    }
     b.style.display='';
     if(u.up_to_date){
       // Build ist aktuell: Klick prüft erneut

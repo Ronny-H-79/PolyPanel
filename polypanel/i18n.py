@@ -47,6 +47,9 @@ T: dict[str, dict[str, str]] = {
                             "en": "build is up to date - click to check again"},
     "status.hint_update": {"de": "Klick startet das Update (Server wird gestoppt, vorher Sicherung)",
                            "en": "click to update (server is stopped, backup first)"},
+    "status.update_unknown": {"de": "UPDATE-STATUS UNBEKANNT", "en": "UPDATE STATUS UNKNOWN"},
+    "status.reason_not_installed": {"de": "Serverdateien sind noch nicht installiert - Build-Vergleich gibt es erst danach", "en": "server files are not installed yet - the build comparison starts after that"},
+    "status.reason_steam_unreachable": {"de": "Steam-Abfrage fehlgeschlagen (steamcmd bzw. 32-Bit-Bibliotheken?) - Klick versucht es erneut", "en": "Steam query failed (steamcmd or 32-bit libraries?) - click to retry"},
     "status.update_available": {"de": "UPDATE", "en": "UPDATE"},
     # ---------------------------------------------------------------- Dashboard
     "dash.instances": {"de": "Instanzen", "en": "instances"},

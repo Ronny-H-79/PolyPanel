@@ -508,6 +508,8 @@ def check_update(inst: Instance, max_age: float | None = None) -> dict[str, obje
         "running": is_running(inst),
         "cached": False,
         "age": 0,
+        "reason": ("not_installed" if got is None
+                   else ("steam_unreachable" if want is None else None)),
     }
     _UPDATE_CACHE[inst.name] = (jetzt, {k: v for k, v in daten.items() if k not in ("cached", "age")})
     return daten
