@@ -330,6 +330,13 @@ else
   ask_install wine "Wine"
 fi
 
+if command -v Xvfb >/dev/null 2>&1; then
+  say "$(t present "Xvfb")"
+else
+  MISSING=1
+  ask_install xvfb "Xvfb (virtueller Bildschirm fuer den ARK-Server)"
+fi
+
 if command -v ss >/dev/null 2>&1; then
   say "$(t present "iproute2 (ss)")"
 else
