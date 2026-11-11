@@ -76,7 +76,7 @@ directories live in `~/polypanel-instances/<name>`.
 
 ```bash
 git clone https://github.com/Ronny-H-79/PolyPanel.git polypanel   # once
-cd PolyPanel
+cd polypanel
 ./install.sh --check     # check what is missing (changes nothing)
 ./install.sh             # install
 polypanel web           # start the web UI - the address with token is printed
@@ -141,7 +141,7 @@ At the end you get the command that matches your choice: the SSH tunnel with you
 | Message | Cause | Fix |
 |---|---|---|
 | `fatal: destination path 'PolyPanel' already exists` | the folder is already there | `cd polypanel && git pull` instead of cloning again |
-| `./install.sh: No such file or directory` **after** `cd PolyPanel` | you are in the package folder `PolyPanel/PolyPanel` — only `.py` files live there | `cd ..` — `install.sh` is one level up |
+| `./install.sh: No such file or directory` **after** `cd polypanel/polypanel` | you are in the package folder `PolyPanel/PolyPanel` — only `.py` files live there | `cd ..` — `install.sh` is one level up |
 | `PolyPanel: command not found` | `~/.local/bin` is not in `PATH` | as root the installer links `/usr/local/bin/PolyPanel`; otherwise `export PATH="$HOME/.local/bin:$PATH"` and open a new shell |
 
 Details, requirements and uninstall: [INSTALL.md](INSTALL.md)

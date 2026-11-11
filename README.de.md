@@ -85,7 +85,7 @@ Mehr dazu: [docs/funktionen.md](docs/funktionen.md)
 
 ```bash
 git clone https://github.com/Ronny-H-79/PolyPanel.git polypanel   # einmalig
-cd PolyPanel
+cd polypanel
 ./install.sh --check     # prüfen, was fehlt (ändert nichts)
 ./install.sh             # installieren
 polypanel web           # Web-Oberfläche starten — die Adresse mit Token wird ausgegeben
@@ -150,11 +150,11 @@ Am Ende steht genau der Befehl, der zu deiner Wahl passt: der SSH-Tunnel mit dei
 | Meldung | Ursache | Lösung |
 |---|---|---|
 | `fatal: destination path 'PolyPanel' already exists` | der Ordner liegt schon da | `cd polypanel && git pull` statt erneut klonen |
-| `./install.sh: No such file or directory` **nach** `cd PolyPanel` | du stehst im Paketordner `PolyPanel/PolyPanel` — dort liegen nur `.py`-Dateien | `cd ..` — `install.sh` liegt eine Ebene höher, im Projektordner |
+| `./install.sh: No such file or directory` **nach** `cd polypanel/polypanel` | du stehst im Paketordner `PolyPanel/PolyPanel` — dort liegen nur `.py`-Dateien | `cd ..` — `install.sh` liegt eine Ebene höher, im Projektordner |
 | `PolyPanel: command not found` | `~/.local/bin` ist nicht im `PATH` | als root legt der Installer `/usr/local/bin/PolyPanel` an; sonst `export PATH="$HOME/.local/bin:$PATH"` und neue Shell öffnen |
 
 **Eine Falle bei Namensgleichheit:** im Projektordner heißt der Python-Teil ebenfalls `polypanel`.
-`cd PolyPanel` führt dich also ein zweites Mal hinein — dort liegen `cli.py`, `i18n.py` und Co., aber kein
+`cd polypanel/polypanel` führt dich also ein zweites Mal hinein — dort liegen `cli.py`, `i18n.py` und Co., aber kein
 `install.sh`. Merksatz: der richtige Ordner ist der mit `install.sh`, `README.md` und `docs/`.
 
 Als **root** auf einem Server: alle Befehle in einer Sitzung hintereinander ausführen, sonst landet

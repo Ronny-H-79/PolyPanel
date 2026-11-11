@@ -50,7 +50,6 @@ Normale Installation (im eigenen Benutzerkonto):
 ```bash
 git clone https://github.com/Ronny-H-79/PolyPanel.git polypanel   # oder Ordner kopieren
 cd polypanel          # dieser Ordner enthaelt install.sh - NICHT PolyPanel/polypanel (das ist das Python-Paket)
-cd PolyPanel
 ./install.sh --check        # nur pruefen, was fehlt (aendert nichts)
 ./install.sh                # installieren, fragt bei fehlenden Paketen nach
 ./install.sh --auto         # fehlende Pakete ohne Rueckfrage installieren (sudo)

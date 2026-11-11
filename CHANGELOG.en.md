@@ -4,6 +4,14 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.6] — 2026-11-10
+
+### Fixed
+- **Install instructions used the wrong case.** `git clone … polypanel` creates a lowercase folder,
+  but the docs then asked for `cd PolyPanel`. On a case-sensitive filesystem that aborts with
+  `No such file or directory`. All commands, the troubleshooting table and the note about the
+  same-named package folder now say `polypanel`; the duplicated `cd` line in `INSTALL.de.md` is gone.
+
 ## [0.6.5] — 2026-11-10
 
 ### Fixed
