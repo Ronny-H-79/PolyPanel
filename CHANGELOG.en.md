@@ -4,6 +4,16 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.17] — 2026-11-11
+
+### Added
+- **Progress bar while installing.** SteamCMD prints `Update state (0x61) downloading, progress: 42.31`;
+  that line is now parsed (`GET /api/install/progress`) and the UI shows a bar with phase and
+  percentage — phases without a percentage (preallocating, verifying) show as text. When done the bar
+  runs to 100 % and hides itself. The install log now shows the last 40 lines instead of 10.
+- The first phase (Steam API, client config) has no percentage, so the bar appears when the actual
+  download starts.
+
 ## [0.7.16] — 2026-11-11
 
 ### Changed

@@ -4,6 +4,17 @@ Alle nennenswerten Änderungen an noah2games. Format nach
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionierung nach
 [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.7.17] — 2026-11-11
+
+### Neu
+- **Fortschrittsbalken bei der Installation.** SteamCMD meldet während des Downloads
+  `Update state (0x61) downloading, progress: 42.31`. Diese Zeile wird jetzt ausgewertet
+  (`GET /api/install/progress`) und die Oberfläche zeigt darüber einen Balken mit Phase und Prozentwert
+  — bei „preallocating"/„verifying" ohne Prozentwert steht die Phase als Text. Am Ende läuft der Balken
+  auf 100 % und blendet sich aus. Das Installationsprotokoll zeigt statt 10 jetzt die letzten 40 Zeilen.
+- Die erste Phase (Steam-API, Client-Konfiguration) hat keinen Prozentwert — der Balken erscheint
+  erst, wenn der eigentliche Download beginnt.
+
 ## [0.7.16] — 2026-11-11
 
 ### Geändert

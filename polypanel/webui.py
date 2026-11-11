@@ -607,11 +607,39 @@ async function createInst(){
 }
 async function install(name){
   document.getElementById('out').textContent=await api('/api/install?name='+name,{method:'POST'});
+  // Fortschrittsbalken ueber der Ausgabe: SteamCMD meldet Prozentwerte, die hier live einlaufen
+  let bar=document.getElementById('instbar'), label=document.getElementById('instbarlabel');
+  if(!bar){
+    const out=document.getElementById('out');
+    label=document.createElement('div'); label.id='instbarlabel';
+    label.style.cssText='font-size:12px;color:var(--dim);margin:8px 0 4px;display:none';
+    bar=document.createElement('div'); bar.id='instbar';
+    bar.style.cssText='height:14px;border-radius:7px;background:rgba(255,255,255,.08);overflow:hidden;display:none;margin-bottom:10px';
+    bar.innerHTML='<div id="instbarfill" style="height:100%;width:0%;background:linear-gradient(90deg,#2f81f7,#56d364);transition:width .6s"></div>';
+    out.parentNode.insertBefore(label,out); out.parentNode.insertBefore(bar,out);
+  }
+  const fill=bar.querySelector('#instbarfill');
   const t=setInterval(async()=>{
     const l=await api('/api/install/log?name='+name);
     document.getElementById('out').textContent=l;
-    if(l.startsWith('[fertig]')) clearInterval(t);
-  },4000);
+    try{
+      const p=JSON.parse(await api('/api/install/progress?name='+name));
+      if(p && p.percent!==null && p.percent!==undefined && p.percent>0){
+        bar.style.display='block'; label.style.display='block';
+        fill.style.width=Math.max(2,Math.min(100,p.percent))+'%';
+        const ph=p.phase?(L['inst.phase_'+p.phase]||''):'';
+        label.textContent=(ph?ph+' — ':'')+Number(p.percent).toFixed(1)+' %';
+      }
+    }catch(e){}
+    if(l.startsWith('[fertig]')){
+      clearInterval(t);
+      if(bar && bar.style.display==='block'){
+        fill.style.width='100%';
+        label.textContent=(L['inst.phase_done']||'fertig')+' — 100 %';
+        setTimeout(()=>{bar.style.display='none';label.style.display='none';},6000);
+      }
+    }
+  },2000);
 }
 
 let _polyPanelInfo=null;
@@ -1722,6 +1750,43 @@ PLAYER_ACTIONS = {
 }
 
 
+_PROGRESS_RE = re.compile(r"progress:\s*([0-9]+(?:\.[0-9]+)?)")
+_STATE_RE = re.compile(r"Update state \(0x[0-9a-f]+\)\s*([a-z ]+?)(?:,|$)")
+
+
+def install_progress(inst) -> dict[str, object]:
+    """Fortschritt der laufenden Installation aus .install.log lesen.
+
+    SteamCMD schreibt Zeilen wie
+    ``Update state (0x61) downloading, progress: 42.31 (123 / 456)``.
+    Daraus wird Prozentwert und Phase gezogen, damit die Oberflaeche einen Balken zeigen kann.
+    """
+    log_path = os.path.join(inst.directory, ".install.log")
+    daten: dict[str, object] = {"running": inst.name in INSTALLS, "percent": None,
+                                "phase": "", "done": False}
+    try:
+        with open(log_path, encoding="utf-8", errors="replace") as fh:
+            zeilen = fh.readlines()[-400:]
+    except OSError:
+        return daten
+    for zeile in reversed(zeilen):
+        if "Success! App" in zeile or "Installation beendet" in zeile:
+            daten["done"] = True
+            daten["percent"] = 100.0
+            daten["phase"] = "done"
+            return daten
+        m = _PROGRESS_RE.search(zeile)
+        if m:
+            daten["percent"] = float(m.group(1))
+            s = _STATE_RE.search(zeile)
+            daten["phase"] = (s.group(1).strip() if s else "downloading")
+            return daten
+        s = _STATE_RE.search(zeile)
+        if s and not daten["phase"]:
+            daten["phase"] = s.group(1).strip()
+    return daten
+
+
 def _start_install(inst: Instance) -> None:
     """Installation im Hintergrund ueber den gemeinsamen Installer."""
     from . import installer
@@ -2054,13 +2119,19 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         inst = self._inst(q)
+        if path == "/api/install/progress":
+            if not inst:
+                self._json({"running": False, "percent": None, "phase": "", "done": False})
+                return
+            self._json(install_progress(inst))
+            return
         if path == "/api/install/log":
             if not inst:
                 self._send(404, b"keine Instanz")
                 return
             log_path = os.path.join(inst.directory, ".install.log")
             state = "laeuft" if inst.name in INSTALLS else "fertig"
-            lines = runner.tail(log_path, 10) if os.path.exists(log_path) else []
+            lines = runner.tail(log_path, 40) if os.path.exists(log_path) else []
             self._send(200, ("[%s]\n" % state + "\n".join(lines)).encode())
             return
         if not inst:
