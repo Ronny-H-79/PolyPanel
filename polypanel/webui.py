@@ -619,6 +619,19 @@ async function install(name){
     out.parentNode.insertBefore(label,out); out.parentNode.insertBefore(bar,out);
   }
   const fill=bar.querySelector('#instbarfill');
+  let stopBtn=document.getElementById('instcancel');
+  if(!stopBtn){
+    stopBtn=document.createElement('button'); stopBtn.id='instcancel';
+    stopBtn.textContent=L['inst.cancel']||'Installation abbrechen';
+    stopBtn.style.cssText='margin:0 0 10px;padding:4px 10px;font-size:12px';
+    stopBtn.onclick=async()=>{
+      if(!confirm(L['inst.cancel_ask']||'Installation wirklich abbrechen?')) return;
+      try{ await api('/api/install/cancel?name='+encodeURIComponent(name),{method:'POST'}); }
+      catch(e){ alert((L['inst.action_failed']||'Aktion fehlgeschlagen:')+' '+e); }
+      stopBtn.remove(); setTimeout(load,800);
+    };
+    out.parentNode.insertBefore(stopBtn,out);
+  }
   const t=setInterval(async()=>{
     const l=await api('/api/install/log?name='+name);
     document.getElementById('out').textContent=l;
@@ -2123,6 +2136,20 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         inst = self._inst(q)
+        if path == "/api/install/cancel":
+            if not inst:
+                self._json({"ok": False, "error": "keine Instanz"})
+                return
+            from . import installer as _inst_mod
+            ergebnis = _inst_mod.cancel(inst.name)
+            INSTALLS.pop(inst.name, None)
+            try:
+                with open(os.path.join(inst.directory, ".install.log"), "a") as fh:
+                    fh.write("\nInstallation abgebrochen durch Benutzer\n")
+            except OSError:
+                pass
+            self._json(ergebnis)
+            return
         if path == "/api/install/progress":
             if not inst:
                 self._json({"running": False, "percent": None, "phase": "", "done": False})

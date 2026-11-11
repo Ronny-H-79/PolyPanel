@@ -126,6 +126,8 @@ T: dict[str, dict[str, str]] = {
     "inst.whitelist": {"de": "Whitelist", "en": "Whitelist"},
     "inst.item": {"de": "Item", "en": "Item"},
     "inst.action_failed": {"de": "Aktion fehlgeschlagen:", "en": "action failed:"},
+    "inst.cancel": {"de": "Installation abbrechen", "en": "cancel installation"},
+    "inst.cancel_ask": {"de": "Installation wirklich abbrechen? Der halbe Download bleibt liegen und wird beim nächsten Versuch weiterverwendet.", "en": "Really cancel the installation? The partial download stays and is reused next time."},
     "inst.phase_downloading": {"de": "Lade herunter", "en": "Downloading"},
     "inst.phase_preallocate": {"de": "Dateien werden angelegt", "en": "preallocating files"},
     "inst.phase_verifying": {"de": "Prüfe Dateien", "en": "verifying files"},

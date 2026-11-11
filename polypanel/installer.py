@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 import shutil
 import subprocess
 import tarfile
@@ -57,6 +58,32 @@ def _plattform_flagge(app_id: str) -> list[str]:
     return []
 
 
+ACTIVE: dict[str, "subprocess.Popen[bytes]"] = {}
+
+
+def cancel(name: str) -> dict[str, object]:
+    """Laufende Installation abbrechen: SteamCMD-Prozessgruppe beenden."""
+    proc = ACTIVE.get(name)
+    if proc is None:
+        return {"ok": False, "error": "keine laufende Installation"}
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    except OSError:
+        try:
+            proc.terminate()
+        except OSError:
+            pass
+    try:
+        proc.wait(timeout=15)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except OSError:
+            pass
+    ACTIVE.pop(name, None)
+    return {"ok": True}
+
+
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07")
 
 
@@ -105,10 +132,12 @@ def install_server(inst: Instance, log=None) -> dict:
                 ["+force_install_dir", inst.directory, "+login", "anonymous",
                  "+app_update", inst.profile.server_app_id, "validate", "+quit"])
         emit("steamcmd %s" % " ".join(argv[1:]))
-        proc = subprocess.Popen(argv, cwd=os.path.dirname(cmd),
+        proc = subprocess.Popen(argv, cwd=os.path.dirname(cmd), start_new_session=True,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        ACTIVE[inst.name] = proc
         pump_output(proc.stdout, emit)
         proc.wait()
+        ACTIVE.pop(inst.name, None)
         emit("Installation beendet (exit %s)" % proc.returncode)
 
     if proc.returncode == 0:

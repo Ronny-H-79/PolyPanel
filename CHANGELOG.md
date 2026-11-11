@@ -1,4 +1,4 @@
-## [0.7.22] — 2026-11-11
+## [0.7.23] — 2026-11-11
 
 ### Neu
 - **Fortschrittsbalken bei der Installation.** SteamCMD meldet während des Downloads
@@ -72,6 +72,7 @@
 - **`xvfb` gehört jetzt zur Installation.** Fehlt der virtuelle Bildschirm, bricht der ARK-Ascended-Server unter Wine ab, bevor er ins Log schreibt — Startknopf ohne Wirkung, leeres Protokoll. Installer prüft `Xvfb` jetzt wie Wine, installiert es mit `--auto` (apt `xvfb`, dnf `xorg-x11-server-Xvfb`, pacman `xorg-server-xvfb`, zypper `xvfb`).
 - **Server ließ sich nicht starten.** `runner.start()` rief den Supervisor als `-m AscendedPanel.consoled` auf, das Modul heißt aber `ascendedpanel.consoled` — auf Linux startet der Prozess damit gar nicht, es entsteht keine Console-Logdatei, und `stderr` ging zusätzlich nach `/dev/null`: kein Prozess, kein Log, keine Meldung. Der Aufruf ist korrigiert, und Startausgaben landen jetzt in `<instanz>/.start.log` statt im Nichts.
 - **Installation brach mit `Failed to install app '2430930' (Missing configuration)` ab.** ARK Ascended hat keinen Linux-Server; SteamCMD lädt den Windows-Zweig nur mit `+@sSteamCmdForcePlatformType windows`. Der Schalter wird jetzt bei ASA automatisch mitgegeben — bei ASE, 7D2D, Satisfactory und Space Engineers bleibt die Kommandozeile unverändert. Gilt für Installation und Update.
+- **Installation lässt sich abbrechen.** Während des Downloads steht ein Knopf „Installation abbrechen“ über dem Protokoll (`POST /api/install/cancel`); er beendet die SteamCMD-Prozessgruppe, schreibt einen Vermerk ins Log und räumt den Fortschritt ab. Der halb geladene Stand bleibt liegen und wird beim nächsten Versuch weiterverwendet.
 
 ## [0.7.7] — 2026-11-10
 
