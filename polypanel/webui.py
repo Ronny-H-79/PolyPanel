@@ -978,14 +978,14 @@ async function refresh(){
 }
 async function act(a){ await api('/api/'+a,{method:'POST'}); setTimeout(refresh,1200); }
 async function updCheck(){
-  try{ const u=JSON.parse(await api('/api/update')); const b=document.getElementById('upd');
+  try{ const u=JSON.parse(await api('/api/update'+(window.__updForce?'?refresh=1':''))); window.__updForce=false; const b=document.getElementById('upd');
     if(u.up_to_date===null || u.installed==null){b.style.display='none';return;}
     b.style.display='';
     if(u.up_to_date){
       // Build ist aktuell: Klick prüft erneut
       b.textContent=L['status.current']+' '+u.installed; b.className='badge on';
       b.title=L['status.hint_current']; b.style.cursor='pointer';
-      b.onclick=updCheck; b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();updCheck();}};
+      b.onclick=()=>{window.__updForce=true;updCheck();}; b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();updCheck();}};
     } else {
       // Update verfuegbar: Klick startet es (mit Rueckfrage) - auch hier auf der Instanzseite
       b.textContent=L['status.update_available']+' '+u.installed+'→'+u.available; b.className='badge off';
@@ -1652,7 +1652,7 @@ async function give(sid){ const bp=prompt('Blueprint','PrimalItemResource_Stone_
   const q=prompt('Menge','10')||'10';
   document.getElementById('out').textContent=await api('/api/player/give?steamid='+sid+'&bp='+encodeURIComponent(bp)+'&qty='+q,{method:'POST'}); }
 applyLang(); restoreTab(); setTimeout(restoreTab, 250); refresh(); updCheck(); renderCmds(); loadMods(); loadKeyState(); loadCfg(); loadWl(); loadSettings(); loadCluster(); loadSnaps(); loadBackups(); loadSchedule(); loadHooks();
-setInterval(refresh,5000); setInterval(updCheck,60000);
+setInterval(refresh,5000); setInterval(updCheck,300000);
 </script>""" + FOOTER + """
 </body></html>"""
 
@@ -2068,7 +2068,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/players":
             self._json(players(inst))
         elif path == "/api/update":
-            self._json(runner.check_update(inst))
+            self._json(runner.check_update(inst, 0 if q.get("refresh") else None))
         elif path == "/api/lang":
             self._json({"lang": i18n.lang(), "catalog": i18n.catalog()})
 

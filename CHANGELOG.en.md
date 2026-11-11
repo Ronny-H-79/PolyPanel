@@ -4,6 +4,14 @@ Notable changes to noah2games. Format based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.11] — 2026-11-11
+
+### Changed
+- **The update check no longer asks Steam every minute.** Every open browser tab called `/api/update`
+  once a minute, and the server spawned a separate `steamcmd` process each time (`+app_info_print`,
+  timeout up to 180 s). The result is now cached for **15 minutes** and the UI asks only every
+  **5 minutes**; clicking the build badge forces a fresh query.
+
 ## [0.7.10] — 2026-11-11
 
 ### Fixed

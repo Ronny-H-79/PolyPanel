@@ -480,16 +480,37 @@ def remote_build(timeout: int = 180, app_id: str = "2430930") -> str | None:
     return m.group(1) if m else None
 
 
-def check_update(inst: Instance) -> dict[str, object]:
+# Update-Abfrage bei Steam ist teuer (eigener steamcmd-Prozess): Ergebnis 15 Minuten merken.
+UPDATE_TTL = 900
+_UPDATE_CACHE: dict[str, tuple[float, dict[str, object]]] = {}
+
+
+def check_update(inst: Instance, max_age: float | None = None) -> dict[str, object]:
+    """Installierter vs. verfuegbarer Build.
+
+    ``max_age`` in Sekunden: 0 = immer frisch bei Steam nachfragen, ``None`` = UPDATE_TTL.
+    Ohne Cache lief beim offenen Browser jede Minute ein steamcmd-Prozess.
+    """
+    grenze = UPDATE_TTL if max_age is None else max_age
+    jetzt = time.time()
+    treffer = _UPDATE_CACHE.get(inst.name)
+    if treffer and grenze > 0 and jetzt - treffer[0] < grenze:
+        daten = dict(treffer[1])
+        daten["cached"] = True
+        daten["age"] = int(jetzt - treffer[0])
+        return daten
     got = installed_build(inst)
-    want = remote_build(app_id=inst.profile.server_app_id)
-    return {
+    want = remote_build(app_id=inst.profile.server_app_id) if hasattr(inst, "profile") else remote_build()
+    daten = {
         "installed": got,
         "available": want,
         "up_to_date": (got is not None and got == want) if want else None,
         "running": is_running(inst),
+        "cached": False,
+        "age": 0,
     }
-
+    _UPDATE_CACHE[inst.name] = (jetzt, {k: v for k, v in daten.items() if k not in ("cached", "age")})
+    return daten
 
 def update_installed(inst: Instance, restart_after: bool = True,
                      validate_update: bool = True) -> dict[str, object]:
