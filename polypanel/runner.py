@@ -203,6 +203,56 @@ def start(inst: Instance, wait: int = 0) -> int:
     return pid or 0
 
 
+def _kill_leftovers(inst: Instance) -> None:
+    """Prozessreste der Instanz anstossen zu beenden (nach einem Stop haengt Wine kurz nach)."""
+    for pid in instance_pids(inst):
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+
+
+def wait_ports_free(inst: Instance, timeout: float = 25) -> list[int]:
+    """Warten, bis die Ports der Instanz frei sind; eigene Reste dabei wegraeumen.
+
+    Direkt nach einem Stop haelt Wine die Ports manchmal noch ein paar Sekunden - ein sofortiger
+    Start scheitert dann mit "Port belegt" und der Server bleibt aus.
+    """
+    busy = _ports_free(inst)
+    deadline = time.time() + timeout
+    while busy and time.time() < deadline:
+        _kill_leftovers(inst)
+        time.sleep(1)
+        busy = _ports_free(inst)
+    return busy
+
+
+def restart(inst: Instance, timeout: int = 90) -> str:
+    """Stop + Start in einem Zug und mit Begruendung, wenn es nicht klappt.
+
+    Der frueher benutzte Weg ("stop(); sleep(3); start()") verschluckte jede Ausnahme im Thread:
+    der Server blieb einfach aus und "Restart" sah aus wie "Stop". Hier werden die Schritte
+    gesammelt, die Ports abgewartet und der Start einmal wiederholt.
+    """
+    steps: list[str] = ["stop: " + stop(inst, timeout=timeout)]
+    busy = wait_ports_free(inst)
+    if busy:
+        raise RunnerError("Ports nach dem Stop immer noch belegt (%s) - laeuft ein fremder Prozess "
+                          "darauf? (%s)" % (", ".join(str(p) for p in busy), "; ".join(steps)))
+    time.sleep(2)
+    for attempt in (1, 2):
+        try:
+            pid = start(inst)
+            steps.append("start: PID %s" % pid)
+            return ", ".join(steps)
+        except RunnerError as exc:
+            steps.append("start (Versuch %d) fehlgeschlagen: %s" % (attempt, exc))
+            if attempt == 1:
+                wait_ports_free(inst, 10)
+                time.sleep(3)
+    raise RunnerError(", ".join(steps))
+
+
 def stop_marker(inst: Instance) -> str:
     return os.path.join(inst.directory + ".stopped")
 

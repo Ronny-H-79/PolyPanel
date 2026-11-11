@@ -244,15 +244,13 @@ class Supervisor:
                    % (self.inst.max_restarts_per_hour, reason))
             return
         self._record_restart(reason)
-        notify(self.inst, "stop (%s)" % reason)
-        result = runner.stop(self.inst, timeout=90)
-        notify(self.inst, "stop: %s" % result)
-        time.sleep(3)
+        notify(self.inst, "restart (%s)" % reason)
         try:
-            pid = runner.start(self.inst)
-            notify(self.inst, "start: PID %d" % pid)
+            notify(self.inst, "restart: %s" % runner.restart(self.inst, timeout=90))
         except runner.RunnerError as exc:
-            notify(self.inst, "start fehlgeschlagen: %s" % exc)
+            notify(self.inst, "restart fehlgeschlagen: %s" % exc)
+            notify_event(self.inst, "Restart fehlgeschlagen", str(exc)[:500], "error",
+                         {"Instanz": self.inst.name})
 
     def _reload_schedule(self) -> None:
         """Zeitplan-Einstellungen neu lesen - die UI schreibt sie in die Instanzdatei.

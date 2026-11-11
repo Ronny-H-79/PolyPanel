@@ -56,6 +56,20 @@ def _render(template: str) -> str:
             .replace("__LANG__", i18n.lang()))
 
 
+def _log_step(inst: Instance, text: str) -> None:
+    """Schritte von Start/Stop/Restart mitschreiben.
+
+    Ohne diesen Mitschrieb ist ein fehlgeschlagener Start unsichtbar: der Server bleibt aus und
+    niemand sieht, warum (die Ausnahme lief bisher in einem Thread ins Leere).
+    """
+    try:
+        os.makedirs(inst.directory, exist_ok=True)
+        with open(os.path.join(inst.directory, ".start.log"), "a", encoding="utf-8") as fh:
+            fh.write("%s  %s\n" % (time.strftime("%F %T"), text))
+    except OSError:
+        pass
+
+
 def rcon_cmd(inst: Instance, cmd: str, timeout: float = 12.0) -> str:
     with inst.control(timeout=timeout) as rc:
         return rc.command(cmd, timeout=timeout + 5)
@@ -2359,28 +2373,36 @@ class Handler(BaseHTTPRequestHandler):
             _start_install(inst)
             self._send(200, ("Installation gestartet: %s\nDauer je nach Leitung 10-30 Minuten."
                              % inst.directory).encode())
-        elif path == "/api/start":
-            if runner.is_running(inst):
-                self._json({"ok": True, "info": "laeuft bereits"})
-            else:
-                threading.Thread(target=runner.start, args=(inst,), daemon=True).start()
-                self._json({"ok": True, "info": "start ausgeloest"})
+            return
+        if (path == "/api/start") and runner.is_running(inst):
+            self._json({"ok": True, "info": "laeuft bereits"})
+            return
+        if path in ("/api/start", "/api/restart", "/api/update"):
+            def _act() -> None:
+                _log_step(inst, "%s angefordert" % path.split("/")[-1])
+                try:
+                    if path == "/api/start":
+                        _log_step(inst, "start: PID %s" % runner.start(inst))
+                    elif path == "/api/restart":
+                        _log_step(inst, "restart: %s" % runner.restart(inst))
+                    else:
+                        _log_step(inst, "update: %s" % runner.update_installed(inst))
+                except Exception as exc:  # noqa: BLE001 - der Grund muss sichtbar werden
+                    _log_step(inst, "%s fehlgeschlagen: %s" % (path.split("/")[-1], exc))
+                    supervisor.notify(inst, "%s fehlgeschlagen: %s" % (path.split("/")[-1], exc))
+                    supervisor.notify_event(inst, "Aktion fehlgeschlagen", str(exc)[:500], "error",
+                                            {"Instanz": inst.name})
+            threading.Thread(target=_act, daemon=True).start()
+            self._json({"ok": True, "info": "%s ausgeloest" % path.split("/")[-1]})
         elif path == "/api/stop":
-            threading.Thread(target=runner.stop, args=(inst,), daemon=True).start()
+            def _stop() -> None:
+                _log_step(inst, "stop angefordert")
+                try:
+                    _log_step(inst, "stop: %s" % runner.stop(inst))
+                except Exception as exc:  # noqa: BLE001
+                    _log_step(inst, "stop fehlgeschlagen: %s" % exc)
+            threading.Thread(target=_stop, daemon=True).start()
             self._json({"ok": True, "info": "stop ausgeloest"})
-        elif path == "/api/restart":
-            def _r() -> None:
-                runner.stop(inst, timeout=90)
-                time.sleep(3)
-                runner.start(inst)
-            threading.Thread(target=_r, daemon=True).start()
-            self._json({"ok": True, "info": "restart ausgeloest"})
-        elif path == "/api/update":
-            if not inst:
-                self._json({"ok": False, "error": "Instanz nicht gefunden"})
-                return
-            threading.Thread(target=runner.update_installed, args=(inst,), daemon=True).start()
-            self._json({"ok": True, "info": "Update gestartet"})
         elif path == "/api/rcon":
             cmd = q.get("cmd", [""])[0]
             try:

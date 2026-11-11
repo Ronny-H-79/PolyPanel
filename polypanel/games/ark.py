@@ -43,7 +43,7 @@ class ArkProfile(GameProfile):
 
     def control(self, inst, timeout: float = 10.0):
         from ..rcon import RconClient
-        return RconClient("127.0.0.1", inst.rcon_port, inst.rcon_password, timeout=timeout)
+        return RconClient("127.0.0.1", inst.rcon_port, inst.admin_pw, timeout=timeout)
 
     def ready(self, inst) -> bool:
         """ARK meldet die Bereitschaft im Log."""

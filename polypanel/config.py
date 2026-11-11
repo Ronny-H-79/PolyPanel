@@ -123,6 +123,24 @@ def read(inst: Instance, which: str) -> str:
         return "; Datei konnte nicht gelesen werden: %s" % exc
 
 
+def _sync_admin_pw(inst: Instance, which: str) -> None:
+    """Admin-Passwort aus der Serverdatei in die Instanz-Config uebernehmen.
+
+    ARK liest `?ServerAdminPassword=` aus der Startzeile und schreibt diesen Wert beim Start in die
+    Datei zurueck. Ein Passwort, das nur in der Datei steht, ist beim naechsten Neustart (und damit
+    nach jedem Update) wieder weg. Deshalb wandert es hier in die Instanz - Startzeile, Datei und
+    RCON-Anmeldung nutzen danach denselben Wert.
+    """
+    if which != "gus":
+        return
+    value = _parse_ini(read(inst, "gus")).get(("serversettings", "serveradminpassword"), "").strip()
+    if value == inst.admin_password:
+        return
+    inst.admin_password = value
+    from . import registry
+    registry.save(inst)
+
+
 def write(inst: Instance, which: str, text: str) -> str:
     if len(text) > MAX_BYTES:
         raise ValueError("Datei zu gross (max %d Bytes)" % MAX_BYTES)
@@ -134,6 +152,7 @@ def write(inst: Instance, which: str, text: str) -> str:
         shutil.copy2(path, backup)
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
+    _sync_admin_pw(inst, which)
     return backup
 
 
@@ -262,3 +281,4 @@ def set_value(inst: Instance, which: str, section: str, key: str, value: str) ->
 
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
+    _sync_admin_pw(inst, which)

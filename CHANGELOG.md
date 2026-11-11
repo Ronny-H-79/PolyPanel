@@ -1,3 +1,22 @@
+## [0.7.29] — 2026-11-11
+
+### Behoben
+- **Admin-Passwort blieb nach Neustart/Update nicht erhalten.** Die Startzeile des ARK-Profils bekam
+  immer das RCON-Passwort, während das Admin-Passwort in die `GameUserSettings.ini` geschrieben wurde.
+  ARK liest den Wert aus der Startzeile und überschreibt damit beim Start die INI. Startzeile, INI und
+  RCON-Anmeldung nutzen jetzt dieselbe Quelle (`Instance.admin_pw`: Admin-Passwort, sonst
+  RCON-Passwort). Ein im Konfig-Editor (Formular oder Roh-INI) gesetztes Admin-Passwort wird in die
+  Instanz-Config übernommen und gilt damit dauerhaft.
+- **„Restart" verhielt sich wie „Stop" — der Server kam nicht wieder hoch.** Der Neustart lief als
+  `stop(); sleep(3); start()` in einem Thread ohne Fehlerbehandlung: scheiterte der Start (z. B. weil
+  Wine die Ports noch hielt), blieb der Server ohne Meldung aus. Jetzt gibt es `runner.restart()`:
+  Stop, warten bis die Ports wirklich frei sind (eigene Restprozesse werden beendet), Start mit einem
+  Wiederholungsversuch; scheitert es, nennt die Fehlermeldung alle Schritte und den blockierenden Port.
+- **Fehlschläge von Start/Restart/Update sind sichtbar** (in `<instanz>/.start.log`, im
+  Supervisor-Log und als Discord-Ereignis statt still im Thread zu verschwinden).
+- Die Installation über die Oberfläche schickte nach der Erfolgsmeldung noch eine 404-Antwort
+  hinterher.
+
 ## [0.7.28] — 2026-11-11
 
 ### Neu

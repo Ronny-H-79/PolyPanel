@@ -1,3 +1,20 @@
+## [0.7.29] — 2026-11-11
+
+### Fixed
+- **The admin password did not survive a restart/update.** The ARK profile's start line always got the
+  RCON password while the admin password was written into `GameUserSettings.ini`. ARK reads the value
+  from the start line and overwrites the INI on start. Start line, INI and RCON login now use the same
+  source (`Instance.admin_pw`: admin password, otherwise RCON password). An admin password set in the
+  config editor (form or raw INI) is copied into the instance config and therefore persists.
+- **"Restart" behaved like "Stop" — the server never came back.** A restart was `stop(); sleep(3);
+  start()` inside a thread without error handling: if the start failed (e.g. because Wine still held
+  the ports), the server stayed down without any message. There is now `runner.restart()`: stop, wait
+  until the ports are really free (leftover processes of the instance are terminated), then start with
+  one retry; on failure the error names every step and the blocking port.
+- **Failures of start/restart/update are visible** (in `<instance>/.start.log`, the supervisor log and
+  as a Discord event, instead of vanishing inside the thread).
+- Installing through the UI sent a 404 response after the success message.
+
 ## [0.7.28] — 2026-11-11
 
 ### Added
