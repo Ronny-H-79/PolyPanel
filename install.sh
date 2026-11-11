@@ -330,11 +330,30 @@ else
   ask_install wine "Wine"
 fi
 
+# Xvfb wird ohne Rueckfrage mitinstalliert: der Name "virtueller Bildschirm" klingt fuer
+# Anfaenger entbehrlich, ohne Xvfb startet der ARK-Ascended-Server unter Wine aber gar nicht.
 if command -v Xvfb >/dev/null 2>&1; then
   say "$(t present "Xvfb")"
 else
   MISSING=1
-  ask_install xvfb "Xvfb (virtueller Bildschirm fuer den ARK-Server)"
+  if [ "$CHECK_ONLY" = "1" ]; then
+    warn "$(t check_missing "Xvfb" "$(pkg_name xvfb)")"
+  else
+    say "$(t auto_install "Xvfb")"
+    _root() { if [ "$(id -u)" = "0" ]; then "$@"; else sudo "$@"; fi; }
+    case "$PKG_MGR" in
+      apt)    _root apt-get update -qq; _root apt-get install -y "$(pkg_name xvfb)" ;;
+      dnf)    _root dnf install -y "$(pkg_name xvfb)" ;;
+      zypper) _root zypper --non-interactive install "$(pkg_name xvfb)" ;;
+      pacman) _root pacman -S --needed --noconfirm "$(pkg_name xvfb)" ;;
+      *)      warn "$(t no_pkgmgr "$(pkg_name xvfb)")" ;;
+    esac
+    if command -v Xvfb >/dev/null 2>&1; then
+      say "$(t installed "Xvfb")"
+    else
+      warn "$(t still_missing "Xvfb")"
+    fi
+  fi
 fi
 
 if command -v ss >/dev/null 2>&1; then
