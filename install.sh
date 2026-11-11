@@ -213,6 +213,10 @@ pkg_name() {
     wine:apt)    echo "wine" ;;
     wine:dnf)    echo "wine" ;;
     wine:zypper) echo "wine" ;;
+    xvfb:pacman) echo "xorg-server-xvfb" ;;
+    xvfb:apt)    echo "xvfb" ;;
+    xvfb:dnf)    echo "xorg-x11-server-Xvfb" ;;
+    xvfb:zypper) echo "xvfb" ;;
     iproute2:pacman) echo "iproute2" ;;
     iproute2:apt)    echo "iproute2" ;;
     iproute2:dnf)    echo "iproute2" ;;

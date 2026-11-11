@@ -1,10 +1,4 @@
-# Changelog
-
-Notable changes to noah2games. Format based on
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows
-[Semantic Versioning](https://semver.org/).
-
-## [0.7.19] — 2026-11-11
+## [0.7.20] — 2026-11-11
 
 ### Added
 - **Progress bar while installing.** SteamCMD prints `Update state (0x61) downloading, progress: 42.31`;
@@ -69,6 +63,7 @@ Notable changes to noah2games. Format based on
 - **Docs started the service twice.** After `install.sh` the service already runs, yet the install
   instructions still said `polypanel web`. They now say `polypanel url`, which only prints the ready
   address with the token.
+- **`xvfb` is now part of the installation.** Without the virtual display the ARK Ascended server aborts under Wine before writing anything to its log — start button seemingly dead, empty log. The installer checks `Xvfb` like Wine and installs it with `--auto` (apt `xvfb`, dnf `xorg-x11-server-Xvfb`, pacman `xorg-server-xvfb`, zypper `xvfb`).
 
 ## [0.7.7] — 2026-11-10
 
