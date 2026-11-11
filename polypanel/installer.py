@@ -58,6 +58,24 @@ def _plattform_flagge(app_id: str) -> list[str]:
     return []
 
 
+def _steamcmd_bereit(cmd: str, log=print) -> bool:
+    """SteamCMD vor dem ersten Zugriff aktualisieren (sonst "Missing configuration").
+
+    Der Client laedt sich beim Aufruf selbst nach; bricht das ab, ist das Verzeichnis
+    halbfertig und jede Installation scheitert. Dann wird der Client neu geholt.
+    """
+    try:
+        r = subprocess.run([cmd, "+quit"], cwd=os.path.dirname(cmd),
+                           capture_output=True, text=True, timeout=900)
+        if r.returncode == 0:
+            return True
+        log("SteamCMD-Selbsttest fehlgeschlagen (exit %s) - Client wird neu geladen" % r.returncode)
+    except (OSError, subprocess.SubprocessError) as exc:
+        log("SteamCMD-Selbsttest nicht moeglich (%s) - Client wird neu geladen" % exc)
+    shutil.rmtree(STEAMCMD_DIR, ignore_errors=True)
+    return bool(ensure_steamcmd(log=log))
+
+
 ACTIVE: dict[str, "subprocess.Popen[bytes]"] = {}
 
 
@@ -131,12 +149,31 @@ def install_server(inst: Instance, log=None) -> dict:
         argv = ([cmd] + _plattform_flagge(inst.profile.server_app_id) +
                 ["+force_install_dir", inst.directory, "+login", "anonymous",
                  "+app_update", inst.profile.server_app_id, "validate", "+quit"])
+        _steamcmd_bereit(cmd, log=emit)
         emit("steamcmd %s" % " ".join(argv[1:]))
         proc = subprocess.Popen(argv, cwd=os.path.dirname(cmd), start_new_session=True,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         ACTIVE[inst.name] = proc
         pump_output(proc.stdout, emit)
         proc.wait()
+        if proc.returncode != 0:
+            try:
+                with open(log_path, encoding="utf-8", errors="replace") as lf:
+                    letzte = lf.read()[-4000:]
+            except OSError:
+                letzte = ""
+            if "Missing configuration" in letzte or "Failed to install app" in letzte:
+                emit("SteamCMD meldet eine defekte Konfiguration - Client wird neu geladen und der Versuch wiederholt")
+                shutil.rmtree(STEAMCMD_DIR, ignore_errors=True)
+                cmd = ensure_steamcmd(log=emit)
+                _steamcmd_bereit(cmd, log=emit)
+                argv[0] = cmd
+                emit("steamcmd %s" % " ".join(argv[1:]))
+                proc = subprocess.Popen(argv, cwd=os.path.dirname(cmd), start_new_session=True,
+                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                ACTIVE[inst.name] = proc
+                pump_output(proc.stdout, emit)
+                proc.wait()
         ACTIVE.pop(inst.name, None)
         emit("Installation beendet (exit %s)" % proc.returncode)
 

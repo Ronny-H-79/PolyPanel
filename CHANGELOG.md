@@ -1,4 +1,4 @@
-## [0.7.24] — 2026-11-11
+## [0.7.25] — 2026-11-11
 
 ### Neu
 - **Fortschrittsbalken bei der Installation.** SteamCMD meldet während des Downloads
@@ -74,6 +74,7 @@
 - **Installation brach mit `Failed to install app '2430930' (Missing configuration)` ab.** ARK Ascended hat keinen Linux-Server; SteamCMD lädt den Windows-Zweig nur mit `+@sSteamCmdForcePlatformType windows`. Der Schalter wird jetzt bei ASA automatisch mitgegeben — bei ASE, 7D2D, Satisfactory und Space Engineers bleibt die Kommandozeile unverändert. Gilt für Installation und Update.
 - **Installation lässt sich abbrechen.** Während des Downloads steht ein Knopf „Installation abbrechen“ über dem Protokoll (`POST /api/install/cancel`); er beendet die SteamCMD-Prozessgruppe, schreibt einen Vermerk ins Log und räumt den Fortschritt ab. Der halb geladene Stand bleibt liegen und wird beim nächsten Versuch weiterverwendet.
 - **`Xvfb` wird ohne Rückfrage installiert.** Die Nachfrage „virtueller Bildschirm" klang entbehrlich — ohne Xvfb startet der ARK-Ascended-Server unter Wine aber gar nicht. Der Installer zieht das Paket jetzt still mit (auch als root ohne `sudo`), `--check` meldet es nur. Schlägt die Installation fehl, steht der Paketname als Hinweis da.
+- **SteamCMD repariert sich jetzt selbst.** Vor jeder Installation läuft ein Selbsttest (`steamcmd +quit`); scheitert er oder meldet SteamCMD `Missing configuration`, wird der Client automatisch neu geladen und der Versuch **einmal** wiederholt — ohne Handarbeit. Nur so ließ sich die Installation auf einem frischen VPS zuverlässig durchziehen.
 
 ## [0.7.7] — 2026-11-10
 

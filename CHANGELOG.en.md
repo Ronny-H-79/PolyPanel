@@ -1,4 +1,4 @@
-## [0.7.24] — 2026-11-11
+## [0.7.25] — 2026-11-11
 
 ### Added
 - **Progress bar while installing.** SteamCMD prints `Update state (0x61) downloading, progress: 42.31`;
@@ -68,6 +68,7 @@
 - **Install aborted with `Failed to install app '2430930' (Missing configuration)`.** ARK Ascended has no Linux server build; SteamCMD only fetches the Windows branch with `+@sSteamCmdForcePlatformType windows`. The switch is now passed automatically for ASA — ASE, 7D2D, Satisfactory and Space Engineers keep their command line unchanged. Applies to install and update.
 - **Installs can be cancelled.** While downloading there is a button "cancel installation" above the log (`POST /api/install/cancel`); it kills the SteamCMD process group, notes it in the log and clears the progress. The partial download stays and is reused on the next attempt.
 - **`Xvfb` is installed without asking.** The prompt for a "virtual display" sounded optional, yet the ARK Ascended server cannot start under Wine without it. The installer now pulls the package silently (also as root without `sudo`), `--check` only reports it. If the install fails the package name is shown.
+- **SteamCMD now repairs itself.** A self-test (`steamcmd +quit`) runs before every install; if it fails or SteamCMD reports `Missing configuration`, the client is downloaded again and the attempt repeated **once** — no manual steps. That was needed for a reliable install on a fresh VPS.
 
 ## [0.7.7] — 2026-11-10
 
