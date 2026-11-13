@@ -18,6 +18,21 @@ from .sv7dtd_labels import LABELS
 LOG_REL = os.path.join("logs", "output_log.txt")
 
 
+def _udp_port_bound(port: int) -> bool:
+    """Steht ein UDP-Port an (Spielport des 7D2D-Servers)?"""
+    want = "%04X" % port
+    for path in ("/proc/net/udp", "/proc/net/udp6"):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                for line in fh.readlines()[1:]:
+                    teile = line.split()
+                    if len(teile) > 1 and teile[1].split(":")[-1] == want:
+                        return True
+        except OSError:
+            continue
+    return False
+
+
 class SevenDaysProfile(GameProfile):
     key = "7d2d"
     label = "7 Days to Die"
@@ -393,9 +408,14 @@ class SevenDaysProfile(GameProfile):
         return TelnetClient("127.0.0.1", inst.rcon_port, inst.telnet_password, timeout=timeout)
 
     def ready(self, inst) -> bool:
-        """7D2D ist bereit, wenn der Telnet-Port Verbindungen annimmt."""
-        from .base import _tcp_open
-        return _tcp_open("127.0.0.1", inst.rcon_port, timeout=2)
+        """7D2D ist bereit, wenn der Spielport gebunden ist.
+
+        Fruehere Fassung klopfte an den Telnet-Port und schloss die Verbindung sofort wieder -
+        der Server protokollierte daraufhin bei jeder Statusabfrage
+        `IOException: Unable to write data to the transport connection: The socket has been shut down`.
+        Der Spielport in /proc/net/udp verraet dasselbe, ohne dass sich jemand einloggt.
+        """
+        return _udp_port_bound(inst.port)
 
     def graceful_stop(self, inst) -> list[str]:
         """7D2D kennt kein RCON-Quit: Welt speichern, beenden per Signal."""
