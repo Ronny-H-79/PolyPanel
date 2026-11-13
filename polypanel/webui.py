@@ -1199,7 +1199,10 @@ async function expHinweis(force){
     const grund=ex.reasons?('<div style="margin-top:10px;color:var(--dim);font-size:11.5px">'+ex.reasons+'</div>'):'';
     ov.innerHTML='<div style="max-width:540px;margin:16px;background:#0b131a;border:1px solid var(--warn);border-radius:10px;padding:16px 18px;color:var(--fg);font-size:13px;line-height:1.5">'
       +'<b style="color:var(--warn)">'+(L['se.exp_title']||'Server laeuft im Experimental-Modus')+'</b>'
-      +'<div style="margin-top:8px">'+(L['se.exp_body']||'Space Engineers hat den experimentellen Modus selbst aktiviert. Im Client muss Experimental in den Spieloptionen eingeschaltet sein, sonst laesst sich nicht beitreten.')+'</div>'
+      +'<div style="margin-top:10px;font-size:12.5px;line-height:1.7">'
+      +'<div>'+(L['se.exp_cfg']||'ExperimentalMode in der Config')+': <b>false</b> (aus)</div>'
+      +'<div>'+(L['se.exp_eff']||'ExperimentalMode wirksam')+': <b style="color:var(--warn)">true</b> (an)</div></div>'
+      +'<div style="margin-top:10px">'+(L['se.exp_body']||'Space Engineers hat den experimentellen Modus selbst aktiviert. Im Client muss Experimental in den Spieloptionen eingeschaltet sein, sonst laesst sich nicht beitreten.')+'</div>'
       +grund
       +'<div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">'
       +'<button class="ghost" id="expNever">'+(L['se.exp_never']||'Nicht mehr anzeigen')+'</button>'

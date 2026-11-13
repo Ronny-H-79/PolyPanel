@@ -349,6 +349,8 @@ T: dict[str, dict[str, str]] = {
                      "en": "Space Engineers enabled experimental mode on its own - the ExperimentalMode value in the config is only a request. Enable experimental mode in the game options, otherwise you cannot join."},
     "se.exp_never": {"de": "Nicht mehr anzeigen", "en": "Don't show again"},
     "se.exp_show": {"de": "Hinweis anzeigen", "en": "Show notice"},
+    "se.exp_cfg": {"de": "ExperimentalMode in der Config", "en": "ExperimentalMode in the config"},
+    "se.exp_eff": {"de": "ExperimentalMode wirksam", "en": "ExperimentalMode effective"},
     "se.experimental_hint": {"de": " - im Client muss Experimental in den Spieloptionen aktiv sein.",
                               "en": " - enable experimental mode in the game options."},
     "setup.download": {"de": "Serverdateien werden geladen (je nach Leitung 10-30 Minuten)",
