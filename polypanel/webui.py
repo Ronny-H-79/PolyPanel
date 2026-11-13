@@ -1770,6 +1770,9 @@ async function saveSettings(){
     }
   });
   if(!payload.length){
+    // Diagnose: auch der leere Fall geht an den Server, damit im Log steht, ob der Klick ankommt
+    try{ await fetch('/api/settings?name='+NAME+'&token='+encodeURIComponent(T),
+      {method:'POST',headers:{'Content-Type':'application/json'},body:'[]'}); }catch(e){}
     const m=L['set.no_changes']||'keine Änderungen';
     banner(m,'#8a8a8a');
     document.getElementById('setmsg').textContent=m; toast(m); return;
