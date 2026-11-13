@@ -1740,6 +1740,23 @@ function toast(text){
   clearTimeout(window._toastTimer);
   window._toastTimer=setTimeout(function(){ t.classList.remove('on'); }, 4000);
 }
+function banner(text,farbe){
+  // Feste Leiste oben: bei 250 Feldern steht die Meldung am Seitenende sonst ausserhalb
+  // des Bildschirms und der Klick wirkt wirkungslos.
+  let b=document.getElementById('savebanner');
+  if(!b){
+    b=document.createElement('div'); b.id='savebanner';
+    b.style.cssText='position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:1000;'
+      +'padding:10px 18px;border-radius:8px;background:#0d1a12;border:1px solid #39d98a;'
+      +'color:#e8f5ee;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.5);max-width:80vw';
+    document.body.appendChild(b);
+  }
+  b.style.borderColor=farbe||'#39d98a';
+  b.textContent=String(text||'');
+  b.style.display='block';
+  clearTimeout(window._bannerTimer);
+  window._bannerTimer=setTimeout(function(){ b.style.display='none'; }, 6000);
+}
 async function saveSettings(){
   const payload=[];
   document.querySelectorAll('#settings input, #settings textarea, #settings select').forEach(el=>{
@@ -1752,10 +1769,15 @@ async function saveSettings(){
       payload.push({file:v.file,section:v.section,key:v.key,value:value});
     }
   });
-  if(!payload.length){const m=L['set.no_changes'];document.getElementById('setmsg').textContent=m;toast(m);return;}
+  if(!payload.length){
+    const m=L['set.no_changes']||'keine Änderungen';
+    banner(m,'#8a8a8a');
+    document.getElementById('setmsg').textContent=m; toast(m); return;
+  }
   const r=await fetch('/api/settings?name='+NAME+'&token='+encodeURIComponent(T),
     {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const meldung=await r.text();
+  banner(meldung, /^\d+ Einstellung/.test(meldung)?'#39d98a':'#f0a020');
   document.getElementById('setmsg').textContent=meldung;
   // Rueckmeldung auch oben einblenden: bei 250 Einstellungen steht die Zeile sonst
   // ausserhalb des sichtbaren Bereichs und es wirkt, als sei nichts gespeichert worden.
