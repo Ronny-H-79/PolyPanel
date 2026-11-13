@@ -754,13 +754,15 @@ async function install(name){
         label.textContent=(ph?ph+' — ':'')+Number(p.percent).toFixed(1)+' %';
       }
     }catch(e){}
-    if(l.startsWith('[fertig]')){
+    if(l.startsWith('[fertig]') || l.startsWith('[abgebrochen]')){
       clearInterval(t);
+      if(stopBtn && stopBtn.parentNode) stopBtn.remove();   // Knopf verschwindet mit dem Ende der Installation
       if(bar && bar.style.display==='block'){
         fill.style.width='100%';
         label.textContent=(L['inst.phase_done']||'fertig')+' — 100 %';
         setTimeout(()=>{bar.style.display='none';label.style.display='none';},6000);
       }
+      setTimeout(load,800);                                 // Karte zeigt danach "Starten"
     }
   },2000);
 }
