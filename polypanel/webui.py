@@ -1192,8 +1192,8 @@ async function expHinweis(force){
   try{
     const ex=JSON.parse(await api('/api/experimental'));
     if(!ex || !ex.yes) return;
-    if(!force && (localStorage.getItem('expHintOff')==='1' || sessionStorage.getItem('expHint')==='1')) return;
-    if(!force) sessionStorage.setItem('expHint','1');
+    // Nur "Nicht mehr anzeigen" unterdrueckt das Fenster - sonst kommt es bei jedem Oeffnen
+    if(!force && localStorage.getItem('expHintOff')==='1') return;
     const ov=document.createElement('div');
     ov.style.cssText='position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center';
     const grund=ex.reasons?('<div style="margin-top:10px;color:var(--dim);font-size:11.5px">'+ex.reasons+'</div>'):'';
