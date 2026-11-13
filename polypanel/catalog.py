@@ -128,3 +128,77 @@ def suche(q: str, limit: int = 40) -> list[dict]:
         if len(treffer) >= limit:
             break
     return treffer
+
+# ------------------------------------------------------------------ 7 Days to Die
+# 7D2D kennt keine Blueprints: `give <Spieler> <Itemname> <Anzahl>` erwartet den internen
+# Itemnamen (z. B. gunHandgunT1Pistol). Auswahl der gebraeuchlichsten Gegenstaende.
+SDTD_ITEMS: list[tuple[str, str]] = [
+    ("meleeToolRepairT1ClawHammer", "Hammer (Reparatur)"),
+    ("meleeToolPickT1IronPickaxe", "Eisen-Spitzhacke"),
+    ("meleeToolAxeT1IronFireaxe", "Eisen-Axt"),
+    ("meleeToolShovelT1IronShovel", "Eisen-Schaufel"),
+    ("meleeWeaponKnifeT1Hunter", "Jagdmesser"),
+    ("meleeWeaponClubT1Wooden", "Holzschlaeger"),
+    ("meleeWeaponSpearT1Stone", "Steinspeer"),
+    ("meleeWeaponBatT1Wooden", "Holzschlaeger (Baseball)"),
+    ("gunHandgunT1Pistol", "Pistole"),
+    ("gunHandgunT2Magnum44", "Magnum .44"),
+    ("gunShotgunT1PipeShotgun", "Rohr-Schrotflinte"),
+    ("gunShotgunT2PumpShotgun", "Pump-Schrotflinte"),
+    ("gunRifleT1HuntingRifle", "Jagdgewehr"),
+    ("gunRifleT2LeverActionRifle", "Unterheblergewehr"),
+    ("gunMGT1AK47", "AK-47"),
+    ("gunMGT2M60", "M60"),
+    ("gunBowT1WoodenBow", "Holzbogen"),
+    ("gunBowT3CompoundBow", "Compoundbogen"),
+    ("gunToolNailgun", "Nagelpistole"),
+    ("ammo9mmBullet", "Munition 9 mm"),
+    ("ammo762mmBullet", "Munition 7,62 mm"),
+    ("ammoShotgunShell", "Schrotpatronen"),
+    ("ammoArrowIron", "Eisenpfeile"),
+    ("medicalFirstAidBandage", "Erste-Hilfe-Verband"),
+    ("medicalFirstAidKit", "Erste-Hilfe-Kasten"),
+    ("medicalAntibiotics", "Antibiotika"),
+    ("drinkCanBeer", "Bier"),
+    ("drinkPureMineralWater", "Mineralwasser"),
+    ("foodCanChili", "Chili-Dose"),
+    ("foodBaconAndEggs", "Speck mit Ei"),
+    ("foodMeatStew", "Fleischeintopf"),
+    ("resourceRockSmall", "Stein"),
+    ("resourceWood", "Holz"),
+    ("resourceScrapIron", "Eisenschrott"),
+    ("resourceForgedIron", "Geschmiedetes Eisen"),
+    ("resourceForgedSteel", "Geschmiedeter Stahl"),
+    ("resourceCement", "Zement"),
+    ("resourceConcreteMix", "Betonmischung"),
+    ("resourceGunPowder", "Schwarzpulver"),
+    ("resourceBrass", "Messing"),
+    ("resourceRepairKit", "Reparaturset"),
+    ("toolBellows", "Blasebalg"),
+    ("toolForgeCrucible", "Schmelztiegel"),
+    ("modArmorCoolingMesh", "Kuehlgewebe (Ruestung)"),
+    ("casinoCoin", "Casino-Muenze"),
+    ("meleeToolFlashlight02", "Taschenlampe"),
+]
+
+# Spiele mit eigenem Katalog: Schluessel ist der Spielname der Instanz
+GAMES = {"ark": "ark", "asa": "ark", "ase": "ark", "arkse": "ark", "7d2d": "7d2d", "sv7dtd": "7d2d"}
+
+
+def eintraege_spiel(game: str = "") -> list[dict]:
+    """Katalog fuer ein Spiel; leer, wenn es keinen gibt."""
+    art = GAMES.get((game or "").lower(), "ark")
+    if art == "7d2d":
+        return [{"name": n, "label": lb, "cat": "7D2D"} for n, lb in SDTD_ITEMS]
+    return eintraege()
+
+
+def suche_spiel(q: str, game: str = "", limit: int = 40) -> list[dict]:
+    wort = (q or "").strip().lower()
+    treffer = []
+    for e in eintraege_spiel(game):
+        if not wort or wort in (e["label"] + " " + e["name"]).lower():
+            treffer.append(e)
+        if len(treffer) >= limit:
+            break
+    return treffer

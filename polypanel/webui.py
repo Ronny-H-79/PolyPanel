@@ -1189,6 +1189,7 @@ async function refresh(){
        const _end=()=>{_l.scrollTop=_l.scrollHeight;};
        _end(); requestAnimationFrame(()=>{_end(); setTimeout(_end,60);}); }catch(e){}
   try{
+    const NO_WHITELIST=(document.body.dataset.game==='7d2d');
     const pl=JSON.parse(await api('/api/players'));
     window.PNAMES={}; pl.forEach(function(x){ window.PNAMES[x.steamid]=x.name; });
     loadBans();
@@ -1197,7 +1198,7 @@ async function refresh(){
        <span class="row">
          <button onclick="pa('${p.steamid}','kick')">${L['inst.kick']}</button>
          <button class="danger" onclick="pa('${p.steamid}','ban')">${L['inst.ban']}</button>
-         <button onclick="pa('${p.steamid}','whitelist')">${L['inst.whitelist']}</button>
+         ${NO_WHITELIST?'':`<button onclick="pa('${p.steamid}','whitelist')">${L['inst.whitelist']}</button>`}
          <button onclick="give('${p.steamid}')">${L['inst.item']}</button>
        </span></div>`).join('')
       :'<span style="color:var(--dim)">– '+L['inst.no_players']+' –</span>';
@@ -1925,7 +1926,8 @@ async function qtyOk(){
   const auftrag=QTY_PENDING;
   qtyClose();
   try{
-    const r=await api('/api/player/give?steamid='+encodeURIComponent(CAT_SID)+
+    const r=await api('/api/player/give?name='+encodeURIComponent(NAME)+
+                      '&steamid='+encodeURIComponent(CAT_SID)+
                       '&bp='+encodeURIComponent(auftrag.bp)+
                       '&qty='+encodeURIComponent(menge)+
                       '&pname='+encodeURIComponent(CAT_NAME), {method:'POST'});
@@ -1939,7 +1941,8 @@ async function giveDirect(sid){
   const menge=prompt('Menge','10'); if(menge===null) return;
   const q=String(menge||'10').trim();
   try{
-    const r=await api('/api/player/give?steamid='+encodeURIComponent(sid)+
+    const r=await api('/api/player/give?name='+encodeURIComponent(NAME)+
+                      '&steamid='+encodeURIComponent(sid)+
                       '&bp='+encodeURIComponent(bp)+'&qty='+encodeURIComponent(q)+
                       '&pname='+encodeURIComponent(CAT_NAME),{method:'POST'});
     document.getElementById('catList').insertAdjacentHTML('afterbegin',
@@ -1981,8 +1984,8 @@ setInterval(refresh,5000); setInterval(updCheck,300000);
   </div>
   <div class="row" style="margin:10px 0;gap:8px">
     <input id="catQ" placeholder="Suchen (z. B. Metall, Axt, Riot) …" oninput="catSearch()" style="flex:1;min-width:0">
-    <button onclick="giveDirect(CAT_SID)">eigener Blueprint</button>
-    <button onclick="idDebug()" title="zeigt, wo nach Spieler-IDs gesucht wird">ID-Diagnose</button>
+    <button onclick="giveDirect(CAT_SID)" class="arkOnly">eigener Blueprint</button>
+    <button onclick="idDebug()" title="zeigt, wo nach Spieler-IDs gesucht wird" class="arkOnly">ID-Diagnose</button>
   </div>
   <div id="catList" class="plBody">…</div>
 </div></div>
@@ -2026,7 +2029,15 @@ async function unbanDo(){
 }
 let CAT_SID='', CAT_NAME='';
 function closeCat(){ document.getElementById('catModal').classList.remove('on'); }
+function catSpiel(){
+  // 7D2D kennt keine Blueprints: eigene Knoepfe ausblenden, Platzhalter anpassen
+  const d7=(document.body.dataset.game==='7d2d');
+  document.querySelectorAll('#catModal .arkOnly').forEach(function(b){ b.style.display=d7?'none':''; });
+  const q=document.getElementById('catQ');
+  if(q) q.placeholder=d7?'Suchen (z. B. Pistole, Munition, Eisen) …':'Suchen (z. B. Metall, Axt, Riot) …';
+}
 async function catOpen(sid){
+  catSpiel();
   CAT_SID=sid;
   CAT_NAME=(window.PNAMES||{})[sid]||'';
   document.getElementById('catQ').value='';
@@ -2053,7 +2064,7 @@ async function idDebug(){
 async function catSearch(){
   const q=document.getElementById('catQ').value||'';
   let list=[];
-  try{ list=JSON.parse(await api('/api/catalog?q='+encodeURIComponent(q))); }catch(e){ return; }
+  try{ list=JSON.parse(await api('/api/catalog?q='+encodeURIComponent(q)+'&name='+encodeURIComponent(NAME))); }catch(e){ return; }
   const box=document.getElementById('catList');
   if(!list.length){ box.innerHTML='<span style="color:var(--dim)">nichts gefunden - über ‚eigener Blueprint“ geht es trotzdem</span>'; return; }
   box.innerHTML=list.map(function(e){
@@ -2553,7 +2564,11 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/players":
             self._json(players(inst))
         elif path == "/api/catalog":
-            self._json(catalog.suche(q.get("q", [""])[0]))
+            spiel = ""
+            if q.get("name", [""])[0]:
+                _i = self._inst(q)
+                spiel = _i.game if _i else ""
+            self._json(catalog.suche_spiel(q.get("q", [""])[0], spiel))
         elif path == "/api/bans":
             self._json(bans.laden(inst))
         elif path == "/api/playerids/debug":
@@ -3037,6 +3052,17 @@ class Handler(BaseHTTPRequestHandler):
             pname = q.get("pname", [""])[0]
             if not steamid or not bp:
                 self._send(400, b"steamid/bp fehlt")
+                return
+            # Spiele mit eigenem Befehl (7D2D: `give <Name> <Item> <Anzahl>`) - kein Blueprint-Pfad
+            gabe = getattr(inst.profile, "give_command", "")
+            if gabe:
+                ziel = pname if getattr(inst.profile, "player_action_by_name", False) and pname else steamid
+                try:
+                    antwort = rcon_cmd(inst, gabe % (ziel, bp, qty)) or "ok"
+                except Exception as exc:      # noqa: BLE001
+                    self._send(200, ("Telnet-Fehler: %s" % exc).encode())
+                    return
+                self._send(200, antwort.encode())
                 return
             # GiveItemToPlayer braucht die dauerhafte Spieler-ID, nicht die EOS-ID aus ListPlayers.
             try:

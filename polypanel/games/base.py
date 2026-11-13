@@ -60,6 +60,11 @@ class GameProfile:
     supports_cluster: bool = False
     install_note: str = ""
     maps: tuple = ()              # ((Wert, Anzeigename), ...) - leer = keine Kartenauswahl
+    # Spieleigene Steuerbefehle (leer = Standardbefehle des Panels)
+    give_command = ""
+    player_commands: dict = {}
+    player_action_by_name = False
+    supports_whitelist = True
 
     # Einstellungen, die im Reiter "Einstellungen" erscheinen:
     # (Instanz-Attribut, Label, Hinweis, Typ)
@@ -67,6 +72,7 @@ class GameProfile:
 
     def settings(self, inst) -> list[dict]:
         """Nur die Einstellungen, die dieses Spiel wirklich hat."""
+
         out = []
         for attr, label, hint, typ in self.settings_fields:
             out.append({"file": "instance", "section": "", "key": attr, "label": label,

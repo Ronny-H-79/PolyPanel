@@ -53,6 +53,9 @@ class SevenDaysProfile(GameProfile):
     }
     # true: die Aktion nimmt den Spielernamen, nicht die Steam-ID
     player_action_by_name = True
+    # `give <Spieler> <Itemname> <Anzahl>` - 7D2D kennt weder Blueprints noch Whitelist-Befehle
+    give_command = "give %s %s %s"
+    supports_whitelist = False
     settings_fields = (
         ("session_name", "Spieleserver-Name", "erscheint in der Serverliste", "text"),
         ("max_players", "Max. Spieler", "gleichzeitige Spieler", "int"),
