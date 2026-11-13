@@ -563,9 +563,7 @@ async function load(){
         <h3>${i.name}</h3>
         <span class="badge ${i.running?(i.ready?'on':'warn'):'off'}">${i.running?(i.ready?L['status.running']:L['status.starting']):L['status.off']}</span>
       </div>
-      <div class="meta">${i.game && i.game!=="ark"
-        ? `${i.game_label} · Port ${i.port}`
-        : `${i.map} · Port ${i.port} · RCON ${i.rcon_port}`}</div>
+      <div class="meta">${i.map?i.map+' · ':''}${i.game&&i.game!=="ark"?i.game_label+' · ':''}Port ${i.port}${i.rcon_port?' · RCON '+i.rcon_port:''}</div>
       <div class="meta">${i.installed?('Build '+i.build+' · '+i.size_gb+' GB'):L['dash.not_installed']}</div>
       ${i.running?`<div class="stats">
         <div title="${L['dash.cpu_title'].replace('{p}',(i.cpu_pct!==undefined?i.cpu_pct:(i.cpu/(i.cores||navigator.hardwareConcurrency||1))).toFixed(1)).replace('{c}',(i.cpu/100).toFixed(1)).replace('{n}',i.cores||navigator.hardwareConcurrency||1)}"><b>${(i.cpu_pct!==undefined?i.cpu_pct:(i.cpu/(i.cores||navigator.hardwareConcurrency||1))).toFixed(1)}%</b><small>${L['dash.cpu']}</small></div>

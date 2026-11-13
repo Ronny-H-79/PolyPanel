@@ -1,3 +1,10 @@
+## [0.14] — 2026-11-13
+
+### Behoben
+- **Karte und RCON stehen jetzt auf jeder Instanzkarte.** Die Zeile zeigte den Kartennamen nur bei
+  ASA-Instanzen — bei ARK: Survival Evolved, Satisfactory, 7D2D und Space Engineers fehlten Karte und
+  RCON-Port. Jetzt gilt für alle: `<Karte> · <Spiel> · Port <n> · RCON <n>`, leere Angaben fallen weg.
+
 ## [0.13] — 2026-11-13
 
 ### Neu

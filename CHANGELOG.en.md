@@ -1,3 +1,10 @@
+## [0.14] — 2026-11-13
+
+### Fixed
+- **Map and RCON now appear on every instance card.** The card line only showed the map name for ASA
+  instances — ARK: Survival Evolved, Satisfactory, 7D2D and Space Engineers dropped map and RCON port.
+  Now for all: `<map> · <game> · Port <n> · RCON <n>`, empty parts are left out.
+
 ## [0.13] — 2026-11-13
 
 ### New
