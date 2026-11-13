@@ -67,10 +67,8 @@ T: dict[str, dict[str, str]] = {
                           "en": "SteamCMD downloads ~12.4 GB per instance"},
     "dash.ports": {"de": "Spiel-Port UDP, RCON TCP — automatisch frei gewählt",
                    "en": "Game port UDP, RCON TCP — picked automatically"},
-    "dash.memory": {"de": "RAM: leer ohne Mods ab ca. 4 GB, mit Mods/Welt/Spielern 10–16 GB und mehr "
-                         "(The Island gemessen ~10 GB)",
-                    "en": "RAM: empty without mods from about 4 GB, with mods/world/players 10-16 GB and more "
-                    "(measured ~10 GB on The Island)"},
+    "dash.memory": {"de": "RAM: The Island ohne Mods ca. 10 GB, mit Mods und Spielern mehr - nach oben offen",
+                    "en": "RAM: about 10 GB for The Island without mods, more with mods and players - no upper limit"},
     "dash.cpu": {"de": "CPU", "en": "CPU"},
     "dash.log": {"de": "Log", "en": "log"},
     "ui.discord": {"de": "Discord: Ark-ASA-ASE-Hilfe", "en": "Discord: Ark-ASA-ASE-Hilfe"},

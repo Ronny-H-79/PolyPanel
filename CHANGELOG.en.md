@@ -1,8 +1,9 @@
-## [Unreleased]
+## [0.7.38] — 2026-11-13
 
 ### Changed
-- **RAM hint aligned with reality.** Instead of "11-12 GB with mods" it now says
-  "10-16 GB and more" including the measured value for The Island (~10 GB).
+- **RAM hint corrected.** The Island already needs **around 10 GB without any mods**; the old
+  figure ("about 4 GB without mods, 11-12 GB with mods") was too low. With mods and players it
+  grows further, there is no upper limit.
 
 ## [0.7.37] — 2026-11-13
 
