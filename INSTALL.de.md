@@ -39,13 +39,24 @@ Gespeichert wird das in `~/.config/polypanel/settings.json`. Spaeter jederzeit u
 
 ## Installation
 
-Auf einem **Server** empfohlen: eigener Dienst-Benutzer, damit nichts als root läuft.
+Im eigenen Benutzerkonto installieren — **ohne sudo**:
 
 ```bash
-sudo ./install.sh --user polypanel      # legt den Benutzer an, installiert nach /home/PolyPanel, User-Dienst + linger
+git clone https://github.com/Ronny-H-79/PolyPanel.git polypanel
+cd polypanel && ./install.sh
 ```
 
-Normale Installation (im eigenen Benutzerkonto):
+Alles landet unter `~/.local/share/polypanel`, Instanzen unter `~/polypanel-instances`, die Server laufen
+unter deinem Benutzer. **Satisfactory startet nur so** — der Server verweigert den Start als root. Der
+Installer warnt beim Lauf als root und bricht ab, wenn man nicht ausdrücklich zustimmt.
+
+Auf einem Server, den mehrere Leute nutzen, ist ein eigener Dienst-Benutzer sauberer:
+
+```bash
+sudo ./install.sh --user polypanel      # legt den Benutzer an, installiert nach /home/polypanel, User-Dienst + linger
+```
+
+Weitere Aufrufe:
 
 ```bash
 git clone https://github.com/Ronny-H-79/PolyPanel.git polypanel   # oder Ordner kopieren

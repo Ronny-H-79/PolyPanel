@@ -87,9 +87,12 @@ Mehr dazu: [docs/funktionen.md](docs/funktionen.md)
 git clone https://github.com/Ronny-H-79/PolyPanel.git polypanel   # einmalig
 cd polypanel
 ./install.sh --check     # prüfen, was fehlt (ändert nichts)
-./install.sh             # installieren
+./install.sh             # installieren (im eigenen Benutzerkonto, ohne sudo)
 polypanel url           # Adresse mit Token - der Web-Dienst laeuft bereits
 ```
+
+Ohne `sudo` installieren: Panel, Instanzen und Server laufen dann unter deinem Benutzer. Für
+**Satisfactory** ist das Pflicht — der Server startet nicht als root.
 
 Instanzen legst du **im Browser** an: Adresse aus der Ausgabe öffnen, Namen eintragen, Spiel und Karte
 wählen, **Anlegen** drücken — die Karte bietet dann **Installieren** an (SteamCMD, danach Start).

@@ -189,6 +189,12 @@ t() {
     de:web_failed)         echo "Dienst konnte nicht aktiviert werden - manuell starten mit: polypanel web" ;;
     en:web_skipped)        echo "No service created - start the UI when needed with: polypanel web" ;;
     de:web_skipped)        echo "Kein Dienst angelegt - Oberflaeche bei Bedarf starten mit: polypanel web" ;;
+    en:root_warn)          echo "Installed as root: everything goes to /root, and Satisfactory refuses to run as root. Better: install as a normal user (no sudo), or use --user <name>." ;;
+    de:root_warn)          echo "Als root installiert: alles landet unter /root, und Satisfactory startet als root nicht. Besser: als normaler Benutzer installieren (ohne sudo) oder --user <name> verwenden." ;;
+    en:root_ask)           echo "Install as root anyway? [y/N] " ;;
+    de:root_ask)           echo "Trotzdem als root installieren? [j/N] " ;;
+    en:root_abort)         echo "Aborted. Without root: ./install.sh   -   with a service user: ./install.sh --user <name>" ;;
+    de:root_abort)         echo "Abgebrochen. Ohne root: ./install.sh   -   mit eigenem Dienst-Benutzer: ./install.sh --user <name>" ;;
     en:language_saved)     echo "Language: English" ;;
     de:language_saved)     echo "Sprache: Deutsch" ;;
     *) return 1 ;;
@@ -333,6 +339,22 @@ fi
 
 t title
 echo "-------------------"
+
+# ---------------------------------------------------------------- root-Warnung
+# Satisfactory und andere native UE-Server starten nicht als root. Wer als root
+# installiert, legt alles unter /root an - der Server startet dann nie.
+if [ "$(id -u)" = "0" ] && [ -z "$SERVICE_USER" ] && [ "$UNINSTALL" = "0" ] && [ "$CHECK_ONLY" = "0" ]; then
+  warn "$(t root_warn)"
+  if [ -t 0 ] && [ "$AUTO" = "0" ]; then
+    printf '  %s ' "$(t root_ask)"
+    read -r _root_antwort || _root_antwort=""
+    case "$_root_antwort" in
+      j|J|y|Y|ja|Ja|yes|Yes) : ;;
+      *) die "$(t root_abort)" ;;
+    esac
+  fi
+fi
+
 
 # ---------------------------------------------------------------- Pruefungen
 command -v "$PY" >/dev/null 2>&1 || die "$(t python_missing)"

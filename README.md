@@ -78,9 +78,12 @@ directories live in `~/polypanel-instances/<name>`.
 git clone https://github.com/Ronny-H-79/PolyPanel.git polypanel   # once
 cd polypanel
 ./install.sh --check     # check what is missing (changes nothing)
-./install.sh             # install
+./install.sh             # install (in your own user account, no sudo)
 polypanel web           # start the web UI - the address with token is printed
 ```
+
+Install without `sudo`: panel, instances and servers then run as your user. For **Satisfactory** this
+is mandatory - the server does not start as root.
 
 Instances are created **in the browser**: open the address the command prints, enter a name, pick the
 game and map and press **Anlegen / Create** — the card then offers **Install** (SteamCMD, then start).

@@ -41,6 +41,17 @@ It is stored in `~/.config/polypanel/settings.json`. Changeable later at any tim
 
 ## Installation
 
+Install in your own user account — **without sudo**:
+
+```bash
+git clone https://github.com/Ronny-H-79/PolyPanel.git polyPanel
+cd polyPanel && ./install.sh
+```
+
+Everything goes to `~/.local/share/polypanel`, instances to `~/polypanel-instances`, servers run as your
+user. **Satisfactory only starts this way** — the server refuses to run as root; the installer warns when
+started as root and aborts unless you confirm.
+
 On a **server**, use a dedicated service user so nothing runs as root:
 
 ```bash
