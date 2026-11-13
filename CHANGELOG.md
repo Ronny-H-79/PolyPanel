@@ -1,3 +1,15 @@
+## [0.7.47] — 2026-11-13
+
+### Behoben
+- **„Item geben" lieferte nichts ins Inventar.** `GiveItemToPlayer` verlangt die
+  **dauerhafte** Spieler-ID (z. B. `761591001`), nicht die EOS-ID aus `ListPlayers`
+  (`00023634…`). Mit der falschen ID meldet RCON „ok", im Inventar landet nichts. Das Panel
+  ermittelt die dauerhafte ID jetzt aus `PlayerCache.sav` und `AwesomeAdminTools/Logs.sav`
+  der Instanz (neues Modul `playerids.py`, Cache 2 Minuten). Ist der Spieler unbekannt, kommt
+  eine klare Meldung statt eines stillen Fehlschlags.
+- Auf der Instanzseite bleibt eine Spielerliste jetzt bei jedem Refresh der Übersicht
+  verfügbar, damit das Give-Ziel auch beim Geben bekannt ist.
+
 ## [0.7.46] — 2026-11-13
 
 ### Geändert

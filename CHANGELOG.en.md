@@ -1,3 +1,13 @@
+## [0.7.47] — 2026-11-13
+
+### Fixed
+- **"Give item" delivered nothing into the inventory.** `GiveItemToPlayer` needs the
+  **persistent** player id (e.g. `761591001`), not the EOS id from `ListPlayers`
+  (`00023634…`). With the wrong id RCON still answers "ok" but nothing arrives. The panel now
+  resolves the persistent id from `PlayerCache.sav` and `AwesomeAdminTools/Logs.sav`
+  (new module `playerids.py`, 2 minute cache). If the player is unknown it reports that
+  clearly instead of failing silently.
+
 ## [0.7.46] — 2026-11-13
 
 ### Changed

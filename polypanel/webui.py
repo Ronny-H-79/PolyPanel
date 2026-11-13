@@ -30,7 +30,7 @@ from . import whitelist as wl
 from .rcon import RconClient
 
 from .paths import TOKEN_PATH, CONF_DIR
-from . import catalog, bans
+from . import catalog, bans, playerids
 RE_PLAYER = re.compile(r"^\s*(\d+)\.\s*(.+?)\s*,\s*([0-9A-Za-z]{15,32})\s*$")
 INSTALLS: dict[str, dict] = {}
 # Laufende Aktion je Instanz (start/stop/restart/update). Die Oberflaeche sperrt danach
@@ -1886,10 +1886,11 @@ async function unbanDo(){
     out.textContent='unban: '+String(r||'ok');
   }catch(e){ out.textContent='Fehler: '+String(e); }
 }
-let CAT_SID='';
+let CAT_SID='', CAT_NAME='';
 function closeCat(){ document.getElementById('catModal').classList.remove('on'); }
 async function catOpen(sid){
   CAT_SID=sid;
+  CAT_NAME=(window.PNAMES||{})[sid]||'';
   document.getElementById('catQ').value='';
   document.getElementById('catModal').classList.add('on');
   catSearch();
@@ -1911,7 +1912,8 @@ document.addEventListener('click', async function(ev){
   if(!b || !CAT_SID) return;
   const qty=document.getElementById('catQty').value||'1';
   try{
-    const r=await api('/api/player/give?steamid='+encodeURIComponent(CAT_SID)+'&bp='+encodeURIComponent(b.dataset.bp)+'&qty='+encodeURIComponent(qty),{method:'POST'});
+    const r=await api('/api/player/give?steamid='+encodeURIComponent(CAT_SID)+'&bp='+encodeURIComponent(b.dataset.bp)+
+                      '&qty='+encodeURIComponent(qty)+'&pname='+encodeURIComponent(CAT_NAME),{method:'POST'});
     document.getElementById('catList').insertAdjacentHTML('afterbegin','<div class="plMsg">'+String(r||'ok')+' · x'+qty+'</div>');
   }catch(e){ alert(String(e)); }
 });
@@ -2834,8 +2836,21 @@ class Handler(BaseHTTPRequestHandler):
             steamid = q.get("steamid", [""])[0]
             bp = q.get("bp", [""])[0]
             qty = q.get("qty", ["1"])[0]
+            pname = q.get("pname", [""])[0]
             if not steamid or not bp:
                 self._send(400, b"steamid/bp fehlt")
+                return
+            # GiveItemToPlayer braucht die dauerhafte Spieler-ID, nicht die EOS-ID aus ListPlayers.
+            try:
+                dauerhaft = playerids.aufloesen(inst, eos=steamid, name=pname)
+            except Exception:                 # noqa: BLE001
+                dauerhaft = ""
+            if dauerhaft:
+                steamid = dauerhaft
+            else:
+                self._send(200, ("Keine dauerhafte Spieler-ID gefunden — Gegenstand nicht "
+                                 "geschickt. Der Spieler muss einmal auf diesem Server "
+                                 "gespeichert sein (Join + Autosave).").encode())
                 return
             try:
                 self._send(200, rcon_cmd(inst, "GiveItemToPlayer %s %s %s 0 0" % (steamid, bp, qty)).encode())
