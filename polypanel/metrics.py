@@ -94,15 +94,18 @@ def _hist(pid: int, cpu: float, ram_gb: float) -> tuple[list, list]:
 
 def sample(inst: Instance) -> dict:
     """Momentaufnahme; CPU braucht zwei Messungen, daher beim ersten Aufruf 0."""
-    pid = runner.read_pid(inst)
-    if pid is None:                       # von Hand gestartet: ueber cwd/exe finden
-        # groesster Prozess = das Spiel, nicht das Startskript
-        bester, bester_rss = None, -1
-        for kandidat in runner.instance_pids(inst):
-            _info = _proc(kandidat)
-            if _info and _info["rss_pages"] > bester_rss:
-                bester, bester_rss = kandidat, _info["rss_pages"]
-        pid = bester
+    # Immer den groessten Prozess der Instanz messen, nicht blind die PID aus der Datei:
+    # bei 7D2D steht dort der Wrapper `/bin/sh startserver.sh` (2 MB), das Spiel selbst ist ein
+    # Kindprozess mit mehreren GB. Sonst zeigt das Panel "RAM 0".
+    kandidaten = set(runner.instance_pids(inst))
+    pid_datei = runner.read_pid(inst)
+    if pid_datei:
+        kandidaten.add(pid_datei)
+    pid, bester_rss = None, -1
+    for kandidat in kandidaten:
+        _info = _proc(kandidat)
+        if _info and _info["rss_pages"] > bester_rss:
+            pid, bester_rss = kandidat, _info["rss_pages"]
     out = {
         "cpu": 0.0, "ram_mb": 0, "ram_gb": 0.0, "ram_peak_gb": 0.0, "uptime": 0, "players": 0,
         "player_names": [],
