@@ -178,9 +178,22 @@ def install_server(inst: Instance, log=None) -> dict:
         emit("Installation beendet (exit %s)" % proc.returncode)
 
     if proc.returncode == 0:
+        # Nachbereitung (z. B. Wine/.NET fuer Space Engineers) braucht ein EIGENES Log-Handle:
+        # der with-Block oben hat fh schon geschlossen, `emit` wuerde mit
+        # "I/O operation on closed file" abbrechen - und die Fehlermeldung gleich mit.
         try:
-            inst.profile.post_install(inst, log=emit)   # z. B. .NET fuer Space Engineers
-        except Exception as exc:                        # noqa: BLE001 - Installation bleibt gueltig
-            emit("Nachbereitung fehlgeschlagen: %s" % exc)
+            with open(log_path, "a", buffering=1) as fh2:
+                def nach(text: str) -> None:
+                    sauber = _ANSI.sub("", str(text)).rstrip()
+                    if not sauber:
+                        return
+                    fh2.write("Laufzeit: %s\n" % sauber)
+                    fh2.flush()
+                try:
+                    inst.profile.post_install(inst, log=nach)
+                except Exception as exc:                # noqa: BLE001 - Installation bleibt gueltig
+                    nach("Nachbereitung fehlgeschlagen: %s" % exc)
+        except OSError:
+            pass
 
     return {"ok": proc.returncode == 0, "log": log_path, "exit": proc.returncode}

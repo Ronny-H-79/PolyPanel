@@ -2182,7 +2182,12 @@ def install_progress(inst) -> dict[str, object]:
         if zeile.startswith("Laufzeit: "):
             daten["phase"] = zeile.strip()[len("Laufzeit: "):][:80]
             daten["percent"] = None
-            start = (INSTALLS.get(inst.name) or {}).get("runtime_started")
+            eintrag = INSTALLS.get(inst.name)
+            start = (eintrag or {}).get("runtime_started")
+            if eintrag is not None and start is None:
+                # erster Poll waehrend der Laufzeit: Uhr ab jetzt mitlaufen lassen
+                eintrag["runtime_started"] = time.time()
+                start = eintrag["runtime_started"]
             daten["elapsed"] = int(time.time() - start) if start else None
             return daten
         if "Success! App" in zeile or "Installation beendet" in zeile:
@@ -2211,27 +2216,6 @@ def _start_install(inst: Instance) -> None:
     def run() -> None:
         try:
             result = installer.install_server(inst)
-            if result.get("ok"):
-                # Laufzeit (z. B. Wine/.NET fuer Space Engineers) mitprotokollieren: das dauert
-                # Minuten und ohne Meldung sieht es aus, als haenge die Installation.
-                _logp = os.path.join(inst.directory, ".install.log")
-
-                def _log(msg: str, _ziel=_logp) -> None:
-                    eintrag = INSTALLS.get(inst.name)
-                    if eintrag is not None and "runtime_started" not in eintrag:
-                        eintrag["runtime_started"] = time.time()
-                    try:
-                        with open(_ziel, "a") as fh:
-                            fh.write("Laufzeit: %s\n" % msg)
-                            fh.flush()
-                    except OSError:
-                        pass
-
-                try:
-                    if not inst.profile.runtime_ready(inst):
-                        inst.profile.post_install(inst, log=_log)
-                except Exception as exc:  # noqa: BLE001 - Installation bleibt erfolgreich
-                    _log("Laufzeit nicht eingerichtet: %s" % exc)
             # Dienst gleich mit anlegen: Ueberwachung und Autostart ohne Handarbeit
             if result.get("ok"):
                 from . import units
