@@ -34,6 +34,8 @@ def _env(inst: Instance) -> dict[str, str]:
         env.setdefault("WINEDLLOVERRIDES", inst.profile.wine_overrides)
     else:
         env.pop("WINEDLLOVERRIDES", None)
+    for schluessel, wert in (getattr(inst.profile, "extra_env", None) or {}).items():
+        env[schluessel] = str(wert).replace("{dir}", inst.directory)
     if getattr(inst, "headless", False) and not getattr(inst.profile, "needs_display", False):
         # Wine 11 verbindet sich sonst per libwayland (Default wayland-0) und oeffnet ein Fenster
         env.pop("DISPLAY", None)

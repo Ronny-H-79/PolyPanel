@@ -73,6 +73,11 @@ class SpaceEngineersProfile(GameProfile):
     use_pty = False      # .NET-Server bricht mit PTY sofort ab (exit 53)
     needs_display = True # SE legt ein (unsichtbares) Fenster an - ohne Display: nodrv_CreateWindow
     install_note = "Windows-Binary (.NET) unter Wine; kein RCON - Start/Stop und XML-Config"
+
+    # So macht es auch das AMP-Template: native DLL-Overrides und die Linux-Bibliotheken
+    # aus ./linux64 in den Suchpfad - ohne LD_LIBRARY_PATH scheitert der Start unter Wine.
+    wine_overrides = "mscoree=n,b;mshtml=n,b"
+    extra_env = {"LD_LIBRARY_PATH": "{dir}/linux64"}
     settings_fields = (
         ("session_name", "Servername", "Name in der Serverliste", "text"),
         ("max_players", "Max. Spieler", "gleichzeitige Spieler", "int"),

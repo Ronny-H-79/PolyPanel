@@ -63,6 +63,9 @@ class GameProfile:
     # Befehl fuer die Spielerliste (ARK: ListPlayers, 7D2D: lp)
     players_command = "ListPlayers"
 
+    # Zusaetzliche Umgebungsvariablen beim Start ({dir} = Instanzordner)
+    extra_env: dict = {}
+
     # Spieleigene Steuerbefehle (leer = Standardbefehle des Panels)
     give_command = ""
     player_commands: dict = {}
