@@ -1187,6 +1187,26 @@ async function setupPoll(){
   }catch(e){}
 }
 setTimeout(function(){ setupPoll(); setInterval(setupPoll, 2000); }, 300);
+// Hinweis-Popup, wenn der Server trotz ExperimentalMode=false experimentell laeuft
+async function expHinweis(){
+  try{
+    const ex=JSON.parse(await api('/api/experimental'));
+    if(!ex || !ex.yes || sessionStorage.getItem('expHint')==='1') return;
+    sessionStorage.setItem('expHint','1');
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center';
+    const grund=ex.reasons?('<div style="margin-top:10px;color:var(--dim);font-size:11.5px">'+ex.reasons+'</div>'):'';
+    ov.innerHTML='<div style="max-width:540px;margin:16px;background:#0b131a;border:1px solid var(--warn);border-radius:10px;padding:16px 18px;color:var(--fg);font-size:13px;line-height:1.5">'
+      +'<b style="color:var(--warn)">'+(L['se.exp_title']||'Server laeuft im Experimental-Modus')+'</b>'
+      +'<div style="margin-top:8px">'+(L['se.exp_body']||'Space Engineers hat den experimentellen Modus selbst aktiviert. Im Client muss Experimental in den Spieloptionen eingeschaltet sein, sonst laesst sich nicht beitreten.')+'</div>'
+      +grund
+      +'<div style="margin-top:14px;text-align:right"><button class="primary">OK</button></div></div>';
+    document.body.appendChild(ov);
+    ov.querySelector('button').onclick=function(){ ov.remove(); };
+  }catch(e){}
+}
+setTimeout(expHinweis, 2500);
+
 
 const L=__LANGJSON__;
 async function toggleLang(){
