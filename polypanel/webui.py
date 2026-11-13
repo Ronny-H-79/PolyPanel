@@ -1843,7 +1843,9 @@ setInterval(refresh,5000); setInterval(updCheck,300000);
   </div>
   <div class="row" style="margin:10px 0;gap:8px">
     <input id="catQ" placeholder="Suchen (z. B. Metall, Axt, Riot) …" oninput="catSearch()" style="flex:1;min-width:0">
-    <input id="catQty" type="number" value="1" min="1" step="1" style="width:88px">
+    <label style="display:flex;align-items:center;gap:6px;color:var(--dim);font-size:11.5px">
+      Menge <input id="catQty" type="number" value="1" min="1" step="1" style="width:80px">
+    </label>
     <button onclick="giveDirect(CAT_SID)">eigener Blueprint</button>
     <button onclick="idDebug()" title="zeigt, wo nach Spieler-IDs gesucht wird">ID-Diagnose</button>
   </div>
@@ -1921,13 +1923,20 @@ async function catSearch(){
   if(!list.length){ box.innerHTML='<span style="color:var(--dim)">nichts gefunden - über ‚eigener Blueprint“ geht es trotzdem</span>'; return; }
   box.innerHTML=list.map(function(e){
     return '<div class="p"><span><b>'+e.label+'</b><br><small>'+e.name+'</small></span>'+
-           '<span class="row"><button data-bp="'+e.bp+'">geben</button></span></div>';
+           '<span class="row"><button data-bp="'+e.bp+'" data-label="'+e.label+'">geben</button></span></div>';
   }).join('');
 }
 document.addEventListener('click', async function(ev){
   const b=ev.target.closest('button[data-bp]');
   if(!b || !CAT_SID) return;
-  const qty=document.getElementById('catQty').value||'1';
+  // Menge immer abfragen, wenn das Feld leer oder 0 ist
+  let qty=String(document.getElementById('catQty').value||'').trim();
+  if(!qty || qty==='0'){
+    const eingabe=prompt('Menge für '+(b.dataset.label||'Gegenstand')+':', '1');
+    if(eingabe===null) return;
+    qty=String(eingabe).trim()||'1';
+    document.getElementById('catQty').value=qty;
+  }
   try{
     const r=await api('/api/player/give?steamid='+encodeURIComponent(CAT_SID)+'&bp='+encodeURIComponent(b.dataset.bp)+
                       '&qty='+encodeURIComponent(qty)+'&pname='+encodeURIComponent(CAT_NAME),{method:'POST'});

@@ -1,3 +1,10 @@
+## [0.7.52] — 2026-11-13
+
+### Geändert
+- **Mengen-Abfrage im Item-Dialog deutlich gemacht.** Das Zahlenfeld hat jetzt die Beschriftung
+  „Menge"; ist es leer oder 0, fragt das Panel vor dem Geben nach (Eingabe abbrechen = kein
+  Versand). Die Rückfrage nennt den Gegenstand, die Meldung danach zeigt die Menge (`×N`).
+
 ## [0.7.51] — 2026-11-13
 
 ### Behoben

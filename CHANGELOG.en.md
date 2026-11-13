@@ -1,3 +1,10 @@
+## [0.7.52] — 2026-11-13
+
+### Changed
+- **Quantity input in the item dialog made explicit.** The number field is now labelled
+  "Menge"; if it is empty or 0 the panel asks before giving (cancel = nothing sent). The prompt
+  names the item and the result shows the quantity (`×N`).
+
 ## [0.7.51] — 2026-11-13
 
 ### Fixed
