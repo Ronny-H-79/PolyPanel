@@ -1191,7 +1191,8 @@ setTimeout(function(){ setupPoll(); setInterval(setupPoll, 2000); }, 300);
 async function expHinweis(){
   try{
     const ex=JSON.parse(await api('/api/experimental'));
-    if(!ex || !ex.yes || sessionStorage.getItem('expHint')==='1') return;
+    if(!ex || !ex.yes) return;
+    if(localStorage.getItem('expHintOff')==='1' || sessionStorage.getItem('expHint')==='1') return;
     sessionStorage.setItem('expHint','1');
     const ov=document.createElement('div');
     ov.style.cssText='position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center';
@@ -1200,9 +1201,14 @@ async function expHinweis(){
       +'<b style="color:var(--warn)">'+(L['se.exp_title']||'Server laeuft im Experimental-Modus')+'</b>'
       +'<div style="margin-top:8px">'+(L['se.exp_body']||'Space Engineers hat den experimentellen Modus selbst aktiviert. Im Client muss Experimental in den Spieloptionen eingeschaltet sein, sonst laesst sich nicht beitreten.')+'</div>'
       +grund
-      +'<div style="margin-top:14px;text-align:right"><button class="primary">OK</button></div></div>';
+      +'<div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">'
+      +'<button class="ghost" id="expNever">'+(L['se.exp_never']||'Nicht mehr anzeigen')+'</button>'
+      +'<button class="primary" id="expOk">OK</button></div></div>';
     document.body.appendChild(ov);
-    ov.querySelector('button').onclick=function(){ ov.remove(); };
+    ov.querySelector('#expOk').onclick=function(){ ov.remove(); };
+    ov.querySelector('#expNever').onclick=function(){
+      localStorage.setItem('expHintOff','1'); ov.remove();
+    };
   }catch(e){}
 }
 setTimeout(expHinweis, 2500);
@@ -1497,8 +1503,9 @@ function _setField(v){
     const on=(v.value||'').toLowerCase()==='true';
     field=`<div class="bool"><input type="checkbox" data-i="${i}" ${on?'checked':''}></div>`;
   } else if(v.type==='select'){
+    const lab=v.labels||{};
     const opts=(v.choices||[]).map(o=>`<option value="${String(o).replace(/"/g,'&quot;')}"`
-      + (String(v.value)===String(o)?' selected':'')+`>${o}</option>`).join('');
+      + (String(v.value)===String(o)?' selected':'')+`>${lab[o]||o}</option>`).join('');
     field=`<select data-i="${i}">${opts}</select>`;
   } else if(v.type==='longtext'){
     field=`<textarea data-i="${i}" rows="4" style="width:100%;resize:vertical"

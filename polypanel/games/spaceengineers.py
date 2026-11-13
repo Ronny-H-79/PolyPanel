@@ -321,6 +321,15 @@ class SpaceEngineersProfile(GameProfile):
     # (SE faellt dann auf Standardwerte zurueck und meldet "Premade world not found").
     _BOOL = {"EnableIngameScripts", "PauseGameWhenEmpty", "IgnoreLastSession", "ScenarioEditMode",
              "EnableSaving", "EnableSpectator"}
+    # Klartext-Beschriftungen fuer die Auswahl (Wert bleibt der Enum-Name)
+    CHOICE_LABELS = {
+        "BlockLimitsEnabled": {"NONE": "aus (NONE)", "GLOBALLY": "an – global (GLOBALLY)",
+                               "PER_FACTION": "an – pro Fraktion (PER_FACTION)",
+                               "PER_PLAYER": "an – pro Spieler (PER_PLAYER)"},
+        "GameMode": {"Survival": "Überleben (Survival)", "Creative": "Kreativ (Creative)"},
+        "OnlineMode": {"PUBLIC": "öffentlich", "FRIENDS": "nur Freunde",
+                       "PRIVATE": "privat", "OFFLINE": "offline"},
+    }
     CHOICES = {
         "BlockLimitsEnabled": ["NONE", "GLOBALLY", "PER_FACTION", "PER_PLAYER"],
         "OnlineMode": ["PUBLIC", "FRIENDS", "PRIVATE", "OFFLINE"],
@@ -352,6 +361,8 @@ class SpaceEngineersProfile(GameProfile):
             if name in self.CHOICES:
                 eintrag["type"] = "select"
                 eintrag["choices"] = list(self.CHOICES[name])
+                if name in self.CHOICE_LABELS:
+                    eintrag["labels"] = dict(self.CHOICE_LABELS[name])
                 if str(value) and str(value) not in eintrag["choices"]:
                     eintrag["choices"].insert(0, str(value))
             out.append(eintrag)
@@ -384,7 +395,13 @@ class SpaceEngineersProfile(GameProfile):
             # Ein einziger ungueltiger Wert macht die komplette Datei unlesbar: SE faellt dann
             # still auf Standardwerte zurueck (Folge: "Premade world not found"). Darum hier sperren.
             if key in self.CHOICES and val and val not in self.CHOICES[key]:
-                continue
+                # "true"/"false" nicht in die Datei schreiben (macht sie unlesbar), aber
+                # als Wunsch verstehen: an -> GLOBALLY, aus -> NONE
+                ersatz = {"true": "GLOBALLY", "false": "NONE"}.get(val.lower())
+                if ersatz and ersatz in self.CHOICES[key]:
+                    val = ersatz
+                else:
+                    continue
             if key in self._BOOL and val and val not in ("true", "false"):
                 continue
             pattern = re.compile(r"(<%s>)(.*?)(</%s>)" % (re.escape(key), re.escape(key)), re.S)
