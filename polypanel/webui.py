@@ -1818,9 +1818,43 @@ async function pa(sid,action){ const pname=(window.PNAMES||{})[sid]||'';
   document.getElementById('out').textContent=await api(url,{method:'POST'});
   setTimeout(refresh,1500); setTimeout(loadBans,1600); }
 async function give(sid){ catOpen(sid); }
-async function giveDirect(sid){ const bp=prompt('Blueprint','PrimalItemResource_Stone_C'); if(!bp)return;
-  const q=prompt('Menge','10')||'10';
-  document.getElementById('out').textContent=await api('/api/player/give?steamid='+sid+'&bp='+encodeURIComponent(bp)+'&qty='+q,{method:'POST'}); }
+let QTY_PENDING=null;
+function qtyClose(){ document.getElementById('qtyModal').classList.remove('on'); QTY_PENDING=null; }
+function qtyOpen(bp, label){
+  QTY_PENDING={bp:bp, label:label||'Gegenstand'};
+  document.getElementById('qtyTitle').textContent='Menge für '+QTY_PENDING.label;
+  document.getElementById('qtyVal').value='1';
+  document.getElementById('qtyModal').classList.add('on');
+  setTimeout(function(){ const el=document.getElementById('qtyVal'); if(el){ el.focus(); el.select(); } }, 50);
+}
+async function qtyOk(){
+  if(!QTY_PENDING) return;
+  const menge=String(document.getElementById('qtyVal').value||'').trim();
+  if(!menge || menge==='0'){ alert('Bitte eine Menge größer 0 eingeben.'); return; }
+  const auftrag=QTY_PENDING;
+  qtyClose();
+  try{
+    const r=await api('/api/player/give?steamid='+encodeURIComponent(CAT_SID)+
+                      '&bp='+encodeURIComponent(auftrag.bp)+
+                      '&qty='+encodeURIComponent(menge)+
+                      '&pname='+encodeURIComponent(CAT_NAME), {method:'POST'});
+    document.getElementById('catList').insertAdjacentHTML('afterbegin',
+      '<div class="plMsg">'+auftrag.label+': '+String(r||'ok')+' · x'+menge+'</div>');
+  }catch(e){ alert(String(e)); }
+}
+async function giveDirect(sid){
+  // Eigener Blueprint: eigene Rueckfragen (Name + Menge), kein Mengen-Fenster dazwischen
+  const bp=prompt('Blueprint',"PrimalItemResource_Stone_C"); if(!bp) return;
+  const menge=prompt('Menge','10'); if(menge===null) return;
+  const q=String(menge||'10').trim();
+  try{
+    const r=await api('/api/player/give?steamid='+encodeURIComponent(sid)+
+                      '&bp='+encodeURIComponent(bp)+'&qty='+encodeURIComponent(q)+
+                      '&pname='+encodeURIComponent(CAT_NAME),{method:'POST'});
+    document.getElementById('catList').insertAdjacentHTML('afterbegin',
+      '<div class="plMsg">'+String(r||'ok')+' · x'+q+'</div>');
+  }catch(e){ alert(String(e)); }
+}
 applyLang(); restoreTab(); setTimeout(restoreTab, 250); refresh(); updCheck(); renderCmds(); loadMods(); loadKeyState(); loadCfg(); loadWl(); loadSettings(); loadCluster(); loadSnaps(); loadBackups(); loadSchedule(); loadHooks();
 setInterval(refresh,5000); setInterval(updCheck,300000);
 </script>""" + FOOTER + """
@@ -1836,6 +1870,19 @@ setInterval(refresh,5000); setInterval(updCheck,300000);
   </div>
   <div id="unbanOut" class="plMsg"></div>
 </div></div>
+<div id="qtyModal" class="plModal"><div class="plBox" style="min-width:min(430px,92vw)">
+  <div class="row" style="justify-content:space-between">
+    <b id="qtyTitle">Menge</b>
+    <button onclick="qtyClose()">×</button>
+  </div>
+  <div style="margin:12px 0;color:var(--dim);font-size:11.5px">Wie viele sollen es sein?</div>
+  <div class="row" style="gap:8px;align-items:center">
+    <input id="qtyVal" type="number" value="1" min="1" step="1" style="flex:1;min-width:0"
+           onkeydown="if(event.key==='Enter')qtyOk()">
+    <button onclick="qtyOk()">Geben</button>
+    <button onclick="qtyClose()">Abbrechen</button>
+  </div>
+</div></div>
 <div id="catModal" class="plModal"><div class="plBox">
   <div class="row" style="justify-content:space-between">
     <b id="catTitle">Item geben</b>
@@ -1843,9 +1890,6 @@ setInterval(refresh,5000); setInterval(updCheck,300000);
   </div>
   <div class="row" style="margin:10px 0;gap:8px">
     <input id="catQ" placeholder="Suchen (z. B. Metall, Axt, Riot) …" oninput="catSearch()" style="flex:1;min-width:0">
-    <label style="display:flex;align-items:center;gap:6px;color:var(--dim);font-size:11.5px">
-      Menge <input id="catQty" type="number" value="1" min="1" step="1" style="width:80px">
-    </label>
     <button onclick="giveDirect(CAT_SID)">eigener Blueprint</button>
     <button onclick="idDebug()" title="zeigt, wo nach Spieler-IDs gesucht wird">ID-Diagnose</button>
   </div>
@@ -1926,22 +1970,11 @@ async function catSearch(){
            '<span class="row"><button data-bp="'+e.bp+'" data-label="'+e.label+'">geben</button></span></div>';
   }).join('');
 }
-document.addEventListener('click', async function(ev){
+document.addEventListener('click', function(ev){
   const b=ev.target.closest('button[data-bp]');
   if(!b || !CAT_SID) return;
-  // Menge immer abfragen, wenn das Feld leer oder 0 ist
-  let qty=String(document.getElementById('catQty').value||'').trim();
-  if(!qty || qty==='0'){
-    const eingabe=prompt('Menge für '+(b.dataset.label||'Gegenstand')+':', '1');
-    if(eingabe===null) return;
-    qty=String(eingabe).trim()||'1';
-    document.getElementById('catQty').value=qty;
-  }
-  try{
-    const r=await api('/api/player/give?steamid='+encodeURIComponent(CAT_SID)+'&bp='+encodeURIComponent(b.dataset.bp)+
-                      '&qty='+encodeURIComponent(qty)+'&pname='+encodeURIComponent(CAT_NAME),{method:'POST'});
-    document.getElementById('catList').insertAdjacentHTML('afterbegin','<div class="plMsg">'+String(r||'ok')+' · x'+qty+'</div>');
-  }catch(e){ alert(String(e)); }
+  // Menge in einem eigenen Fenster abfragen, nicht sofort senden
+  qtyOpen(b.dataset.bp, b.dataset.label);
 });
 </script>
 </body></html>"""

@@ -1,3 +1,11 @@
+## [0.7.53] — 2026-11-13
+
+### Geändert
+- **Mengen-Abfrage als eigenes Fenster.** Klick auf „geben" öffnet ein kleines Fenster
+  „Menge für <Gegenstand>" mit Zahlenfeld, **Geben** und **Abbrechen** (Enter bestätigt).
+  Das Zahlenfeld in der Kopfzeile ist entfallen. Beim Weg **„eigener Blueprint"** bleibt es
+  bei den zwei Rückfragen (Blueprint und Menge) — dort kommt kein zusätzliches Fenster.
+
 ## [0.7.52] — 2026-11-13
 
 ### Geändert
