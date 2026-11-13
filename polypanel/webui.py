@@ -2217,7 +2217,16 @@ def install_progress(inst) -> dict[str, object]:
             return daten
         m = _PROGRESS_RE.search(zeile)
         if m:
-            daten["percent"] = float(m.group(1))
+            wert = float(m.group(1))
+            # SteamCMD springt zwischen Phasen zurueck (z. B. 100 % -> 3 % beim erneuten Pruefen).
+            # Der Balken darf nicht rueckwaerts laufen: hoechsten Wert merken, waehrend des
+            # Laufs bei 99 % deckeln, damit "fertig" erst am Ende erscheint.
+            eintrag = INSTALLS.get(inst.name)
+            if eintrag is not None:
+                wert = max(wert, float(eintrag.get("max_percent", 0.0)))
+                wert = min(wert, 99.0)
+                eintrag["max_percent"] = wert
+            daten["percent"] = wert
             s = _STATE_RE.search(zeile)
             daten["phase"] = (s.group(1).strip() if s else "downloading")
             return daten
@@ -2231,7 +2240,7 @@ def _start_install(inst: Instance) -> None:
     """Installation im Hintergrund ueber den gemeinsamen Installer."""
     from . import installer
     INSTALLS[inst.name] = {"log": os.path.join(inst.directory, ".install.log"),
-                           "started": time.time()}
+                           "started": time.time(), "max_percent": 0.0}
 
     def run() -> None:
         try:
