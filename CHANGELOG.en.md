@@ -1,3 +1,11 @@
+## [0.13] — 2026-11-13
+
+### Fixed
+- **The report button stayed hidden.** The UI fetches data as text (`api()`), but the check read the
+  result like an object — so `d.webhook` was always empty and the button stayed hidden even with a
+  webhook configured. The response is parsed now, also when sending a report (otherwise "ok" would
+  never have been detected).
+
 ## [0.12] — 2026-11-13
 
 ### Added

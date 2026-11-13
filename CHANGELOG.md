@@ -1,3 +1,11 @@
+## [0.13] — 2026-11-13
+
+### Behoben
+- **Melde-Knopf blieb unsichtbar.** Die Oberfläche holt Daten als Text (`api()`), die Prüfung las das
+  Ergebnis aber wie ein Objekt — `d.webhook` war damit immer leer und der Knopf blieb versteckt,
+  obwohl ein Webhook gesetzt war. Jetzt wird die Antwort geparst, auch beim Absenden der Meldung
+  (sonst hätte „ok" nie gestimmt).
+
 ## [0.12] — 2026-11-13
 
 ### Neu

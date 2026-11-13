@@ -791,9 +791,9 @@ function _mdToHtml(text){
 async function loadRepHook(){
   // Melden nur anbieten, wenn der Betreiber einen Webhook hinterlegt hat (per Konsole)
   try{
-    const d=await api('/api/report');
+    const d=JSON.parse(await api('/api/report'));
     const b=document.getElementById('repbtn');
-    if(b) b.style.display=d.webhook?'':'none';
+    if(b) b.style.display=d.webhook?'inline-block':'none';
   }catch(e){}
 }
 function openReport(){
@@ -811,7 +811,7 @@ async function sendReport(){
   if(!text){ state.textContent=(L['report.need_text']||''); return; }
   state.textContent=(L['common.loading']||'...');
   try{
-    const r=await api('/api/report',{method:'POST',body:JSON.stringify({text:text,steps:steps})});
+    const r=JSON.parse(await api('/api/report',{method:'POST',body:JSON.stringify({text:text,steps:steps})}));
     if(r.ok){
       state.textContent=(L['report.sent']||'ok');
       document.getElementById('repText').value=''; document.getElementById('repSteps').value='';
