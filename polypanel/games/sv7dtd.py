@@ -44,6 +44,15 @@ class SevenDaysProfile(GameProfile):
     default_control_port = 8081
     supports_mods = True          # Mods als Ordner unter Mods/
     install_note = "nativ; Telnet muss in der serverconfig.xml aktiv sein"
+
+    # Steuerbefehle fuer Spieleraktionen - 7D2D arbeitet mit Namen bzw. Entity-ID, nicht mit RCON-Namen
+    player_commands = {
+        "kick": "kick %s",
+        "ban": "ban add %s",
+        "unban": "ban remove %s",
+    }
+    # true: die Aktion nimmt den Spielernamen, nicht die Steam-ID
+    player_action_by_name = True
     settings_fields = (
         ("session_name", "Spieleserver-Name", "erscheint in der Serverliste", "text"),
         ("max_players", "Max. Spieler", "gleichzeitige Spieler", "int"),

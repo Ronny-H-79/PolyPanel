@@ -89,12 +89,8 @@ def players(inst: Instance) -> list[dict[str, str]]:
         out = rcon_cmd(inst, "ListPlayers", timeout=10)
     except Exception:  # noqa: BLE001
         return []
-    found = []
-    for line in out.splitlines():
-        m = RE_PLAYER.match(line)
-        if m:
-            found.append({"id": m.group(1), "name": m.group(2).strip(), "steamid": m.group(3)})
-    return found
+    from .playerparse import parse
+    return parse(out)
 
 
 SHARED_CSS = """
@@ -3010,14 +3006,17 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, ("$ %s\nRCON-Fehler: %s" % (cmd, exc)).encode())
         elif path == "/api/player/action":
             steamid = q.get("steamid", [""])[0]
-            tpl = PLAYER_ACTIONS.get(q.get("action", [""])[0])
+            action = q.get("action", [""])[0]
+            pname = q.get("pname", [""])[0]
+            # Spiele mit eigenem Befehlssatz (7D2D: kick/ban add/ban remove) bringen ihn im Profil mit
+            befehle = getattr(inst.profile, "player_commands", None) or PLAYER_ACTIONS
+            tpl = befehle.get(action)
             if not steamid or not tpl:
                 self._send(400, b"steamid/action fehlt")
                 return
-            action = q.get("action", [""])[0]
-            pname = q.get("pname", [""])[0]
+            ziel = pname if (pname and getattr(inst.profile, "player_action_by_name", False)) else steamid
             try:
-                antwort = rcon_cmd(inst, tpl % steamid) or "ok"
+                antwort = rcon_cmd(inst, tpl % ziel) or "ok"
             except Exception as exc:  # noqa: BLE001
                 self._send(200, ("RCON-Fehler: %s" % exc).encode())
                 return

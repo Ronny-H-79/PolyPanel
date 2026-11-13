@@ -70,9 +70,8 @@ def players_cached(inst: Instance) -> tuple[int, list[str]]:
         from .rcon import RconClient
         with inst.control(timeout=8) as rc:
             out = rc.command("ListPlayers", timeout=10)
-        names = [m.group(2).strip() for m in
-                 (re.match(r"^\s*(\d+)\.\s*(.+?)\s*,\s*([0-9A-Za-z]{15,32})\s*$", ln) for ln in out.splitlines())
-                 if m]
+        from .playerparse import parse
+        names = [p["name"] for p in parse(out)]
     except Exception:  # noqa: BLE001
         names = []
     _PLAYERS[inst.name] = (now, names)
