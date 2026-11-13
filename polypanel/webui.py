@@ -931,8 +931,6 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
   <a href="/?token=__TOK__" style="margin-left:6px"><button data-t="common.back_dashboard">← Dashboard</button></a>
   <span class="badge" id="st">…</span><span class="badge" id="rd">…</span>
   <span class="badge">__NAME__</span><span class="badge" id="upd" role="button" tabindex="0">UPDATE ?</span>
-  <button onclick="openReport()" id="repbtn" style="padding:2px 8px;display:none"
-    data-t="report.open" title="Fehler im Panel melden">Fehler melden</button>
   <button onclick="toggleLang()" id="langbtn" style="padding:2px 8px">EN</button>""" + HEADER_ICONS + """
 </header>
 <div class="tabs">
@@ -1926,7 +1924,7 @@ async function giveDirect(sid){
 }
 applyLang(); restoreTab(); setTimeout(restoreTab, 250); refresh(); updCheck(); renderCmds(); loadMods(); loadKeyState(); loadCfg(); loadWl(); loadSettings(); loadCluster(); loadSnaps(); loadBackups(); loadSchedule(); loadHooks();
 setInterval(refresh,5000); setInterval(updCheck,300000);
-</script>""" + REPORT_MODAL + REPORT_JS + FOOTER + """
+</script>""" + FOOTER + """
 <div id="unbanModal" class="plModal"><div class="plBox" style="min-width:min(520px,94vw)">
   <div class="row" style="justify-content:space-between">
     <b data-t="inst.unban">Entbannen</b>
