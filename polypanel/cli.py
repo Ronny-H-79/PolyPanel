@@ -189,6 +189,20 @@ def cmd_url(args: argparse.Namespace) -> None:
     print(t("cli.token_remote", host=ip), file=sys.stderr)
 
 
+
+def cmd_token(args: argparse.Namespace) -> None:
+    """Nur den Web-Token ausgeben - fuer den Fall, dass die Adresse verloren ging."""
+    from .i18n import t
+    from .webui import TOKEN_PATH, token
+
+    tok = token()
+    if getattr(args, "quiet", False):
+        print(tok)
+        return
+    print("Web-Token: %s" % tok)
+    print("Datei:     %s" % TOKEN_PATH)
+    print("Adresse:   %s" % ("http://127.0.0.1:%d/?token=%s" % (args.port, tok)))
+
 def cmd_open(args: argparse.Namespace) -> None:
     """Web-Adresse mit Token im Standardbrowser oeffnen."""
     import webbrowser
@@ -487,6 +501,11 @@ def main(argv: list[str] | None = None) -> None:
     pu2.add_argument("--host", default="127.0.0.1")
     pu2.add_argument("--port", type=int, default=8790)
     pu2.set_defaults(func=cmd_url)
+
+    pt = sub.add_parser("token", parents=[common], help="Web-Token anzeigen (wenn die Adresse verloren ging)")
+    pt.add_argument("--quiet", action="store_true", help="nur den Token (fuer Skripte)")
+    pt.add_argument("--port", type=int, default=8790)
+    pt.set_defaults(func=cmd_token)
 
     pp = sub.add_parser("proxy", parents=[common],
                         help="nginx-Konfiguration fuer HTTPS erzeugen/einrichten")

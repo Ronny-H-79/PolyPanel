@@ -85,6 +85,16 @@ polypanel web           # start the web UI - the address with token is printed
 Install without `sudo`: panel, instances and servers then run as your user. For **Satisfactory** this
 is mandatory - the server does not start as root.
 
+**Token forgotten or address lost?**
+
+```bash
+polypanel token          # web token plus file path and address
+polypanel token --quiet  # only the token (for scripts)
+polypanel url            # ready-made address including the token
+```
+
+The token is also stored in `~/.config/polypanel/token` (mode `600`).
+
 Instances are created **in the browser**: open the address the command prints, enter a name, pick the
 game and map and press **Anlegen / Create** — the card then offers **Install** (SteamCMD, then start).
 No terminal is needed after the first command.

@@ -94,6 +94,16 @@ polypanel url           # Adresse mit Token - der Web-Dienst laeuft bereits
 Ohne `sudo` installieren: Panel, Instanzen und Server laufen dann unter deinem Benutzer. Für
 **Satisfactory** ist das Pflicht — der Server startet nicht als root.
 
+**Token vergessen oder Adresse verloren?**
+
+```bash
+polypanel token          # Web-Token mit Dateipfad und Adresse
+polypanel token --quiet  # nur der Token (für Skripte)
+polypanel url            # fertige Adresse inklusive Token
+```
+
+Der Token liegt zusätzlich in `~/.config/polypanel/token` (Rechte `600`).
+
 Instanzen legst du **im Browser** an: Adresse aus der Ausgabe öffnen, Namen eintragen, Spiel und Karte
 wählen, **Anlegen** drücken — die Karte bietet dann **Installieren** an (SteamCMD, danach Start).
 Nach dem ersten Befehl braucht es kein Terminal mehr.

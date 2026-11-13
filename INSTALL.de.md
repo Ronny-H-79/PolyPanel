@@ -166,6 +166,16 @@ systemctl --user enable --now polypanel-<name>
 loginctl enable-linger $USER      # läuft auch ohne angemeldete Sitzung
 ```
 
+**Token vergessen oder Adresse verloren?**
+
+```bash
+polypanel token          # Web-Token mit Dateipfad und Adresse
+polypanel token --quiet  # nur der Token (für Skripte)
+polypanel url            # fertige Adresse inklusive Token
+```
+
+Der Token liegt zusätzlich in `~/.config/polypanel/token` (Rechte `600`).
+
 ## Deinstallieren
 
 ```bash
