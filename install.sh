@@ -204,8 +204,8 @@ t() {
     de:web_skipped)        echo "Kein Dienst angelegt - Oberflaeche bei Bedarf starten mit: polypanel web" ;;
     en:as_user)            echo "Running as root - installing as service user $SERVICE_USER (servers must not run as root)" ;;
     de:as_user)            echo "Als root gestartet - Installation und Server laufen als Dienst-Benutzer $SERVICE_USER" ;;
-    en:svc_busy)           echo "An installation is running - web service not restarted (that would abort the download). Update takes effect after the next restart." ;;
-    de:svc_busy)           echo "Eine Installation laeuft - Web-Dienst nicht neu gestartet (das wuerde den Download abbrechen). Der neue Stand greift nach dem naechsten Neustart." ;;
+    en:svc_busy)           echo "An installation or a running game server was found - web service not restarted (that would abort it). Update takes effect after the next restart." ;;
+    de:svc_busy)           echo "Eine Installation oder ein laufender Spielserver gefunden - Web-Dienst nicht neu gestartet (das wuerde ihn beenden). Der neue Stand greift nach dem naechsten Neustart." ;;
     en:language_saved)     echo "Language: English" ;;
     de:language_saved)     echo "Sprache: Deutsch" ;;
     *) return 1 ;;
@@ -727,6 +727,14 @@ if [ -n "$SERVICE_USER" ]; then
   pgrep -u "$SERVICE_USER" -f steamcmd >/dev/null 2>&1 && _laeuft_download="ja"
 else
   pgrep -u "$(id -u)" -f steamcmd >/dev/null 2>&1 && _laeuft_download="ja"
+fi
+# Laeuft ein Spielserver? Der Web-Dienst ist dessen Elternprozess - ein Neustart wuerde ihn mit beenden.
+if [ -z "$_laeuft_download" ] && [ -r "$HOME/.config/polypanel/token" ]; then
+  _tok="$(cat "$HOME/.config/polypanel/token" 2>/dev/null)"
+  if [ -n "$_tok" ] && curl -s --max-time 5 "http://127.0.0.1:8790/api/instances?token=$_tok" 2>/dev/null \
+       | grep -q '"running": *true'; then
+    _laeuft_download="ja"
+  fi
 fi
 if [ -n "$_laeuft_download" ]; then
   warn "$(t svc_busy)"
