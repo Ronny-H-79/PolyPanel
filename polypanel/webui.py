@@ -366,7 +366,7 @@ FOOTER = """<footer class="sitefoot">
 document.querySelectorAll('a[data-tok]').forEach(function(a){
   a.href=a.dataset.tok+(t?'?token='+encodeURIComponent(t):'');});
 /* Der Fuß steht nach dem Hauptskript: Texte hier noch einmal in der aktiven Sprache setzen. */
-if(typeof applyLang==='function') applyLang();})();</script>"""
+if(typeof applyLang==='function') applyLang(); loadRepHook();})();</script>"""
 FOOTER = (FOOTER.replace("__PAYPAL_URL__", PAYPAL_URL)
                 .replace("__DISCORD_URL__", DISCORD_URL))
 
@@ -380,11 +380,30 @@ DASH = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
   <button onclick="polyPanelUpdate()" id="verbtn" style="padding:2px 8px">PolyPanel</button>
   <button onclick="openChangelog()" id="clogbtn" style="padding:2px 8px"
     data-t="self.changelog" title="Changelog">Changelog</button>
+  <button onclick="openReport()" id="repbtn" style="padding:2px 8px;display:none"
+    data-t="report.open" title="Fehler im Panel melden">Fehler melden</button>
   <button onclick="toggleLang()" id="langbtn" style="padding:2px 8px">EN</button></span>""" + HEADER_ICONS + """</header>
 <div class="modal" id="modal" onclick="if(event.target.id==='modal')closeModal()">
   <div class="mbox"><button class="close" onclick="closeModal()">×</button>
     <div id="mbody">…</div></div>
 </div>
+<div id="repModal" class="plModal"><div class="plBox" style="min-width:min(560px,94vw)">
+  <div class="row" style="justify-content:space-between">
+    <b data-t="report.title">Fehler im Panel melden</b>
+    <button onclick="closeReport()">×</button>
+  </div>
+  <div style="margin:12px 0 6px"><b data-t="report.what">Was kann das Panel nicht?</b></div>
+  <textarea id="repText" rows="4" style="width:100%" data-tp="report.what_ph"
+            placeholder="z. B. Knopf Start bleibt grau, obwohl der Server aus ist"></textarea>
+  <div style="margin:10px 0 6px"><b data-t="report.steps">Wie kam es dazu? (optional)</b></div>
+  <textarea id="repSteps" rows="2" style="width:100%" data-tp="report.steps_ph"
+            placeholder="z. B. Update gedrückt, danach Seite neu geladen"></textarea>
+  <div class="row" style="margin-top:12px;gap:8px">
+    <button class="primary" onclick="sendReport()" data-t="report.send">Meldung senden</button>
+    <button onclick="closeReport()" data-t="common.cancel">Abbrechen</button>
+    <span class="meta" id="repstate"></span>
+  </div>
+</div></div>
 <script>
 const GAMESHINT = {
   ark:            {install: "~50 GB über SteamCMD (Windows-Binary, Wine)", ports: "Spiel 7777 · Query 27016 · RCON 27025", ram: "8–16 GB (ohne Mods)"},
@@ -767,6 +786,37 @@ function _mdToHtml(text){
   html=_links(html);
   return html;
 }
+async function loadRepHook(){
+  // Melden nur anbieten, wenn der Betreiber einen Webhook hinterlegt hat (per Konsole)
+  try{
+    const d=await api('/api/report');
+    const b=document.getElementById('repbtn');
+    if(b) b.style.display=d.webhook?'':'none';
+  }catch(e){}
+}
+function openReport(){
+  document.getElementById('repModal').classList.add('on');
+  const t=document.getElementById('repText'); if(t) t.focus();
+}
+function closeReport(){
+  document.getElementById('repModal').classList.remove('on');
+  const s=document.getElementById('repstate'); if(s) s.textContent='';
+}
+async function sendReport(){
+  const text=(document.getElementById('repText').value||'').trim();
+  const steps=(document.getElementById('repSteps').value||'').trim();
+  const state=document.getElementById('repstate');
+  if(!text){ state.textContent=(L['report.need_text']||''); return; }
+  state.textContent=(L['common.loading']||'...');
+  try{
+    const r=await api('/api/report',{method:'POST',body:JSON.stringify({text:text,steps:steps})});
+    if(r.ok){
+      state.textContent=(L['report.sent']||'ok');
+      document.getElementById('repText').value=''; document.getElementById('repSteps').value='';
+      setTimeout(closeReport, 1400);
+    }else{ state.textContent=(r.fehler||'Fehler'); }
+  }catch(e){ state.textContent=String(e); }
+}
 async function openChangelog(){
   const box=document.getElementById('mbody');
   box.innerHTML='<div class="meta">'+L['common.loading']+'</div>';
@@ -1038,15 +1088,6 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
       <button class="primary" onclick="saveHook()" data-t="common.save">Speichern</button>
       <button onclick="testHook()" data-t="notify.test">Test senden</button>
       <span class="meta" id="hookmsg"></span>
-    </div>
-  </section>
-
-  <section class="tab tab-server" id="repSection" style="display:none"><h2 data-t="report.title">Fehler melden</h2>
-    <div class="meta" data-t="report.hint">Meldung geht an den Betreiber des Panels. Mitgeschickt werden automatisch
-      Panel-Version, Instanz, Betriebssystem und die letzten Logzeilen — Passwörter und Token werden vorher entfernt.</div>
-    <div class="row" style="margin-top:8px">
-      <button class="primary" onclick="openReport()" data-t="report.open">Fehler melden</button>
-      <span class="meta" id="repmsg"></span>
     </div>
   </section>
 
@@ -1832,37 +1873,6 @@ async function pa(sid,action){ const pname=(window.PNAMES||{})[sid]||'';
   document.getElementById('out').textContent=await api(url,{method:'POST'});
   setTimeout(refresh,1500); setTimeout(loadBans,1600); }
 async function give(sid){ catOpen(sid); }
-async function loadRepHook(){
-  // Melden gibt es nur, wenn der Betreiber einen Webhook hinterlegt hat (per Konsole)
-  try{
-    const d=await api('/api/report');
-    const s=document.getElementById('repSection');
-    if(s) s.style.display=d.webhook?'':'none';
-  }catch(e){}
-}
-function openReport(){
-  document.getElementById('repModal').classList.add('on');
-  const t=document.getElementById('repText'); if(t) t.focus();
-}
-function closeReport(){
-  document.getElementById('repModal').classList.remove('on');
-  const s=document.getElementById('repstate'); if(s) s.textContent='';
-}
-async function sendReport(){
-  const text=(document.getElementById('repText').value||'').trim();
-  const steps=(document.getElementById('repSteps').value||'').trim();
-  const state=document.getElementById('repstate');
-  if(!text){ state.textContent=(L['report.need_text']||''); return; }
-  state.textContent=(L['common.loading']||'...');
-  try{
-    const r=await api('/api/report',{method:'POST',body:JSON.stringify({text:text,steps:steps})});
-    if(r.ok){
-      state.textContent=(L['report.sent']||'ok');
-      document.getElementById('repText').value=''; document.getElementById('repSteps').value='';
-      setTimeout(closeReport, 1200);
-    }else{ state.textContent=(r.fehler||'Fehler'); }
-  }catch(e){ state.textContent=String(e); }
-}
 let QTY_PENDING=null;
 function qtyClose(){ document.getElementById('qtyModal').classList.remove('on'); QTY_PENDING=null; }
 function qtyOpen(bp, label){
@@ -1900,7 +1910,7 @@ async function giveDirect(sid){
       '<div class="plMsg">'+String(r||'ok')+' · x'+q+'</div>');
   }catch(e){ alert(String(e)); }
 }
-applyLang(); restoreTab(); setTimeout(restoreTab, 250); refresh(); updCheck(); renderCmds(); loadMods(); loadKeyState(); loadCfg(); loadWl(); loadSettings(); loadCluster(); loadSnaps(); loadBackups(); loadSchedule(); loadHooks(); loadRepHook();
+applyLang(); restoreTab(); setTimeout(restoreTab, 250); refresh(); updCheck(); renderCmds(); loadMods(); loadKeyState(); loadCfg(); loadWl(); loadSettings(); loadCluster(); loadSnaps(); loadBackups(); loadSchedule(); loadHooks();
 setInterval(refresh,5000); setInterval(updCheck,300000);
 </script>""" + FOOTER + """
 <div id="unbanModal" class="plModal"><div class="plBox" style="min-width:min(520px,94vw)">
@@ -1914,23 +1924,6 @@ setInterval(refresh,5000); setInterval(updCheck,300000);
     <button onclick="unbanDo()" data-t="inst.unban">Entbannen</button>
   </div>
   <div id="unbanOut" class="plMsg"></div>
-</div></div>
-<div id="repModal" class="plModal"><div class="plBox" style="min-width:min(560px,94vw)">
-  <div class="row" style="justify-content:space-between">
-    <b data-t="report.title">Fehler melden</b>
-    <button onclick="closeReport()">×</button>
-  </div>
-  <div style="margin:12px 0 6px"><b data-t="report.what">Was ist passiert?</b></div>
-  <textarea id="repText" rows="4" style="width:100%" data-tp="report.what_ph"
-            placeholder="z. B. Start bricht nach dem Update ab, die Konsole bleibt leer"></textarea>
-  <div style="margin:10px 0 6px"><b data-t="report.steps">Wie kam es dazu? (optional)</b></div>
-  <textarea id="repSteps" rows="2" style="width:100%" data-tp="report.steps_ph"
-            placeholder="z. B. Mod hinzugefügt, dann auf Restart gedrückt"></textarea>
-  <div class="row" style="margin-top:12px;gap:8px">
-    <button class="primary" onclick="sendReport()" data-t="report.send">Meldung senden</button>
-    <button onclick="closeReport()" data-t="common.cancel">Abbrechen</button>
-    <span class="meta" id="repstate"></span>
-  </div>
 </div></div>
 <div id="qtyModal" class="plModal"><div class="plBox" style="min-width:min(430px,92vw)">
   <div class="row" style="justify-content:space-between">
@@ -2516,10 +2509,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/bans":
             self._json(bans.laden(inst))
         elif path == "/api/report":
-            self._json({"webhook": bool(report_mod.webhook()),
-                        "version": __version__,
-                        "instanz": inst.name if inst else "",
-                        "log": bool(report_mod.logauszug(inst)) if inst else False})
+            self._json({"webhook": bool(report_mod.webhook()), "version": __version__})
         elif path == "/api/playerids/debug":
             self._json(playerids.pfade(inst))
         elif path == "/api/update":
@@ -2783,10 +2773,7 @@ class Handler(BaseHTTPRequestHandler):
                 daten = json.loads(roh) if roh.strip() else {}
             except ValueError:
                 daten = {}
-            if not inst:
-                self._json({"ok": False, "fehler": "keine Instanz"})
-                return
-            self._json(report_mod.senden(inst, str(daten.get("text", "")),
+            self._json(report_mod.senden(None, str(daten.get("text", "")),
                                         str(daten.get("steps", ""))))
             return
         elif path == "/api/notify/test":

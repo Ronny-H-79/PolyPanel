@@ -1,3 +1,14 @@
+## [0.11] — 2026-11-13
+
+### Changed
+- **Reporting moved to the start page** (button in the header, only shown when a report webhook is
+  configured) and is gone from the instance page.
+- **It reports the panel, not the game:** the report carries the panel version, the system and the
+  **panel logs** (service journal plus the instance's `.ascendedpanel-supervisor.log`, `.update.log`
+  and `.install.log`). The game's server log is **not** attached. Passwords and tokens are still
+  stripped before sending.
+- Window wording follows: "What can't the panel do?" instead of "What happened?".
+
 ## [0.10] — 2026-11-13
 
 ### Overview

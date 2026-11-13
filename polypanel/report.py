@@ -11,6 +11,7 @@ import json
 import os
 import platform
 import re
+import subprocess
 import sys
 import time
 import urllib.error
@@ -19,6 +20,8 @@ import urllib.request
 from . import __version__
 from .instance import Instance
 from .paths import SETTINGS_PATH
+
+PANEL = "PolyPanel"
 
 TIMEOUT = 12
 MAX_TEXT = 1500
@@ -83,34 +86,70 @@ def _saeubern(text: str) -> str:
     return text
 
 
-def logauszug(inst, zeilen: int = MAX_LOG_LINES) -> str:
-    """Letzte Logzeilen, ohne Passwoerter/Token, gekuerzt auf MAX_LOG_CHARS."""
-    pfad = inst.log_path
+UNIT = "%s"
+
+
+def _journal(zeilen: int = MAX_LOG_LINES) -> str:
+    """Letzte Zeilen des Panel-Dienstes aus dem System-Journal."""
+    try:
+        lauf = subprocess.run(
+            ["journalctl", "-u", UNIT, "-n", str(zeilen), "--no-pager", "-o", "short-iso"],
+            capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    if lauf.returncode != 0 or not lauf.stdout.strip():
+        return ""
+    return lauf.stdout
+
+
+def _datei_ende(pfad: str, zeilen: int) -> str:
     try:
         with open(pfad, "rb") as fh:
             fh.seek(0, os.SEEK_END)
             groesse = fh.tell()
-            fh.seek(max(0, groesse - 64_000))
+            fh.seek(max(0, groesse - 24_000))
             roh = fh.read().decode("utf-8", "replace")
     except OSError:
         return ""
-    brauchbar = [z for z in roh.splitlines() if z.strip() and not _GEHEIM.search(z)]
-    auszug = "\n".join(brauchbar[-zeilen:])
-    return _saeubern(auszug)[-MAX_LOG_CHARS:]
+    return "\n".join(roh.splitlines()[-zeilen:])
+
+
+def panel_log(inst=None, zeilen: int = MAX_LOG_LINES) -> str:
+    """Panel-Logs: Dienst-Journal und, wenn vorhanden, die Panel-Logs der Instanz.
+
+    Bewusst **nicht** das Spiel-Log (ShooterGame.log) - gemeldet werden Fehler des
+    Panels, nicht Dinge, die im Spiel nicht funktionieren.
+    """
+    teile = [_journal(zeilen)]
+
+    if inst is not None:
+        for name in (".ascendedpanel-supervisor.log", ".update.log", ".install.log"):
+            pfad = os.path.join(getattr(inst, "directory", ""), name)
+            rest = _datei_ende(pfad, 8)
+            if rest:
+                teile.append("--- %s ---\n%s" % (name, rest))
+
+    zusammen = "\n".join(t for t in teile if t)
+    brauchbar = [z for z in zusammen.splitlines() if z.strip() and not _GEHEIM.search(z)]
+    return _saeubern("\n".join(brauchbar))[-MAX_LOG_CHARS:]
 
 
 # ------------------------------------------------------------------ Senden
-def _felder(inst) -> list[dict]:
-    karte = getattr(inst, "map", "") or ""
-    return [
-        {"name": "Panel", "value": "PolyPanel %s" % __version__, "inline": True},
-        {"name": "Instanz", "value": "%s (%s)" % (getattr(inst, "name", "?"), karte), "inline": True},
+def _felder(inst=None) -> list[dict]:
+    felder = [
+        {"name": "Panel", "value": "%s %s" % (PANEL, __version__), "inline": True},
         {"name": "System", "value": "%s · Python %s" % (platform.platform(terse=True),
                                                         sys.version.split()[0]), "inline": False},
     ]
+    if inst is not None:
+        felder.append({"name": "Instanz",
+                       "value": "%s (%s)" % (getattr(inst, "name", "?"), getattr(inst, "map", "")),
+                       "inline": True})
+    return felder
 
 
-def senden(inst, text: str, schritte: str = "") -> dict:
+def senden(inst=None, text: str = "", schritte: str = "") -> dict:
     """Meldung abschicken. Gibt {"ok": bool, "fehler": str} zurueck."""
     text = (text or "").strip()
     if not text:
@@ -123,7 +162,7 @@ def senden(inst, text: str, schritte: str = "") -> dict:
     felder = _felder(inst)
     if schritte.strip():
         felder.append({"name": "Schritte", "value": _saeubern(schritte.strip())[:900], "inline": False})
-    auszug = logauszug(inst)
+    auszug = panel_log(inst)
     if auszug:
         felder.append({"name": "Log (Ende)", "value": "```\n%s\n```" % auszug[:990], "inline": False})
 
@@ -131,12 +170,12 @@ def senden(inst, text: str, schritte: str = "") -> dict:
         "username": "PolyPanel",
         "content": "**Fehlermeldung aus dem Panel**",
         "embeds": [{
-            "title": "Meldung von einem Nutzer",
+            "title": "Fehler im Panel gemeldet",
             "description": beschreibung,
             "color": 0xE74C3C,
             "fields": felder[:8],
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "footer": {"text": "%s · %s" % (getattr(inst, "name", "?"), __version__)},
+            "footer": {"text": "%s · %s" % (PANEL, __version__)},
         }],
     }
     anfrage = urllib.request.Request(

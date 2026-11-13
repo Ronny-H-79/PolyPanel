@@ -1,3 +1,14 @@
+## [0.11] — 2026-11-13
+
+### Geändert
+- **Fehler melden sitzt jetzt auf der Startseite** (Knopf in der Kopfzeile, erscheint nur, wenn ein
+  Melde-Webhook hinterlegt ist) und ist aus der Instanzseite verschwunden.
+- **Gemeldet wird das Panel, nicht das Spiel:** Die Meldung enthält Panel-Version, System und die
+  **Panel-Logs** (Journal des Dienstes, dazu `.ascendedpanel-supervisor.log`, `.update.log` und
+  `.install.log` der betroffenen Instanz). Das Server-Log des Spiels wird **nicht** mitgeschickt.
+  Passwörter und Token werden weiterhin vor dem Senden entfernt.
+- Wortlaut im Fenster entsprechend: „Was kann das Panel nicht?" statt „Was ist passiert?".
+
 ## [0.10] — 2026-11-13
 
 ### Überblick
