@@ -1745,7 +1745,7 @@ async function saveSettings(){
   document.querySelectorAll('#settings input, #settings textarea, #settings select').forEach(el=>{
     const v=SETTINGS[Number(el.dataset.i)];
     let value;
-    if(el.type==='checkbox') value=el.checked?'True':'False';
+    if(el.type==='checkbox') value=el.checked?'true':'false';
     else if(el.tagName==='TEXTAREA') value=el.value.split(String.fromCharCode(13)).join('').split(String.fromCharCode(10)).join(String.fromCharCode(92)+'n').trim();
     else value=el.value.trim();
     if(value!=='' && value!==v.value){
@@ -3128,8 +3128,12 @@ class Handler(BaseHTTPRequestHandler):
                         changed += 1
                     except (KeyError, TypeError):
                         continue
-            self._send(200, ("%d Einstellung(en) gespeichert - wirksam nach Neustart"
-                             % changed).encode())
+            text = "%d Einstellung(en) gespeichert - wirksam nach Neustart" % changed
+            if changed < len(items):
+                # Nicht jede Zeile landet in der Datei (unbekannter Schluessel, ungueltiger
+                # Wert). Ohne Hinweis wirkt das wie "nichts passiert".
+                text += " · %d nicht uebernommen (Wert ungueltig oder Feld unbekannt)" % (len(items) - changed)
+            self._send(200, text.encode())
         elif path == "/api/backup":
             try:
                 info = bk.create(inst)

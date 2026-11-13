@@ -415,8 +415,12 @@ class SpaceEngineersProfile(GameProfile):
                     val = ersatz
                 else:
                     continue
-            if key in self._BOOL and val and val not in ("true", "false"):
-                continue
+            if key in self._BOOL and val:
+                # Checkboxen im Panel senden "True"/"False" - in der Datei muss klein stehen
+                klein = val.lower()
+                if klein not in ("true", "false"):
+                    continue
+                val = klein
             pattern = re.compile(r"(<%s>)(.*?)(</%s>)" % (re.escape(key), re.escape(key)), re.S)
             if pattern.search(text):
                 text = pattern.sub(lambda m: m.group(1) + val + m.group(3), text, count=1)
