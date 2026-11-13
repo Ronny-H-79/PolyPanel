@@ -469,7 +469,7 @@ def status(inst: Instance) -> dict[str, object]:
                 info["rcon"] = "ok"
             else:
                 with inst.control(timeout=12) as rc:
-                    out = rc.command("ListPlayers", timeout=12)
+                    out = rc.command(getattr(inst.profile, "players_command", "ListPlayers"), timeout=12)
                     info["players"] = [l for l in out.splitlines() if l.strip()]
                     info["rcon"] = "ok"
         except Exception as exc:                 # noqa: BLE001 - Status darf nie 500en
