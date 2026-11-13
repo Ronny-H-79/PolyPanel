@@ -891,7 +891,7 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
     <div id="players">…</div></section>
 
   <section class="tab tab-overview on"><h2 data-t="inst.bans">Gesperrte Spieler</h2>
-    <div style="color:var(--dim);font-size:11px;line-height:1.45;margin:-4px 0 8px" data-t="inst.bans_hint">Nur Sperren, die über dieses Panel gesetzt wurden — ARK liefert die Ban-Liste nicht über RCON. Außerhalb gebannte Spieler über das EOS-ID-Feld entbannen.</div>
+    <div style="color:var(--dim);font-size:11px;line-height:1.45;margin:-4px 0 8px" data-t="inst.bans_hint">Hier stehen nur Spieler, die über dieses Panel gesperrt wurden — ARK liefert die Ban-Liste nicht über RCON. Spieler, die außerhalb gesperrt wurden, über das EOS-ID-Feld entbannen.</div>
     <div id="bans"><span style="color:var(--dim)">–</span></div>
   </section>
 

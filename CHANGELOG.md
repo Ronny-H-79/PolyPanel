@@ -1,3 +1,10 @@
+## [0.7.42] — 2026-11-13
+
+### Geändert
+- **Hinweis im Ban-Fenster umformuliert.** Statt „Nur Sperren, die über dieses Panel gesetzt
+  wurden" heißt es jetzt „Hier stehen nur Spieler, die über dieses Panel gesperrt wurden" —
+  es geht um Personen, nicht um Sperren.
+
 ## [0.7.41] — 2026-11-13
 
 ### Behoben
