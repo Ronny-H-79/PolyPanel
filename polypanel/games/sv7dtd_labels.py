@@ -60,6 +60,13 @@ LABELS: dict[str, tuple[str, str]] = {
     # --- Spieler / Multiplayer
     "PartySharedKillRange": ("Gruppen-XP-Reichweite", "Entfernung fuer geteilte Kill-XP"),
     "PlayerKillingMode": ("PvP-Modus", "0 = aus, 1 = nur Freunde, 2 = nur Fremde, 3 = alle"),
+    "GameDifficulty": ("Schwierigkeit", "0 = am leichtesten bis 5 = Wahnsinn (Zombie-LP, Schaden, Loot)"),
+    "DropOnDeath": ("Beim Tod verlieren", "0 = nichts, 1 = alles, 2 = nur Gürtel, 3 = nur Rucksack, 4 = alles loeschen"),
+    "DropOnQuit": ("Beim Verlassen verlieren", "0 = nichts, 1 = alles, 2 = nur Gürtel, 3 = nur Rucksack, 4 = alles loeschen"),
+    "ZombieMove": ("Zombie-Tempo (Tag)", "0 = gehen, 1 = joggen, 2 = rennen, 3 = sprinten, 4 = Albtraum"),
+    "ZombieMoveNight": ("Zombie-Tempo (Nacht)", "0 = gehen, 1 = joggen, 2 = rennen, 3 = sprinten, 4 = Albtraum"),
+    "ZombieBMMove": ("Zombie-Tempo (Blutmond)", "0 = gehen, 1 = joggen, 2 = rennen, 3 = sprinten, 4 = Albtraum"),
+    "ZombieFeralSense": ("Wilde Zombies spüren dich", "0 = aus, 1 = tagsüber, 2 = nachts, 3 = immer"),
     "LandClaimCount": ("Max. Landansprueche", "pro Spieler"),
     "LandClaimSize": ("Groesse Landanspruch", "Kantenlaenge in Bloecken"),
     "LandClaimDeadZone": ("Abstand zwischen Claims", "Bloecke zwischen zwei Grundsteinen"),

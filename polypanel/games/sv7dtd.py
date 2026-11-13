@@ -322,6 +322,15 @@ class SevenDaysProfile(GameProfile):
         # bleiben waehlbar, weil der aktuelle Wert immer mit in die Liste wandert.
         "GameWorld": ["Navezgane", "RWG"],
         "WorldGenSize": ["6144", "8192", "10240"],
+        "GameDifficulty": ["0", "1", "2", "3", "4", "5"],
+        "ServerVisibility": ["0", "1", "2"],
+        "PlayerKillingMode": ["0", "1", "2", "3"],
+        "DropOnDeath": ["0", "1", "2", "3", "4"],
+        "DropOnQuit": ["0", "1", "2", "3", "4"],
+        "ZombieMove": ["0", "1", "2", "3", "4"],
+        "ZombieMoveNight": ["0", "1", "2", "3", "4"],
+        "ZombieBMMove": ["0", "1", "2", "3", "4"],
+        "ZombieFeralSense": ["0", "1", "2", "3"],
     }
 
     def settings(self, inst) -> list[dict]:
