@@ -405,6 +405,44 @@ else
   fi
 fi
 
+# --------------------------------------------------- Winetricks (Space Engineers braucht .NET 4.8)
+# Ohne winetricks/cabextract kann kein .NET-Prefix entstehen: Space Engineers startet dann mit
+# "Laufzeit fehlt" gar nicht. Bei apt kommt wine32 dazu (dotnet48 ist ein 32-Bit-Installer)
+# und wineserver wird verlinkt, weil winetricks es sonst nicht findet.
+winetricks_install() {
+  command -v winetricks >/dev/null 2>&1 && command -v cabextract >/dev/null 2>&1 && return 0
+  _root() { if [ "$(id -u)" = "0" ]; then "$@"; else sudo "$@"; fi; }
+  case "$PKG_MGR" in
+    apt)
+      _root dpkg --add-architecture i386 >/dev/null 2>&1 || true
+      _root apt-get update -qq >/dev/null 2>&1 || true
+      _root apt-get install -y winetricks cabextract wine32:i386 >/dev/null 2>&1         || _root apt-get install -y winetricks cabextract >/dev/null 2>&1 || true
+      ;;
+    dnf)    _root dnf install -y winetricks cabextract >/dev/null 2>&1 || true ;;
+    zypper) _root zypper --non-interactive install winetricks cabextract >/dev/null 2>&1 || true ;;
+    pacman) _root pacman -S --needed --noconfirm winetricks cabextract >/dev/null 2>&1 || true ;;
+  esac
+  # winetricks sucht wineserver im PATH, Debian/Ubuntu legt es nur in den lib-Ordner
+  if ! command -v wineserver >/dev/null 2>&1; then
+    for _ws in /usr/lib/x86_64-linux-gnu/wine/wineserver /usr/lib/wine/wineserver \
+               /usr/lib64/wine/wineserver; do
+      [ -x "$_ws" ] && _root ln -sf "$_ws" /usr/bin/wineserver 2>/dev/null && break
+    done
+  fi
+  command -v winetricks >/dev/null 2>&1
+}
+
+if command -v winetricks >/dev/null 2>&1; then
+  say "$(t present "winetricks")"
+else
+  if [ "$CHECK_ONLY" = "1" ]; then
+    warn "$(t check_missing "winetricks" "winetricks cabextract")"
+  else
+    say "$(t auto_install "winetricks")"
+    winetricks_install && say "$(t installed "winetricks")" || warn "$(t still_missing "winetricks")"
+  fi
+fi
+
 if command -v ss >/dev/null 2>&1; then
   say "$(t present "iproute2 (ss)")"
 else
