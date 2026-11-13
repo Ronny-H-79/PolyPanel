@@ -316,6 +316,18 @@ class SpaceEngineersProfile(GameProfile):
                 _add(tag, node.text)
         return out
 
+    # Feste Spielwerte als Auswahlliste (Enum-Werte laut SessionSettings-Referenz).
+    # Achtung: BlockLimitsEnabled ist ein Enum - "true"/"false" macht die ganze Datei unlesbar
+    # (SE faellt dann auf Standardwerte zurueck und meldet "Premade world not found").
+    _BOOL = {"EnableIngameScripts", "PauseGameWhenEmpty", "IgnoreLastSession", "ScenarioEditMode",
+             "EnableSaving", "EnableSpectator"}
+    CHOICES = {
+        "BlockLimitsEnabled": ["NONE", "GLOBALLY", "PER_FACTION", "PER_PLAYER"],
+        "OnlineMode": ["PUBLIC", "FRIENDS", "PRIVATE", "OFFLINE"],
+        "GameMode": ["Survival", "Creative"],
+        "VoxelGeneratorVersion": ["2", "3"],
+    }
+
     def settings(self, inst) -> list[dict]:
         props = self._read_cfg(inst)
         if not props:
@@ -334,9 +346,15 @@ class SpaceEngineersProfile(GameProfile):
             if alias:
                 value = str(getattr(inst, alias, value))
             label, hint = LABELS.get(name, (name, ""))
-            out.append({"file": "instance", "section": "", "key": name, "label": label,
-                        "hint": hint, "type": "text", "value": str(value),
-                        "group": _group_of(name)})
+            eintrag = {"file": "instance", "section": "", "key": name, "label": label,
+                       "hint": hint, "type": "text", "value": str(value),
+                       "group": _group_of(name)}
+            if name in self.CHOICES:
+                eintrag["type"] = "select"
+                eintrag["choices"] = list(self.CHOICES[name])
+                if str(value) and str(value) not in eintrag["choices"]:
+                    eintrag["choices"].insert(0, str(value))
+            out.append(eintrag)
         # Optionen, die (noch) nicht in der Datei stehen, trotzdem anbieten: leer = Standard
         vorhanden = {name for name, _ in props}
         for name, (label, hint) in LABELS.items():
@@ -362,6 +380,12 @@ class SpaceEngineersProfile(GameProfile):
         for item in items:
             key, val = item.get("key"), str(item.get("value", ""))
             if not key:
+                continue
+            # Ein einziger ungueltiger Wert macht die komplette Datei unlesbar: SE faellt dann
+            # still auf Standardwerte zurueck (Folge: "Premade world not found"). Darum hier sperren.
+            if key in self.CHOICES and val and val not in self.CHOICES[key]:
+                continue
+            if key in _BOOL and val and val not in ("true", "false"):
                 continue
             pattern = re.compile(r"(<%s>)(.*?)(</%s>)" % (re.escape(key), re.escape(key)), re.S)
             if pattern.search(text):
