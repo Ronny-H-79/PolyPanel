@@ -495,6 +495,21 @@ fi
 # ---------------------------------------------------------------- Zugriff
 ACCESS=""
 DOMAIN=""
+# Ohne Rueckfrage (--auto, Pipe) die gespeicherte Zugriffsart uebernehmen - sonst wuerde die
+# Unit bei jedem Update ohne --host neu geschrieben und das Panel waere nur noch lokal erreichbar.
+if [ ! -t 0 ] && [ -f "$HOME/.config/polypanel/settings.json" ]; then
+  _gespeichert="$("$PY" - "$HOME/.config/polypanel/settings.json" <<'PYEOF'
+import json, sys
+try:
+    with open(sys.argv[1], encoding="utf-8") as fh:
+        daten = json.load(fh)
+except (OSError, ValueError):
+    daten = {}
+print(str(daten.get("access", "") or ""))
+PYEOF
+)"
+  ACCESS="$_gespeichert"
+fi
 if [ -t 0 ]; then
   printf '  %s' "$(t access_q)"
   read -r _a || _a=""
