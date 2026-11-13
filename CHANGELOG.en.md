@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### Changed
+- **Removed unused log styles** (`.logwrap`, `.loghead`, `.cardlog`) - leftovers of the log
+  window on the overview cards.
+
 ## [0.7.35] — 2026-11-13
 
 ### Changed

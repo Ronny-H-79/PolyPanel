@@ -1,3 +1,9 @@
+## [Unveröffentlicht]
+
+### Geändert
+- **Ungenutzte Log-Styles entfernt** (`.logwrap`, `.loghead`, `.cardlog`) — Reste des
+  Karten-Logfensters von der Startseite.
+
 ## [0.7.35] — 2026-11-13
 
 ### Geändert
@@ -1062,4 +1068,4 @@
 
 Erster öffentlicher Stand: Instanzen anlegen, Start/Stop/Restart/Update über SteamCMD, RCON-Konsole
 mit Klick-Befehlen, Spielerverwaltung, Mod-Verwaltung, Config-Editor, Welt-Backups, Snapshots,
-Whitelist/Bans, Zeitplan, Live-Metriken und Weboberfläche.
+Whitelist/Bans, Zeitplan, Live-Metriken und Weboberfläche.## [Unveröffentlicht]

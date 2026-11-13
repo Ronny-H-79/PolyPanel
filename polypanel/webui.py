@@ -203,10 +203,6 @@ padding-bottom:1px;transition:color .12s,border-color .12s}
 .settabs button.on{border-color:var(--acc);color:var(--acc)}
 .setgroup{display:none}
 .setgroup.on{display:block}
-.logwrap{background:rgba(5,13,18,.85);border:1px solid #12241f;border-radius:4px;padding:6px 8px;min-width:0}
-.loghead{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
-.cardlog{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5px;line-height:1.35;
-color:#9fb8ae;white-space:pre-wrap;word-break:break-word;max-height:132px;overflow:hidden}
 .card{border:1px solid rgba(64,255,199,.16);border-radius:14px;padding:16px 18px;
 background:linear-gradient(180deg,rgba(16,31,40,.66),rgba(7,14,20,.78));
 backdrop-filter:blur(16px) saturate(115%);box-shadow:0 14px 34px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.05);
