@@ -210,6 +210,7 @@ Der letzte Schritt ist der einzige, der wirklich unwiederbringlich ist: Welt und
 cd ~/polypanel          # in den Klon des Repos wechseln
 ./install.sh --uninstall
 rm -rf ~/polypanel-instances ~/.config/polypanel ~/polypanel-backups ~/polypanel-snapshots
+rm -rf ~/.wine ~/.polypanel-wine-se # Wine-Prefixe (Standard und Space Engineers)
 rm -f /etc/systemd/system/polypanel-*.service
 systemctl daemon-reload
 ```

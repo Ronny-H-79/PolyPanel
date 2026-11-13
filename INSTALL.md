@@ -174,6 +174,7 @@ backups (`~/polypanel-backups`), snapshots (`~/polypanel-snapshots`).
 cd ~/polypanel          # your clone of the repo
 ./install.sh --uninstall
 rm -rf ~/polypanel-instances ~/.config/polypanel ~/polypanel-backups ~/polypanel-snapshots
+rm -rf ~/.wine ~/.polypanel-wine-se # wine prefixes (default and Space Engineers)
 rm -f /etc/systemd/system/polypanel-*.service
 systemctl daemon-reload
 ```
