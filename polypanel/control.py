@@ -76,10 +76,29 @@ class TelnetClient:
             self._sock.sendall((cmd + "\r\n").encode())
         except OSError as exc:
             raise ControlError("Telnet-Senden fehlgeschlagen: %s" % exc) from exc
-        antwort = self._read_until(("\r\n",), time.time() + wait).strip()
-        # Der Server stellt jeder Antwort eine Log-Zeile voran ("... Executing command 'lp' ...").
-        # Die gehoert nicht zur Antwort und wuerde jede Auswertung stoeren.
-        zeilen = [z for z in antwort.splitlines()
+        # Antwort vollstaendig abholen: der Server schickt zuerst eine Log-Zeile, dann das
+        # Ergebnis (bei `lp` z. B. alle Spieler plus "Total of N in the game"). Nach der ersten
+        # Zeile abzubrechen liefert nur das Echo - deshalb lesen, bis 0,4 s lang nichts mehr kommt.
+        ende = time.time() + wait
+        buf = ""
+        try:
+            self._sock.settimeout(0.4)
+        except OSError:
+            pass
+        while time.time() < ende:
+            try:
+                chunk = self._sock.recv(4096)
+            except (socket.timeout, TimeoutError):
+                if buf.strip():
+                    break
+                continue
+            except OSError:
+                break
+            if not chunk:
+                break
+            buf += chunk.decode("utf-8", "replace")
+        # Log-Zeilen des Servers gehoeren nicht zur Antwort
+        zeilen = [z for z in buf.splitlines()
                   if " Executing command " not in z and " Telnet connection " not in z
                   and " Started thread " not in z and " Exited thread " not in z]
         return "\n".join(zeilen).strip()
