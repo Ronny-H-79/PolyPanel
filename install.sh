@@ -702,7 +702,12 @@ fi
 
 
 # laufenden Web-Dienst neu starten, damit der neue Code aktiv ist
-if systemctl is-active polypanel-web >/dev/null 2>&1; then
+_uid="${SERVICE_UID:-}"
+if [ -n "$SERVICE_USER" ] && [ -n "$_uid" ]; then
+  # Dienst laeuft als Dienst-Benutzer - dann aus dessen Sitzung neu starten
+  su - "$SERVICE_USER" -c "XDG_RUNTIME_DIR=/run/user/$_uid systemctl --user restart polypanel-web" >/dev/null 2>&1 \
+    && say "$(t service_restarted)"
+elif systemctl is-active polypanel-web >/dev/null 2>&1; then
   systemctl restart polypanel-web >/dev/null 2>&1 && say "$(t service_restarted)"
 elif systemctl --user is-active polypanel-web >/dev/null 2>&1; then
   systemctl --user restart polypanel-web >/dev/null 2>&1 && say "$(t service_restarted)"
