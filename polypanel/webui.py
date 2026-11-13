@@ -372,6 +372,59 @@ if(typeof applyLang==='function') applyLang(); loadRepHook();})();</script>"""
 FOOTER = (FOOTER.replace("__PAYPAL_URL__", PAYPAL_URL)
                 .replace("__DISCORD_URL__", DISCORD_URL))
 
+# Meldung an den Betreiber: Baustein + Skript, von Dashboard und Instanzseite benutzt.
+REPORT_MODAL = """<div id="repModal" class="plModal"><div class="plBox" style="min-width:min(560px,94vw)">
+  <div class="row" style="justify-content:space-between">
+    <b data-t="report.title">Fehler im Panel melden</b>
+    <button onclick="closeReport()">×</button>
+  </div>
+  <div style="margin:12px 0 6px"><b data-t="report.what">Was kann das Panel nicht?</b></div>
+  <textarea id="repText" rows="4" style="width:100%" data-tp="report.what_ph"
+            placeholder="z. B. Knopf Start bleibt grau, obwohl der Server aus ist"></textarea>
+  <div style="margin:10px 0 6px"><b data-t="report.steps">Wie kam es dazu? (optional)</b></div>
+  <textarea id="repSteps" rows="2" style="width:100%" data-tp="report.steps_ph"
+            placeholder="z. B. Update gedrückt, danach Seite neu geladen"></textarea>
+  <div class="row" style="margin-top:12px;gap:8px">
+    <button class="primary" onclick="sendReport()" data-t="report.send">Meldung senden</button>
+    <button onclick="closeReport()" data-t="common.cancel">Abbrechen</button>
+    <span class="meta" id="repstate"></span>
+  </div>
+</div></div>"""
+
+REPORT_JS = """<script>
+async function loadRepHook(){
+  // Melden nur anbieten, wenn der Betreiber einen Webhook hinterlegt hat (per Konsole)
+  try{
+    const d=JSON.parse(await api('/api/report'));
+    const b=document.getElementById('repbtn');
+    if(b) b.style.display=d.webhook?'inline-block':'none';
+  }catch(e){}
+}
+function openReport(){
+  document.getElementById('repModal').classList.add('on');
+  const t=document.getElementById('repText'); if(t) t.focus();
+}
+function closeReport(){
+  document.getElementById('repModal').classList.remove('on');
+  const s=document.getElementById('repstate'); if(s) s.textContent='';
+}
+async function sendReport(){
+  const text=(document.getElementById('repText').value||'').trim();
+  const steps=(document.getElementById('repSteps').value||'').trim();
+  const state=document.getElementById('repstate');
+  if(!text){ state.textContent=(L['report.need_text']||''); return; }
+  state.textContent=(L['common.loading']||'...');
+  try{
+    const r=JSON.parse(await api('/api/report',{method:'POST',body:JSON.stringify({text:text,steps:steps})}));
+    if(r.ok){
+      state.textContent=(L['report.sent']||'ok');
+      document.getElementById('repText').value=''; document.getElementById('repSteps').value='';
+      setTimeout(closeReport, 1400);
+    }else{ state.textContent=(r.fehler||'Fehler'); }
+  }catch(e){ state.textContent=String(e); }
+}
+</script>"""
+
 DASH = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>PolyPanel</title>
 <style>""" + SHARED_CSS + """</style></head><body>
@@ -389,23 +442,7 @@ DASH = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
   <div class="mbox"><button class="close" onclick="closeModal()">×</button>
     <div id="mbody">…</div></div>
 </div>
-<div id="repModal" class="plModal"><div class="plBox" style="min-width:min(560px,94vw)">
-  <div class="row" style="justify-content:space-between">
-    <b data-t="report.title">Fehler im Panel melden</b>
-    <button onclick="closeReport()">×</button>
-  </div>
-  <div style="margin:12px 0 6px"><b data-t="report.what">Was kann das Panel nicht?</b></div>
-  <textarea id="repText" rows="4" style="width:100%" data-tp="report.what_ph"
-            placeholder="z. B. Knopf Start bleibt grau, obwohl der Server aus ist"></textarea>
-  <div style="margin:10px 0 6px"><b data-t="report.steps">Wie kam es dazu? (optional)</b></div>
-  <textarea id="repSteps" rows="2" style="width:100%" data-tp="report.steps_ph"
-            placeholder="z. B. Update gedrückt, danach Seite neu geladen"></textarea>
-  <div class="row" style="margin-top:12px;gap:8px">
-    <button class="primary" onclick="sendReport()" data-t="report.send">Meldung senden</button>
-    <button onclick="closeReport()" data-t="common.cancel">Abbrechen</button>
-    <span class="meta" id="repstate"></span>
-  </div>
-</div></div>
+""" + REPORT_MODAL + """
 <script>
 const GAMESHINT = {
   ark:            {install: "~50 GB über SteamCMD (Windows-Binary, Wine)", ports: "Spiel 7777 · Query 27016 · RCON 27025", ram: "8–16 GB (ohne Mods)"},
@@ -788,37 +825,6 @@ function _mdToHtml(text){
   html=_links(html);
   return html;
 }
-async function loadRepHook(){
-  // Melden nur anbieten, wenn der Betreiber einen Webhook hinterlegt hat (per Konsole)
-  try{
-    const d=JSON.parse(await api('/api/report'));
-    const b=document.getElementById('repbtn');
-    if(b) b.style.display=d.webhook?'inline-block':'none';
-  }catch(e){}
-}
-function openReport(){
-  document.getElementById('repModal').classList.add('on');
-  const t=document.getElementById('repText'); if(t) t.focus();
-}
-function closeReport(){
-  document.getElementById('repModal').classList.remove('on');
-  const s=document.getElementById('repstate'); if(s) s.textContent='';
-}
-async function sendReport(){
-  const text=(document.getElementById('repText').value||'').trim();
-  const steps=(document.getElementById('repSteps').value||'').trim();
-  const state=document.getElementById('repstate');
-  if(!text){ state.textContent=(L['report.need_text']||''); return; }
-  state.textContent=(L['common.loading']||'...');
-  try{
-    const r=JSON.parse(await api('/api/report',{method:'POST',body:JSON.stringify({text:text,steps:steps})}));
-    if(r.ok){
-      state.textContent=(L['report.sent']||'ok');
-      document.getElementById('repText').value=''; document.getElementById('repSteps').value='';
-      setTimeout(closeReport, 1400);
-    }else{ state.textContent=(r.fehler||'Fehler'); }
-  }catch(e){ state.textContent=String(e); }
-}
 async function openChangelog(){
   const box=document.getElementById('mbody');
   box.innerHTML='<div class="meta">'+L['common.loading']+'</div>';
@@ -852,7 +858,7 @@ async function polyPanelUpdate(){
   setTimeout(()=>location.reload(), 4000);
 }
 applyLang(); load(); loadHost(); checkPolyPanel(); setInterval(load,3000); setInterval(loadHost,3000);
-</script>""" + FOOTER + """
+</script>""" + REPORT_JS + """
 <div id="plModal" class="plModal"><div class="plBox">
   <div class="row" style="justify-content:space-between">
     <b id="plTitle">Spieler</b>
@@ -921,6 +927,8 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
   <a href="/?token=__TOK__" style="margin-left:6px"><button data-t="common.back_dashboard">← Dashboard</button></a>
   <span class="badge" id="st">…</span><span class="badge" id="rd">…</span>
   <span class="badge">__NAME__</span><span class="badge" id="upd" role="button" tabindex="0">UPDATE ?</span>
+  <button onclick="openReport()" id="repbtn" style="padding:2px 8px;display:none"
+    data-t="report.open" title="Fehler im Panel melden">Fehler melden</button>
   <button onclick="toggleLang()" id="langbtn" style="padding:2px 8px">EN</button>""" + HEADER_ICONS + """
 </header>
 <div class="tabs">
@@ -1914,7 +1922,7 @@ async function giveDirect(sid){
 }
 applyLang(); restoreTab(); setTimeout(restoreTab, 250); refresh(); updCheck(); renderCmds(); loadMods(); loadKeyState(); loadCfg(); loadWl(); loadSettings(); loadCluster(); loadSnaps(); loadBackups(); loadSchedule(); loadHooks();
 setInterval(refresh,5000); setInterval(updCheck,300000);
-</script>""" + FOOTER + """
+</script>""" + REPORT_MODAL + REPORT_JS + FOOTER + """
 <div id="unbanModal" class="plModal"><div class="plBox" style="min-width:min(520px,94vw)">
   <div class="row" style="justify-content:space-between">
     <b data-t="inst.unban">Entbannen</b>
