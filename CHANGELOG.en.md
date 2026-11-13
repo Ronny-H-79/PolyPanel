@@ -1,3 +1,11 @@
+## [0.7.41] — 2026-11-13
+
+### Fixed
+- **Ban from the player list no longer worked.** My mistake: the name was written into the
+  `onclick` via `JSON.stringify`, so a quote in a player name tore the attribute apart and the
+  click did nothing. The name now travels through a JS map (`window.PNAMES`) and an escaped
+  `data` attribute, never raw into HTML.
+
 ## [0.7.40] — 2026-11-13
 
 ### Added

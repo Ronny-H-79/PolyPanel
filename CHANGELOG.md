@@ -1,3 +1,11 @@
+## [0.7.41] — 2026-11-13
+
+### Behoben
+- **Ban aus der Spielerliste funktionierte nicht mehr.** Mein Fehler: Der Name wurde als
+  `JSON.stringify` direkt in den `onclick` geschrieben — ein Anführungszeichen im Spielernamen
+  hat damit das Attribut zerrissen und der Klick lief ins Leere. Der Name kommt jetzt über eine
+  JS-Map (`window.PNAMES`) bzw. ein maskiertes `data`-Attribut, nie unmaskiert ins HTML.
+
 ## [0.7.40] — 2026-11-13
 
 ### Neu
