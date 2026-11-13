@@ -59,11 +59,27 @@ def read_pid(inst: Instance) -> int | None:
     return pid
 
 
+# Wine-Hilfsprozesse laufen mit cwd im Instanzordner und wuerden den Server "laufen lassen",
+# obwohl das Spiel schon beendet ist (Folge: Start antwortet "laeuft bereits").
+_HELFER = ("wineserver", "services.exe", "explorer.exe", "winedevice.exe",
+           "plugplay.exe", "rpcss.exe", "conhost.exe", "tabtip.exe")
+
+
+def _ist_helfer(pid: int) -> bool:
+    try:
+        with open("/proc/%d/cmdline" % pid, "rb") as fh:
+            zeile = fh.read().decode("utf-8", "replace").strip("\x00").lower()
+    except OSError:
+        return True
+    return any(h in zeile for h in _HELFER)
+
+
 def is_running(inst: Instance) -> bool:
     pid = read_pid(inst)
-    if pid is not None:
+    if pid is not None and not _ist_helfer(pid):
         return True
-    return bool(instance_pids(inst))      # von Hand gestartet: ueber cwd/exe erkennen
+    # von Hand gestartet: ueber cwd/exe erkennen, ohne Wine-Hilfsprozesse
+    return any(not _ist_helfer(p) for p in instance_pids(inst))
 
 
 

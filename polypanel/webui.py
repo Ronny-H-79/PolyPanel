@@ -2562,7 +2562,8 @@ class Handler(BaseHTTPRequestHandler):
             self._do_get()
         except Exception as exc:  # noqa: BLE001
             plog.write("FEHLER GET %s: %s: %s" % (self.path.split('?')[0], exc.__class__.__name__, exc))
-            raise
+            # Dem Browser eine Antwort geben statt die Verbindung stumm abzureissen
+            self._fehler(exc)
 
     def _do_get(self) -> None:
         if not self._auth():
@@ -2821,7 +2822,14 @@ class Handler(BaseHTTPRequestHandler):
             self._do_post()
         except Exception as exc:  # noqa: BLE001
             plog.write("FEHLER POST %s: %s: %s" % (self.path.split('?')[0], exc.__class__.__name__, exc))
-            raise
+            self._fehler(exc)
+
+    def _fehler(self, exc: Exception) -> None:
+        """Fehlerantwort senden, falls noch nichts rausgegangen ist."""
+        try:
+            self._json({"ok": False, "error": "%s: %s" % (exc.__class__.__name__, exc)})
+        except Exception:  # noqa: BLE001
+            pass
 
     def _do_post(self) -> None:
         if not self._auth():

@@ -385,7 +385,7 @@ class SpaceEngineersProfile(GameProfile):
             # still auf Standardwerte zurueck (Folge: "Premade world not found"). Darum hier sperren.
             if key in self.CHOICES and val and val not in self.CHOICES[key]:
                 continue
-            if key in _BOOL and val and val not in ("true", "false"):
+            if key in self._BOOL and val and val not in ("true", "false"):
                 continue
             pattern = re.compile(r"(<%s>)(.*?)(</%s>)" % (re.escape(key), re.escape(key)), re.S)
             if pattern.search(text):
