@@ -2284,6 +2284,10 @@ def install_progress(inst) -> dict[str, object]:
                 eintrag["runtime_started"] = time.time()
                 start = eintrag["runtime_started"]
             daten["elapsed"] = int(time.time() - start) if start else None
+            # Die Laufzeit-Einrichtung hat keinen echten Prozentwert - der Balken kriecht
+            # stattdessen in ~15 Minuten auf 95 %, damit man sieht, dass es weitergeht.
+            if daten["elapsed"] is not None:
+                daten["percent"] = round(min(95.0, max(2.0, daten["elapsed"] / 900.0 * 95.0)), 1)
             return daten
         if "Success! App" in zeile or "Installation beendet" in zeile:
             daten["done"] = True
@@ -2294,10 +2298,10 @@ def install_progress(inst) -> dict[str, object]:
         if m:
             wert = float(m.group(1))
             phase = (_STATE_RE.search(zeile).group(1).strip() if _STATE_RE.search(zeile) else "downloading")
-            # Der Balken zeigt den Fortschritt der AKTUELLEN Phase. SteamCMD faengt beim
-            # Phasenwechsel wieder bei 0 an (Download 100 % -> Pruefen 3 %) - deshalb wird der
-            # Zaehler je Phase zurueckgesetzt, damit der Balken innerhalb der Phase vorwaerts
-            # laeuft und nicht zwischen 100 % und 3 % hin und her springt.
+            # Der Balken zeigt den GESAMT-Fortschritt (Download -> Pruefen -> Abschluss), nicht
+            # nur die aktuelle Phase: SteamCMD faengt bei jedem Phasenwechsel wieder bei 0 an,
+            # sonst springt der Balken von 100 % zurueck auf 3 % ("geht und dann wieder zurueck").
+            schritt = _PHASE_STEP.get(phase, 1)
             eintrag = INSTALLS.get(inst.name)
             if eintrag is not None:
                 if eintrag.get("cur_phase") != phase:
@@ -2306,9 +2310,13 @@ def install_progress(inst) -> dict[str, object]:
                 wert = max(wert, float(eintrag.get("phase_max", 0.0)))
                 wert = min(wert, 100.0)
                 eintrag["phase_max"] = wert
-            daten["percent"] = wert
+            gesamt = ((schritt - 1) + wert / 100.0) / 3.0 * 100.0
+            if eintrag is not None:
+                gesamt = max(gesamt, float(eintrag.get("max_percent", 0.0)))   # nie rueckwaerts
+                eintrag["max_percent"] = gesamt
+            daten["percent"] = round(min(gesamt, 99.0), 1)
             daten["phase"] = phase
-            daten["step"] = _PHASE_STEP.get(phase, 0)
+            daten["step"] = schritt
             daten["steps"] = 3
             return daten
         s = _STATE_RE.search(zeile)
