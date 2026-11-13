@@ -45,3 +45,8 @@ Rough summary of what the panels contain.
   (`Experimental mode reason: MaxPlayers, PhysicsIterations, BlockLimitsEnabled`). Template and
   instance default are now vanilla: physics 8, block limits GLOBALLY, 16 players; that more than 16
   players forces Experimental is stated as a hint on the field.
+- **Deleting no longer blocks the UI.** Stopping (SE saves for up to 90 s) and removing several GB now
+  run as a background job; the card shows "stopping the server …", then "deleting server files …" and
+  finally the freed size. Every delete is also logged with timestamp and freed MB in `panel.log`.
+- **Wine is installed without asking** — like Xvfb and `gcc`. The "install Wine?" question was answered
+  with "no" in practice, and afterwards no Windows game started.

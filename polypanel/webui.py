@@ -37,6 +37,9 @@ from .paths import TOKEN_PATH, CONF_DIR
 from . import catalog, bans, playerids
 RE_PLAYER = re.compile(r"^\s*(\d+)\.\s*(.+?)\s*,\s*([0-9A-Za-z]{15,32})\s*$")
 INSTALLS: dict[str, dict] = {}
+# Laufende Loeschvorgaenge: Stoppen (bis 90 s) + Dateien entfernen (mehrere GB) dauern Minuten.
+# Der Klick startet deshalb nur einen Hintergrund-Job; die Oberflaeche fragt den Fortschritt ab.
+DELETES: dict[str, dict] = {}
 # Laufende Aktion je Instanz (start/stop/restart/update). Die Oberflaeche sperrt danach
 # die Knoepfe: waehrend stop gar keiner, waehrend start/restart/update nur Stop.
 ACTIONS: dict[str, str] = {}
@@ -697,24 +700,36 @@ async function delInst(name, sizeGb){
     files = 1;
   }
   const msg = document.getElementById('instmsg');
-  if(msg) msg.textContent='…';
-  // sofort sperren: bis die Antwort kommt, ist der Server am Stoppen
+  const zeige = (t)=>{ if(msg) msg.textContent=t; };
+  // sofort sperren: bis der Job fertig ist, bleibt die Karte gesperrt
   window.LOCAL_ACT = window.LOCAL_ACT || {};
   window.LOCAL_ACT[name]={what:'delete',ts:Date.now()};
   load();
+  zeige(L['msg.delete_stopping']||'Server wird gestoppt …');
   try{
-    const raw = await api('/api/instance/delete?name='+encodeURIComponent(name)+'&files='+files, {method:'POST'});
-    let r; try{ r = JSON.parse(raw); }catch(e){ r = {ok:true}; }
-    if(r.ok){
-      const frei = r.freed_gb >= 1 ? (Math.round(r.freed_gb).toLocaleString('de-DE')+' GB')
-                 : (r.freed_mb ? (r.freed_mb.toLocaleString('de-DE')+' MB') : '');
-      if(msg) msg.textContent = frei
-        ? (frei+' freigegeben · '+name+' entfernt')
-        : (name+' entfernt' + (files ? ' · Dateien blieben liegen' : ' · Dateien behalten'));
-      if(r.hint) alert(r.hint);
-      load();
-    } else { alert(r.error || 'Fehler'); }
+    await api('/api/instance/delete?name='+encodeURIComponent(name)+'&files='+files, {method:'POST'});
+    // Loeschen laeuft im Hintergrund: Stoppen kann bis 90 s dauern, Dateien sind mehrere GB.
+    for(let i=0;i<240;i++){
+      await new Promise(r=>setTimeout(r,1500));
+      let p=null;
+      try{ p=JSON.parse(await api('/api/delete/progress?name='+encodeURIComponent(name))); }catch(e){ break; }
+      if(!p) break;
+      if(p.error){ zeige(name+': '+p.error); break; }
+      if(p.running){
+        zeige(p.phase==='stop' ? (L['msg.delete_stopping']||'Server wird gestoppt …')
+             : p.phase==='files' ? (L['msg.delete_files']||'Serverdateien werden gelöscht …')
+             : (L['msg.delete_config']||'Eintrag wird entfernt …'));
+        continue;
+      }
+      const frei = p.freed_gb>=1 ? (Math.round(p.freed_gb).toLocaleString('de-DE')+' GB')
+                 : (p.freed_mb ? (p.freed_mb.toLocaleString('de-DE')+' MB') : '');
+      zeige(frei ? (frei+' freigegeben · '+name+' entfernt') : (name+' entfernt'));
+      if(p.hint) alert(p.hint);
+      break;
+    }
   }catch(e){ alert(String(e)); }
+  delete window.LOCAL_ACT[name];
+  load();
 }
 function toggleMap(){
   if(typeof fillMap==='function') fillMap();
@@ -2355,6 +2370,48 @@ def _translate_hits(data: dict, field: str, limit: int = 24) -> dict:
     return data
 
 
+def _delete_start(inst, files: bool) -> dict:
+    """Loeschen im Hintergrund starten: Stoppen und Dateien entfernen dauern Minuten.
+
+    Der Klick soll nicht minutenlang haengen — die Oberflaeche fragt /api/delete/progress ab.
+    """
+    laufend = DELETES.get(inst.name)
+    if laufend and laufend.get("running"):
+        return {"ok": True, "running": True}
+    zustand = {"running": True, "done": False, "phase": "stop", "files": bool(files),
+               "freed_mb": 0, "freed_gb": 0.0, "hint": "", "error": ""}
+    DELETES[inst.name] = zustand
+    ACTIONS[inst.name] = "delete"          # Oberflaeche sperrt die Knoepfe der Karte
+    plog.write("[%s] loeschen angefordert (%s)"
+               % (inst.name, "mit Dateien" if files else "nur Eintrag"))
+
+    def _arbeit() -> None:
+        try:
+            if runner.is_running(inst):
+                zustand["phase"] = "stop"
+                runner.stop(inst, timeout=90)
+            zustand["phase"] = "files" if files else "config"
+            ergebnis = registry.forget(inst.name, delete_files=files)
+            if not ergebnis.get("ok", True):
+                zustand["error"] = ergebnis.get("error") or "Loeschen fehlgeschlagen"
+            zustand["freed_mb"] = int(ergebnis.get("freed_mb") or 0)
+            zustand["freed_gb"] = ergebnis.get("freed_gb") or 0.0
+            zustand["hint"] = ergebnis.get("hint") or ""
+            plog.write("[%s] geloescht (%s MB frei, Dateien %s)"
+                       % (inst.name, zustand["freed_mb"], "entfernt" if files else "behalten"))
+        except Exception as exc:                     # noqa: BLE001 - Job darf nicht stumm sterben
+            zustand["error"] = str(exc)[:200]
+            plog.write("[%s] loeschen fehlgeschlagen: %s" % (inst.name, exc))
+        finally:
+            zustand["phase"] = "done"
+            zustand["running"] = False
+            zustand["done"] = True
+            ACTIONS.pop(inst.name, None)
+
+    threading.Thread(target=_arbeit, daemon=True, name="delete-%s" % inst.name).start()
+    return {"ok": True, "running": True}
+
+
 def _experimental_wirksam(inst) -> tuple[bool, str]:
     """Laeuft der Server laut Log experimentell? Der Config-Wert ist nur ein Wunsch."""
     try:
@@ -2675,6 +2732,13 @@ class Handler(BaseHTTPRequestHandler):
             key = modlib._api_key()
             self._json({"has_key": bool(key),
                         "masked": (key[:3] + "…" + key[-3:]) if len(key) > 8 else ""})
+            return
+
+        if path == "/api/delete/progress":
+            # Nach dem Loeschen liegt die Instanz-Config schon im .trash - deshalb hier ueber den
+            # Namen arbeiten und nicht ueber die geladene Instanz.
+            name = q.get("name", [""])[0]
+            self._json(DELETES.get(name) or {"running": False, "done": True})
             return
 
         inst = self._inst(q)
@@ -3018,20 +3082,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         elif path == "/api/instance/delete":
             files = q.get("files", ["0"])[0] in ("1", "true", "yes")
-            # Waehrend des Loeschens (Server stoppen, Dateien entfernen) darf in der Oberflaeche
-            # nur noch Stop bedienbar sein - sonst klickt man in einen laufenden Loeschvorgang.
-            ACTIONS[inst.name] = "delete"
-            try:
-                if runner.is_running(inst):
-                    runner.stop(inst, timeout=90)
-                try:
-                    result = registry.forget(inst.name, delete_files=files)
-                except Exception as exc:  # noqa: BLE001
-                    self._json({"ok": False, "error": str(exc)[:200]})
-                    return
-            finally:
-                ACTIONS.pop(inst.name, None)
-            self._json(result)
+            self._json(_delete_start(inst, files))
             return
         elif path == "/api/notify/test":
             url = q.get("url", [""])[0].strip() or inst.webhook_url

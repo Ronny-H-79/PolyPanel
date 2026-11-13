@@ -45,3 +45,9 @@ Grobe Zusammenfassung dessen, was in den Panels steckt.
   (`Experimental mode reason: MaxPlayers, PhysicsIterations, BlockLimitsEnabled`). Vorlage und
   Instanz-Vorgabe sind jetzt Vanilla: Physics 8, Block-Limits GLOBALLY, 16 Spieler; dass mehr als
   16 Spieler Experimental erzwingt, steht als Hinweis am Feld.
+- **Löschen blockiert die Oberfläche nicht mehr.** Stoppen (SE speichert bis zu 90 s) und das
+  Entfernen mehrerer GB laufen jetzt als Hintergrund-Job; die Karte zeigt „Server wird gestoppt …",
+  dann „Serverdateien werden gelöscht …" und am Ende die freigegebene Größe. Jeder Löschvorgang steht
+  außerdem mit Zeitstempel und freigegebenen MB im `panel.log`.
+- **Wine wird im Installer ohne Rückfrage installiert** — wie Xvfb und `gcc`. Die Frage „Wine
+  installieren?" wurde erfahrungsgemäß mit „nein" beantwortet, danach startete kein Windows-Spiel.

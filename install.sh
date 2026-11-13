@@ -378,7 +378,14 @@ if command -v wine >/dev/null 2>&1; then
   say "$(t present "Wine") $(wine --version 2>/dev/null | head -1)"
 else
   MISSING=1
-  ask_install wine "Wine"
+  # Still installieren, nicht fragen: ohne Wine startet kein Windows-Spiel, und Anfaenger
+  # antworten auf "Wine installieren?" erfahrungsgemaess mit "nein" - danach laeuft nichts.
+  if [ "$CHECK_ONLY" = "1" ]; then
+    warn "$(t check_missing "Wine" "$(pkg_name wine)")"
+  else
+    say "$(t auto_install "Wine")"
+    if install_pkg wine; then say "$(t installed "Wine")"; else warn "$(t install_failed "Wine")"; fi
+  fi
 fi
 
 # Xvfb wird ohne Rueckfrage mitinstalliert: der Name "virtueller Bildschirm" klingt fuer
