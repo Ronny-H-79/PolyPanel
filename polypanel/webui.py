@@ -79,13 +79,8 @@ def _log_step(inst: Instance, text: str) -> None:
 
 
 def rcon_cmd(inst: Instance, cmd: str, timeout: float = 12.0) -> str:
-    try:
-        with inst.control(timeout=timeout) as rc:
-            return rc.command(cmd, timeout=timeout + 5)
-    except Exception:                      # noqa: BLE001 - z. B. Satisfactory ohne API-Token
-        if getattr(inst.profile, "console_via_stdin", False):
-            return runner.send_console(inst, cmd)
-        raise
+    with inst.control(timeout=timeout) as rc:
+        return rc.command(cmd, timeout=timeout + 5)
 
 
 def players(inst: Instance) -> list[dict[str, str]]:
@@ -206,6 +201,8 @@ align-items:center;justify-content:center;font-size:11.5px;letter-spacing:.04em;
 .sitefoot a{color:#a8d8c8;text-decoration:none;border-bottom:1px solid rgba(64,255,199,.28);
 padding-bottom:1px;transition:color .12s,border-color .12s}
 .sitefoot a:hover{color:#e6fff5;border-color:var(--acc)}
+/* Satisfactory hat keine Spielerliste ueber die API - Abschnitt ausblenden, Log bleibt */
+body[data-game="satisfactory"] #secPlayers{display:none}
 .lic{padding:24px}
 .lictext{margin:0;white-space:pre-wrap;max-height:none;font-size:12px;line-height:1.65;color:#b9d6cc}
 .lichead{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;margin:0 0 12px}
@@ -892,9 +889,7 @@ async function showPlayers(inst){
   let list=[];
   try{ list=JSON.parse(await api('/api/players?name='+encodeURIComponent(inst))); }
   catch(e){ body.textContent=String(e); return; }
-  if(!list.length){ body.innerHTML='<span style="color:var(--dim)">– '+L['inst.no_players']+' –</span>'
-    + ((document.body.dataset.game==='satisfactory') ? '<div class="meta" style="margin-top:6px">'+L['inst.players_hint_sf']+'</div>' : '');
-    return; }
+  if(!list.length){ body.innerHTML='<span style="color:var(--dim)">– '+L['inst.no_players']+' –</span>'; return; }
   body.innerHTML='<table class="plTable"><thead><tr><th>'+L['dash.players']+'</th><th>'+L['dash.eos_id']+'</th><th></th></tr></thead><tbody>'+
     list.map(function(pl){ return plRow(inst, pl); }).join('')+'</tbody></table>';
 }
@@ -955,7 +950,7 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
     <pre id="out">–</pre>
   </section>
 
-  <section class="tab tab-overview on"><h2 data-t="inst.players">Spieler</h2>
+  <section class="tab tab-overview on" id="secPlayers"><h2 data-t="inst.players">Spieler</h2>
     <div class="row" style="margin-bottom:8px">
       <button onclick="unbanOpen()" data-t="inst.unban">Entbannen</button>
       <small style="color:var(--dim)" data-t="inst.unban_hint">EOS-ID eines gesperrten Spielers eingeben</small>

@@ -59,80 +59,6 @@ def _archiv_info(z: zipfile.ZipFile) -> tuple[str, str, bool, str]:
             str(daten.get("SemVersion") or daten.get("VersionName") or ""))
 
 
-TOKEN_MUSTER = re.compile(r"[A-Za-z0-9_-]{16,64}")
-
-
-def _konsolengroesse(inst) -> int:
-    try:
-        return os.path.getsize(inst.console_log)
-    except OSError:
-        return 0
-
-
-def _neue_konsolenzeilen(inst, ab: int) -> list[str]:
-    """Nur die Zeilen, die seit dem Absenden dazugekommen sind."""
-    try:
-        with open(inst.console_log, "rb") as fh:
-            fh.seek(ab)
-            daten = fh.read().decode("utf-8", "replace")
-    except OSError:
-        from .. import runner
-        return runner.tail_console(inst, 60)
-    return [z.strip() for z in daten.splitlines() if z.strip()]
-
-
-def _kandidaten(zeilen) -> list[str]:
-    """Token-Kandidaten: Zeile nennt einen Token, ist nicht das Echo unseres Befehls."""
-    treffer = []
-    for zeile in reversed(zeilen):
-        klein = zeile.lower()
-        if "token" not in klein or "generateapitoken" in klein:
-            continue
-        for fund in TOKEN_MUSTER.findall(zeile):
-            if fund not in treffer:
-                treffer.append(fund)
-    return treffer
-
-
-def _token_gueltig(inst, token: str) -> bool:
-    """Nur einen Token speichern, mit dem die API wirklich antwortet."""
-    from ..control import SatisfactoryApi
-    try:
-        SatisfactoryApi("127.0.0.1", inst.port, token, timeout=6).state()
-        return True
-    except Exception:                                  # noqa: BLE001
-        return False
-
-
-def ensure_api_token(inst, warte: float = 3.0) -> str:
-    """Satisfactory braucht einen API-Token, sonst gibt es keine Spielerliste.
-
-    Der Token entsteht im Server selbst (`server.GenerateAPIToken`). Der Befehl geht ueber die
-    stdin des Servers - so muss ihn niemand von Hand im Admin-Konto erzeugen. Gespeichert wird
-    nur ein Token, den die API danach auch akzeptiert.
-    """
-    from .. import registry, runner
-
-    if getattr(inst, "api_token", ""):
-        return inst.api_token
-    try:
-        ab = _konsolengroesse(inst)
-        runner.send_console(inst, "server.GenerateAPIToken")
-        time.sleep(warte)
-        for kandidat in _kandidaten(_neue_konsolenzeilen(inst, ab)):
-            if _token_gueltig(inst, kandidat):
-                inst.api_token = kandidat
-                registry.save(inst)
-                try:
-                    inst.write_ini()
-                except Exception:                      # noqa: BLE001
-                    pass
-                return kandidat
-        return ""
-    except Exception:                                  # noqa: BLE001 - nie den Supervisor kippen
-        return ""
-
-
 class SatisfactoryProfile(GameProfile):
     key = "satisfactory"
     label = "Satisfactory (Dedicated Server)"
@@ -140,15 +66,6 @@ class SatisfactoryProfile(GameProfile):
     control_kind = "https"
     needs_wine = False
     refuses_root = True       # "Refusing to run with the root privileges" (UE-Server)
-    # Ohne API-Token (server.GenerateAPIToken) laesst die HTTPS-API nichts zu - Konsolenbefehle
-    # gehen dann direkt auf die stdin des Servers, sonst kaeme man nie an den Token.
-    console_via_stdin = True
-    needs_api_token = True      # ohne Token liefert die HTTPS-API keine Spielerliste
-
-    def ensure_api_token(self, inst) -> str:
-        """Token im Server erzeugen und speichern (siehe Modulfunktion)."""
-        return ensure_api_token(inst)
-
     default_game_port = 7777
     default_query_port = 15777
     default_control_port = 7777      # API laeuft auf dem Spielport
@@ -161,7 +78,6 @@ class SatisfactoryProfile(GameProfile):
         ("query_port", "Query-Port", "UDP, Serverabfrage", "int"),
         ("beacon_port", "Beacon-Port", "UDP, fuer die Serverliste", "int"),
         ("rcon_password", "Server-Passwort", "leer = kein Passwort", "password"),
-        ("api_token", "API-Token", "im Server-Konsolbefehl server.GenerateAPIToken erzeugen", "password"),
     )
 
     # ---------------------------------------------------------------- Pfade
@@ -215,8 +131,6 @@ class SatisfactoryProfile(GameProfile):
         cp.set(section, "ServerName", inst.session_name)
         if inst.rcon_password:
             cp.set(section, "ServerPassword", inst.rcon_password)
-        if inst.api_token:
-            cp.set(section, "ServerApiToken", inst.api_token)
         cp.set(section, "MaxPlayers", str(inst.max_players))
         with open(path, "w", encoding="utf-8") as fh:
             cp.write(fh, space_around_delimiters=False)

@@ -130,8 +130,6 @@ T: dict[str, dict[str, str]] = {
     "inst.players": {"de": "Spieler", "en": "Players"},
     "inst.log": {"de": "Server-Log", "en": "Server log"},
     "inst.no_players": {"de": "keine Spieler online", "en": "no players online"},
-    "inst.players_hint_sf": {"de": "Spielerliste braucht den API-Token: als Admin im Spiel die Konsole öffnen (Enter), server.GenerateAPIToken eingeben, den Token hier unter Einstellungen → API-Token eintragen.",
-                             "en": "The player list needs the API token: as admin in game open the console (Enter), type server.GenerateAPIToken and put the token here under settings - API token."},
     "inst.rcon_free": {"de": "freier RCON-Befehl, z.B. GetChat",
                        "en": "free RCON command, e.g. GetChat"},
     "inst.kick": {"de": "Kick", "en": "Kick"},
