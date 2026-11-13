@@ -895,7 +895,7 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
     <div id="bans"><span style="color:var(--dim)">–</span></div>
   </section>
 
-  <section class="tab tab-server ark-only"><h2 data-t="wl.title">Whitelist &amp; Bans</h2>
+  <section class="tab tab-server ark-only"><h2 data-t="wl.title">Whitelist</h2>
     <div class="row" style="margin-bottom:8px">
       <button id="wlbtn" onclick="toggleWl()">Whitelist …</button>
       <span class="meta" id="wlcount"></span>

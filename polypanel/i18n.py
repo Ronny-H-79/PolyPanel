@@ -235,7 +235,7 @@ T: dict[str, dict[str, str]] = {
     "set.save_changes": {"de": "Änderungen speichern", "en": "Save changes"},
     "set.no_changes": {"de": "keine Änderungen", "en": "no changes"},
     # ---------------------------------------------------------------- Whitelist
-    "wl.title": {"de": "Whitelist & Bans", "en": "Whitelist & bans"},
+    "wl.title": {"de": "Whitelist", "en": "Whitelist"},
     "wl.id_ph": {"de": "Steam-/EOS-ID", "en": "Steam/EOS ID"},
     "wl.add": {"de": "Auf Whitelist", "en": "Add to whitelist"},
     "wl.ban": {"de": "Bannen", "en": "Ban"},

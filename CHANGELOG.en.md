@@ -1,3 +1,9 @@
+## [0.7.44] — 2026-11-13
+
+### Changed
+- **Heading "Whitelist & bans" → "Whitelist".** The ban list now lives in its own window;
+  the management tab only holds the whitelist and ban-by-id.
+
 ## [0.7.43] — 2026-11-13
 
 ### Changed

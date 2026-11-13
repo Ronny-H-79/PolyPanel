@@ -1,3 +1,9 @@
+## [0.7.44] — 2026-11-13
+
+### Geändert
+- **Überschrift „Whitelist & Bans" → „Whitelist".** Die Ban-Liste steht jetzt im eigenen
+  Fenster; der Verwaltungs-Tab enthält nur noch Whitelist und das Bannen per ID.
+
 ## [0.7.43] — 2026-11-13
 
 ### Geändert
