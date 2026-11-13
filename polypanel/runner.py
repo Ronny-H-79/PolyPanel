@@ -145,6 +145,11 @@ def start(inst: Instance, wait: int = 0) -> int:
             % ", ".join(str(p) for p in busy))
     if not os.path.exists(inst.exe):
         raise RunnerError("Server nicht installiert: %s fehlt" % inst.exe)
+    if getattr(inst.profile, "refuses_root", False) and os.geteuid() == 0:
+        raise RunnerError(
+            "%s laeuft nicht als root - der Server bricht mit \"Refusing to run with the root privileges\" ab. "
+            "PolyPanel mit eigenem Dienst-Benutzer installieren (./install.sh --user <name>) und die Instanz "
+            "in dessen Home anlegen." % (inst.profile.label or inst.profile.key))
     if not inst.profile.runtime_ready(inst):
         raise RunnerError("Laufzeit fehlt - .NET/Wine-Prefix einrichten "
                           "(Profil %s, post_install)" % inst.profile.key)

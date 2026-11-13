@@ -363,6 +363,18 @@ class Supervisor:
                     _save_state(self.inst, self.state)
                     notify_event(self.inst, "Server gestoppt", "Manuell gestoppt - der Supervisor laesst ihn aus.", "info")
                 return
+            if "Refusing to run with the root privileges" in "\n".join(runner.tail_console(self.inst, 20)):
+                # Kein Absturz, sondern eine harte Ansage des Servers: als root laeuft er nicht.
+                runner.mark_stopped(self.inst)
+                if not self.state.get("root_refused"):
+                    self.state["root_refused"] = True
+                    _save_state(self.inst, self.state)
+                    notify_event(self.inst, "Start als root verweigert",
+                                 "Der Server laeuft nicht als root. Panel mit eigenem Dienst-Benutzer "
+                                 "installieren (install.sh --user <name>), dann startet er normal. "
+                                 "Kein weiterer Neustartversuch.", "crash",
+                                 {"Instanz": self.inst.name})
+                return
             tail = runner.tail(self.inst.log_path, 12)
             notify_event(self.inst, "Server abgestuerzt",
                          "Der Prozess ist ohne Abschied verschwunden. Neustart laeuft.",

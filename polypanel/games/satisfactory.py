@@ -64,6 +64,7 @@ class SatisfactoryProfile(GameProfile):
     server_app_id = "1690800"
     control_kind = "https"
     needs_wine = False
+    refuses_root = True       # "Refusing to run with the root privileges" (UE-Server)
     default_game_port = 7777
     default_query_port = 15777
     default_control_port = 7777      # API laeuft auf dem Spielport

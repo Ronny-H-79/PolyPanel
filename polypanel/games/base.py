@@ -48,6 +48,7 @@ class GameProfile:
     server_app_id: str = ""                # Steam-App-ID des Dedicated Servers
     control_kind: str = "source"           # source | telnet | https | none
     needs_wine: bool = False
+    refuses_root: bool = False   # True = Server startet nicht als root (z. B. Satisfactory)
     default_game_port: int = 7777
     default_query_port: int = 27016
     default_control_port: int = 27025
