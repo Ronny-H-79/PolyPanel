@@ -2845,6 +2845,16 @@ class Handler(BaseHTTPRequestHandler):
                 dauerhaft = playerids.aufloesen(inst, eos=steamid, name=pname)
             except Exception:                 # noqa: BLE001
                 dauerhaft = ""
+            if not dauerhaft:
+                # PlayerCache.sav wird nur beim Welt-Speichern geschrieben. Ohne diesen Anstoss
+                # fehlt ein frisch gejointer Spieler bis zum naechsten Autosave (Standard 15 min).
+                try:
+                    rcon_cmd(inst, "SaveWorld")
+                    import time as _time
+                    _time.sleep(2)
+                    dauerhaft = playerids.aufloesen(inst, eos=steamid, name=pname)
+                except Exception:             # noqa: BLE001 - Anstoss ist nur eine Hilfe
+                    pass
             if dauerhaft:
                 steamid = dauerhaft
             else:

@@ -1,3 +1,11 @@
+## [0.7.49] — 2026-11-13
+
+### Fixed
+- **Give saves the world first when the id is missing.** `PlayerCache.sav` is only written on
+  a world save — a freshly joined player was missing there until the next autosave (15
+  minutes by default). If the panel cannot resolve a persistent id, it now triggers
+  `SaveWorld`, waits briefly and retries the lookup.
+
 ## [0.7.48] — 2026-11-13
 
 ### Fixed
