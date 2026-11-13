@@ -133,6 +133,8 @@ button.danger:hover{border-color:var(--err);color:var(--err)}
 .plModal{display:none;position:fixed;inset:0;background:rgba(3,7,10,.78);z-index:60;
  align-items:center;justify-content:center;padding:24px}
 .plModal.on{display:flex}
+/* Mengen-Fenster liegt ueber dem Katalog-Fenster */
+#qtyModal{z-index:75}
 .plBox{background:#08110f;border:1px solid #22453c;border-radius:4px;padding:14px 16px;
  min-width:min(720px,94vw);max-height:80vh;overflow:auto;box-shadow:0 0 40px rgba(37,230,164,.12)}
 .plBody{margin-top:10px}

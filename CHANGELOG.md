@@ -1,3 +1,9 @@
+## [0.7.54] — 2026-11-13
+
+### Behoben
+- **Mengen-Fenster lag hinter dem Katalog-Fenster.** Beide teilten sich `z-index: 60`;
+  das Mengen-Fenster liegt jetzt auf 75, damit es beim Öffnen vorne steht.
+
 ## [0.7.53] — 2026-11-13
 
 ### Geändert

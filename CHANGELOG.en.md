@@ -1,3 +1,9 @@
+## [0.7.54] — 2026-11-13
+
+### Fixed
+- **Quantity window opened behind the catalogue window.** Both shared `z-index: 60`; the
+  quantity window now sits at 75 so it comes up in front.
+
 ## [0.7.53] — 2026-11-13
 
 ### Changed
