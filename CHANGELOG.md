@@ -1,3 +1,14 @@
+## [0.12] — 2026-11-13
+
+### Neu
+- **Eigenes Panel-Log** (`~/.config/ascendedpanel/panel.log`, ab 1 MB gedreht). Die Meldung konnte
+  das System-Journal nicht lesen, weil der Dienst unter root läuft — darum schreibt das Panel seine
+  Ereignisse jetzt selbst mit: jede Aktion (Start, Stop, Restart, Update) und jeder Fehler im
+  Web-Dienst landet dort.
+- Fehlermeldungen enthalten damit wirklich **Panel-Logs**: eigene Logdatei, dazu
+  `.ascendedpanel-supervisor.log`, `.update.log` und `.install.log` der Instanz; das Spiel-Log
+  bleibt draußen. Leere Journal-Antworten (`-- No entries --`) werden herausgefiltert.
+
 ## [0.11] — 2026-11-13
 
 ### Geändert

@@ -1,3 +1,13 @@
+## [0.12] — 2026-11-13
+
+### Added
+- **Panel-owned log file** (`~/.config/ascendedpanel/panel.log`, rotated at 1 MB). The report could
+  not read the system journal because the service runs as root — so the panel now writes its own
+  events: every action (start, stop, restart, update) and every error in the web service.
+- Bug reports therefore contain real **panel logs**: the own log file plus the instance's
+  `.ascendedpanel-supervisor.log`, `.update.log` and `.install.log`; the game log stays out. Empty
+  journal answers (`-- No entries --`) are filtered out.
+
 ## [0.11] — 2026-11-13
 
 ### Changed

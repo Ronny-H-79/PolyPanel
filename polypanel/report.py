@@ -121,7 +121,9 @@ def panel_log(inst=None, zeilen: int = MAX_LOG_LINES) -> str:
     Bewusst **nicht** das Spiel-Log (ShooterGame.log) - gemeldet werden Fehler des
     Panels, nicht Dinge, die im Spiel nicht funktionieren.
     """
-    teile = [_journal(zeilen)]
+    from . import panellog
+
+    teile = [panellog.tail(zeilen * 2), _journal(zeilen)]
 
     if inst is not None:
         for name in (".ascendedpanel-supervisor.log", ".update.log", ".install.log"):
@@ -131,7 +133,8 @@ def panel_log(inst=None, zeilen: int = MAX_LOG_LINES) -> str:
                 teile.append("--- %s ---\n%s" % (name, rest))
 
     zusammen = "\n".join(t for t in teile if t)
-    brauchbar = [z for z in zusammen.splitlines() if z.strip() and not _GEHEIM.search(z)]
+    brauchbar = [z for z in zusammen.splitlines()
+                 if z.strip() and not _GEHEIM.search(z) and "No entries" not in z]
     return _saeubern("\n".join(brauchbar))[-MAX_LOG_CHARS:]
 
 

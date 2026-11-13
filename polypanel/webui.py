@@ -22,6 +22,7 @@ from . import config as cfgfile
 from . import metrics
 from . import notify as notify_mod
 from . import report as report_mod
+from . import panellog as plog
 from . import __version__
 from . import mods as modlib
 from . import games, registry
@@ -74,6 +75,7 @@ def _log_step(inst: Instance, text: str) -> None:
             fh.write("%s  %s\n" % (time.strftime("%F %T"), text))
     except OSError:
         pass
+    plog.write("[%s] %s" % (getattr(inst, 'name', '?'), text))
 
 
 def rcon_cmd(inst: Instance, cmd: str, timeout: float = 12.0) -> str:
@@ -2353,6 +2355,13 @@ class Handler(BaseHTTPRequestHandler):
 
     # ------------------------------------------------------------------ GET
     def do_GET(self) -> None:  # noqa: N802
+        try:
+            self._do_get()
+        except Exception as exc:  # noqa: BLE001
+            plog.write("FEHLER GET %s: %s: %s" % (self.path.split('?')[0], exc.__class__.__name__, exc))
+            raise
+
+    def _do_get(self) -> None:
         if not self._auth():
             self._send(401, b"token fehlt")
             return
@@ -2580,6 +2589,13 @@ class Handler(BaseHTTPRequestHandler):
 
     # ------------------------------------------------------------------ POST
     def do_POST(self) -> None:  # noqa: N802
+        try:
+            self._do_post()
+        except Exception as exc:  # noqa: BLE001
+            plog.write("FEHLER POST %s: %s: %s" % (self.path.split('?')[0], exc.__class__.__name__, exc))
+            raise
+
+    def _do_post(self) -> None:
         if not self._auth():
             self._send(401, b"token fehlt")
             return
@@ -2773,8 +2789,11 @@ class Handler(BaseHTTPRequestHandler):
                 daten = json.loads(roh) if roh.strip() else {}
             except ValueError:
                 daten = {}
-            self._json(report_mod.senden(None, str(daten.get("text", "")),
-                                        str(daten.get("steps", ""))))
+            ergebnis = report_mod.senden(None, str(daten.get("text", "")),
+                                         str(daten.get("steps", "")))
+            plog.write("Fehlermeldung: " + ("gesendet" if ergebnis.get("ok")
+                                             else "nicht gesendet (%s)" % ergebnis.get("fehler")))
+            self._json(ergebnis)
             return
         elif path == "/api/notify/test":
             url = q.get("url", [""])[0].strip() or inst.webhook_url
