@@ -157,5 +157,3 @@ def senden(inst, text: str, schritte: str = "") -> dict:
     return {"ok": True, "fehler": ""}
 
 
-def test(inst) -> dict:
-    return senden(inst, "Testmeldung aus dem Panel - wenn du das liest, ist der Melde-Webhook in Ordnung.")
