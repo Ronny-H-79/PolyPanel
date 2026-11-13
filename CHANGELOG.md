@@ -1,3 +1,10 @@
+## [0.7.34] — 2026-11-13
+
+### Geändert
+- **Menü bleibt immer bedienbar.** Auch während Stop, Start, Restart oder Update ist der
+  Menü-Knopf aktiv — Log, Konfiguration und Seiten bleiben erreichbar, gesperrt sind nur die
+  Aktionen, die gerade nicht sinnvoll sind.
+
 ## [0.7.33] — 2026-11-13
 
 ### Neu

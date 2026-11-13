@@ -517,10 +517,11 @@ async function load(){
           if(!i.installed)
             return `<button class="primary" onclick="install('${i.name}')"${startingNow||stoppingNow?off:''}>${L['dash.install']}</button>
                     <button class="danger" onclick="delInst('${i.name}',0)"${startingNow||stoppingNow?off:''}>${L['common.delete']}</button>`;
+          // Menue bleibt immer bedienbar - von dort kommt man an Log, Konfig und alles weitere.
           if(stoppingNow)
-            return menu(off)+bStart(off)+bRestart(off)+bUpdate(off)+bStop(off)+bDel(off);
+            return menu('')+bStart(off)+bRestart(off)+bUpdate(off)+bStop(off)+bDel(off);
           if(startingNow)
-            return menu(off)+bStart(off)+bRestart(off)+bUpdate(off)+bStop('')+bDel(off);
+            return menu('')+bStart(off)+bRestart(off)+bUpdate(off)+bStop('')+bDel(off);
           // Update ist bewusst auch bei gestoppter Instanz bedienbar: genau dann
           // lassen sich die Serverdateien tauschen.
           return menu('')+bStart(i.running?off:'')+bRestart(i.running?'':off)+

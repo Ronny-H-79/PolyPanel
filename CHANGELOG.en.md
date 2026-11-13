@@ -1,3 +1,10 @@
+## [0.7.34] — 2026-11-13
+
+### Changed
+- **Menu stays available at all times.** Even during stop, start, restart or update the menu
+  button stays active - log, configuration and pages remain reachable, only the actions that
+  make no sense right now are locked.
+
 ## [0.7.33] — 2026-11-13
 
 ### Added
