@@ -260,6 +260,9 @@ max-height:80vh;overflow:auto;padding:18px 20px;position:relative}
 .stats small{display:block;color:var(--dim);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase}
 .spark{width:100%;height:38px;display:block}
 .hostbar{display:flex;gap:10px;align-items:center;font-size:11px;color:var(--dim)}
+#instbarfill.indet{background:repeating-linear-gradient(45deg,#2f81f7 0 12px,#56d364 12px 24px);
+animation:instbarpulse 1s linear infinite;background-size:34px 34px}
+@keyframes instbarpulse{from{background-position:0 0}to{background-position:34px 0}}
 """
 
 BG_JS = """
@@ -747,6 +750,15 @@ async function install(name){
     document.getElementById('out').textContent=l;
     try{
       const p=JSON.parse(await api('/api/install/progress?name='+name));
+      if(p && (p.percent===null || p.percent===undefined) && p.phase && !p.done){
+        // Laufzeit wird eingerichtet (Wine/.NET): kein Prozentwert, aber sichtbarer Fortgang
+        bar.style.display='block'; label.style.display='block';
+        fill.classList.add('indet');
+        fill.style.width='100%';
+        label.textContent='Laufzeit: '+p.phase;
+        return;
+      }
+      fill.classList.remove('indet');
       if(p && p.percent!==null && p.percent!==undefined && p.percent>0){
         bar.style.display='block'; label.style.display='block';
         fill.style.width=Math.max(2,Math.min(100,p.percent))+'%';
@@ -2159,6 +2171,16 @@ def install_progress(inst) -> dict[str, object]:
     except OSError:
         return daten
     for zeile in reversed(zeilen):
+        if "== Installation abgeschlossen ==" in zeile:
+            daten["done"] = True
+            daten["percent"] = 100.0
+            daten["phase"] = "done"
+            return daten
+        # Laufzeit-Einrichtung (Wine/.NET): kein Prozentwert, nur die Phase anzeigen
+        if zeile.startswith("Laufzeit: "):
+            daten["phase"] = zeile.strip()[len("Laufzeit: "):][:80]
+            daten["percent"] = None
+            return daten
         if "Success! App" in zeile or "Installation beendet" in zeile:
             daten["done"] = True
             daten["percent"] = 100.0
@@ -2185,6 +2207,24 @@ def _start_install(inst: Instance) -> None:
     def run() -> None:
         try:
             result = installer.install_server(inst)
+            if result.get("ok"):
+                # Laufzeit (z. B. Wine/.NET fuer Space Engineers) mitprotokollieren: das dauert
+                # Minuten und ohne Meldung sieht es aus, als haenge die Installation.
+                _logp = os.path.join(inst.directory, ".install.log")
+
+                def _log(msg: str, _ziel=_logp) -> None:
+                    try:
+                        with open(_ziel, "a") as fh:
+                            fh.write("Laufzeit: %s\n" % msg)
+                            fh.flush()
+                    except OSError:
+                        pass
+
+                try:
+                    if not inst.profile.runtime_ready(inst):
+                        inst.profile.post_install(inst, log=_log)
+                except Exception as exc:  # noqa: BLE001 - Installation bleibt erfolgreich
+                    _log("Laufzeit nicht eingerichtet: %s" % exc)
             # Dienst gleich mit anlegen: Ueberwachung und Autostart ohne Handarbeit
             if result.get("ok"):
                 from . import units
@@ -2206,6 +2246,11 @@ def _start_install(inst: Instance) -> None:
             except OSError:
                 pass
         finally:
+            try:
+                with open(os.path.join(inst.directory, ".install.log"), "a") as fh:
+                    fh.write("== Installation abgeschlossen ==\n")
+            except OSError:
+                pass
             INSTALLS.pop(inst.name, None)
 
     threading.Thread(target=run, daemon=True).start()
