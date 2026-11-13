@@ -327,7 +327,7 @@ if [ "$UNINSTALL" = "1" ]; then
     fi
   done
   say "$(t kept)"
-  say "  ~/.config/polypanel   ~/polypanel-instances   ~/polypanel-backups   ~/polypanel-snapshots"
+  say "  ~/.config/polypanel   ~/polypanel-instances   ~/polypanel-backups   ~/polypanel-snapshots   ~/.wine"
   exit 0
 fi
 

@@ -178,7 +178,8 @@ rm -rf ~/.config/polypanel          # instances, token, mod cache
 rm -rf ~/polypanel-backups          # world backups
 rm -rf ~/polypanel-snapshots        # instance snapshots
 rm -rf ~/polypanel-instances        # the server files of the instances
-rm -rf ~/.wine-arkserver            # Wine prefix (if set)
+rm -rf ~/.wine                      # Wine prefix (default)
+rm -rf ~/.polypanel-wine-se         # Wine prefix for Space Engineers
 ```
 
 Only the last step is irreversible: worlds and configs live in `~/polypanel-backups` — keep those and you can

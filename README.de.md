@@ -195,7 +195,8 @@ rm -rf ~/.config/polypanel          # Instanzen, Token, Mod-Cache
 rm -rf ~/polypanel-backups          # Welt-Backups
 rm -rf ~/polypanel-snapshots        # Instanz-Snapshots
 rm -rf ~/polypanel-instances        # die Serverdateien der Instanzen
-rm -rf ~/.wine-arkserver            # Wine-Prefix (falls gesetzt)
+rm -rf ~/.wine                      # Wine-Prefix (Standard)
+rm -rf ~/.polypanel-wine-se         # Wine-Prefix für Space Engineers
 ```
 
 Der letzte Schritt ist der einzige, der wirklich unwiederbringlich ist: Welt und Configs liegen in
