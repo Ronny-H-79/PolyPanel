@@ -1,3 +1,10 @@
+## [0.7.35] — 2026-11-13
+
+### Changed
+- **No log window on the overview page anymore.** With many instances the overview became
+  cluttered and every card additionally polled log lines every 2.5 seconds. The log stays on
+  the instance page; cards now show status, load and actions only.
+
 ## [0.7.34] — 2026-11-13
 
 ### Changed

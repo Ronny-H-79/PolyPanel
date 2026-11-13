@@ -1,3 +1,10 @@
+## [0.7.35] — 2026-11-13
+
+### Geändert
+- **Kein Logfenster mehr auf der Startseite.** Bei vielen Instanzen wurde die Übersicht zu
+  voll, und jede Karte hat zusätzlich alle 2,5 Sekunden Logzeilen nachgeladen. Das Log steht
+  weiterhin auf der Instanzseite; die Karten zeigen nur noch Status, Auslastung und Aktionen.
+
 ## [0.7.34] — 2026-11-13
 
 ### Geändert

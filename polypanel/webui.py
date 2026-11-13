@@ -528,7 +528,7 @@ async function load(){
                  bUpdate('')+bStop(i.running?'':off)+bDel('');
         })()}
       </div>
-      </div>${i.running?`<div class="logwrap"><div class="loghead">${L['dash.log']}</div><pre class="cardlog" data-inst="${i.name}">…</pre></div>`:''}
+      </div>
       </div>
     </div>`).join('');
   const canvases=[...document.querySelectorAll('.spark')];
@@ -540,19 +540,8 @@ async function load(){
     const chist=d.cpu_hist_pct||(d.cpu_hist||[]).map(v=>v/(d.cores||1));
     spark(cv, chist, d.ram_hist||[], 100, rmax*1.15);
   });
-  // Lebendes Server-Log rechts in der Karte; die letzte Fassung ueberlebt den 3-Sekunden-Refresh
-  const logBoxes=[...document.querySelectorAll('.cardlog')];
-  logBoxes.forEach(el=>{ const t=LOGS[el.dataset.inst]; if(t) el.textContent=t; });
-  clearInterval(LOGTIMER);
-  if(logBoxes.length){
-    const pull=async()=>{ for(const el of logBoxes){
-        try{ const txt=(await api('/api/logs?name='+encodeURIComponent(el.dataset.inst)+'&n=10')).trim();
-          LOGS[el.dataset.inst]=txt; el.textContent=txt||L['dash.log_empty'];
-        }catch(e){}
-    } };
-    pull();
-    LOGTIMER=setInterval(pull,2500);
-  }
+  // Kein Logfenster auf der Startseite: bei vielen Instanzen wird die Uebersicht sonst
+  // unuebersichtlich und jede Karte pollt zusaetzlich. Das Log steht auf der Instanzseite.
 }
 async function loadHost(){
   if(window.__pressed){ setTimeout(loadHost, 400); return; }   // Klick laeuft noch
