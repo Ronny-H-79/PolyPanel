@@ -1,4 +1,9 @@
-## [Unreleased]
+## [0.7.31] — 2026-11-13
+
+### Fixed
+- **Player count stayed at 0 with players online.** `ListPlayers` line detection only accepted
+  15-17 digit ids (SteamID). ARK: Survival Ascended returns the **32 character hex EOS id**, so no
+  line matched and the player list stayed empty. Both formats are accepted now.
 
 ### Changed
 - **Buttons lock according to state.** While a stop runs, every button is disabled. While start,
@@ -8,12 +13,6 @@
 - **"1 instances" instead of "1 instance".** The dashboard counter now uses the singular form when
   exactly one instance exists (new text key `dash.instance_single`).
 
-## [0.7.30] — 2026-11-12
-
-### Fixed
-- **Player count stayed at 0 with players online.** `ListPlayers` line detection only accepted
-  15-17 digit ids (SteamID). ARK: Survival Ascended returns the **32 character hex EOS id**, so no
-  line matched and the player list stayed empty. Both formats are accepted now.
 
 ## [0.7.29] — 2026-11-11
 

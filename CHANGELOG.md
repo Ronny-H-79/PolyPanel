@@ -1,4 +1,10 @@
-## [Unveröffentlicht]
+## [0.7.31] — 2026-11-13
+
+### Behoben
+- **Spielerzahl blieb bei 0, obwohl Spieler online waren.** Die Erkennung der `ListPlayers`-Zeilen
+  akzeptierte als ID nur 15–17 Ziffern (SteamID). ARK: Survival Ascended liefert die **32-stellige
+  EOS-ID in Hex**; damit passte keine Zeile und die Spielerliste blieb leer. Beide Formate werden
+  jetzt akzeptiert.
 
 ### Geändert
 - **Knöpfe sperren sich passend zum Zustand.** Läuft ein Stop, sind alle Knöpfe unbedienbar.
@@ -8,13 +14,6 @@
 - **„1 Instanzen" statt „1 Instanz".** Die Anzahl auf dem Dashboard nutzt jetzt die Einzahl,
   wenn genau eine Instanz existiert (neuer Textschlüssel `dash.instance_single`).
 
-## [0.7.30] — 2026-11-12
-
-### Behoben
-- **Spielerzahl blieb bei 0, obwohl Spieler online waren.** Die Erkennung der `ListPlayers`-Zeilen
-  akzeptierte als ID nur 15–17 Ziffern (SteamID). ARK: Survival Ascended liefert die **32-stellige
-  EOS-ID in Hex**; damit passte keine Zeile und die Spielerliste blieb leer. Beide Formate werden
-  jetzt akzeptiert.
 
 ## [0.7.29] — 2026-11-11
 
