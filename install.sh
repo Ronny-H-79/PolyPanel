@@ -204,6 +204,8 @@ t() {
     de:web_skipped)        echo "Kein Dienst angelegt - Oberflaeche bei Bedarf starten mit: polypanel web" ;;
     en:as_user)            echo "Running as root - installing as service user $SERVICE_USER (servers must not run as root)" ;;
     de:as_user)            echo "Als root gestartet - Installation und Server laufen als Dienst-Benutzer $SERVICE_USER" ;;
+    en:svc_busy)           echo "An installation is running - web service not restarted (that would abort the download). Update takes effect after the next restart." ;;
+    de:svc_busy)           echo "Eine Installation laeuft - Web-Dienst nicht neu gestartet (das wuerde den Download abbrechen). Der neue Stand greift nach dem naechsten Neustart." ;;
     en:language_saved)     echo "Language: English" ;;
     de:language_saved)     echo "Sprache: Deutsch" ;;
     *) return 1 ;;
@@ -718,7 +720,17 @@ fi
 
 # laufenden Web-Dienst neu starten, damit der neue Code aktiv ist
 _uid="${SERVICE_UID:-}"
-if [ -n "$SERVICE_USER" ] && [ -n "$_uid" ]; then
+# Laeuft gerade eine SteamCMD-Installation? Dann nicht neu starten - der Dienst wuerde
+# den Download als Kindprozess mit abschiessen.
+_laeuft_download=""
+if [ -n "$SERVICE_USER" ]; then
+  pgrep -u "$SERVICE_USER" -f steamcmd >/dev/null 2>&1 && _laeuft_download="ja"
+else
+  pgrep -u "$(id -u)" -f steamcmd >/dev/null 2>&1 && _laeuft_download="ja"
+fi
+if [ -n "$_laeuft_download" ]; then
+  warn "$(t svc_busy)"
+elif [ -n "$SERVICE_USER" ] && [ -n "$_uid" ]; then
   # Dienst laeuft als Dienst-Benutzer - dann aus dessen Sitzung neu starten
   su - "$SERVICE_USER" -c "XDG_RUNTIME_DIR=/run/user/$_uid systemctl --user restart polypanel-web" >/dev/null 2>&1 \
     && say "$(t service_restarted)"
