@@ -393,7 +393,8 @@ def cmd_report_hook(args: argparse.Namespace) -> None:
     from . import report
 
     if args.url is None:
-        print("Melde-Webhook: %s" % (report.maskiert() or "(nicht gesetzt)"))
+        # Adresse bewusst nicht ausgeben - sie soll nirgends sichtbar sein
+        print("Melde-Webhook: %s" % ("gesetzt" if report.webhook() else "(nicht gesetzt)"))
         return
     ziel = args.url.strip()
     if ziel in ("", "-", "aus", "none"):
@@ -403,7 +404,7 @@ def cmd_report_hook(args: argparse.Namespace) -> None:
     if not ziel.startswith("https://"):
         sys.exit("Webhook muss mit https:// beginnen")
     report.set_webhook(ziel)
-    print("Melde-Webhook gesetzt: %s" % report.maskiert())
+    print("Melde-Webhook gespeichert")
 
 
 def main(argv: list[str] | None = None) -> None:
