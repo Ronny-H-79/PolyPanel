@@ -767,6 +767,12 @@ else
   pgrep -u "$(id -u)" -f steamcmd >/dev/null 2>&1 && _laeuft_download="ja"
 fi
 # Laeuft ein Spielserver? Der Web-Dienst ist dessen Elternprozess - ein Neustart wuerde ihn mit beenden.
+# Auch ein gerade startender Server zaehlt: in der ersten Minute meldet die API noch nicht "running".
+if [ -z "$_laeuft_download" ]; then
+  _u="${SERVICE_USER:-$(id -un)}"
+  pgrep -u "$_u" -f 'consoled|SpaceEngineersDedicated|7DaysToDieServer|ShooterGame|FactoryServer' \
+    >/dev/null 2>&1 && _laeuft_download="ja"
+fi
 if [ -z "$_laeuft_download" ] && [ -r "$HOME/.config/polypanel/token" ]; then
   _tok="$(cat "$HOME/.config/polypanel/token" 2>/dev/null)"
   if [ -n "$_tok" ] && curl -s --max-time 5 "http://127.0.0.1:8790/api/instances?token=$_tok" 2>/dev/null \
