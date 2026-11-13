@@ -1,6 +1,10 @@
 ## [Unreleased]
 
 ### Changed
+- **Buttons lock according to state.** While a stop runs, every button is disabled. While start,
+  restart or update runs (or the instance is still booting) **only Stop** stays enabled, to abort.
+  The state comes from the server (`action` in `/api/instances`) and is set locally on click so
+  double clicks cannot slip through.
 - **"1 instances" instead of "1 instance".** The dashboard counter now uses the singular form when
   exactly one instance exists (new text key `dash.instance_single`).
 

@@ -1,6 +1,10 @@
 ## [Unveröffentlicht]
 
 ### Geändert
+- **Knöpfe sperren sich passend zum Zustand.** Läuft ein Stop, sind alle Knöpfe unbedienbar.
+  Läuft Start, Restart oder Update (oder fährt die Instanz noch hoch), bleibt **nur Stop**
+  bedienbar — zum Abbrechen. Der Zustand kommt vom Server (`action` in `/api/instances`) und wird
+  beim Klick sofort lokal gesetzt, damit Doppelklicks nicht durchrutschen.
 - **„1 Instanzen" statt „1 Instanz".** Die Anzahl auf dem Dashboard nutzt jetzt die Einzahl,
   wenn genau eine Instanz existiert (neuer Textschlüssel `dash.instance_single`).
 

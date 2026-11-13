@@ -32,6 +32,9 @@ from .rcon import RconClient
 from .paths import TOKEN_PATH
 RE_PLAYER = re.compile(r"^\s*(\d+)\.\s*(.+?)\s*,\s*([0-9A-Za-z]{15,32})\s*$")
 INSTALLS: dict[str, dict] = {}
+# Laufende Aktion je Instanz (start/stop/restart/update). Die Oberflaeche sperrt danach
+# die Knoepfe: waehrend stop gar keiner, waehrend start/restart/update nur Stop.
+ACTIONS: dict[str, str] = {}
 
 
 def token() -> str:
@@ -120,6 +123,8 @@ h2{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)
 button{background:#0f1a1f;color:var(--fg);border:1px solid #22453c;border-radius:3px;padding:6px 11px;
 font:inherit;font-size:11px;cursor:pointer;letter-spacing:.06em}
 button:hover{border-color:var(--acc);color:var(--acc)}
+button:disabled{opacity:.35;cursor:not-allowed;border-color:#1b3a33;color:var(--dim)}
+button:disabled:hover{border-color:#1b3a33;color:var(--dim)}
 button.primary{border-color:var(--acc);color:var(--acc)}
 button.danger:hover{border-color:var(--err);color:var(--err)}
 #log{height:48vh;min-height:280px;max-height:none;resize:vertical;border:1px solid var(--line);
@@ -456,6 +461,11 @@ async function load(){
   const _b=document.getElementById('actbanner'); if(_b && _b.dataset.done==='1'){ _b.style.display='none'; }
   const list=JSON.parse(await api('/api/instances'));
   DATA=list;
+  const _now=Date.now();
+  Object.keys(window.LOCAL_ACT||{}).forEach(n=>{
+    const l=window.LOCAL_ACT[n], s=list.find(x=>x.name===n);
+    if(!s || _now-l.ts>25000 || s.action) delete window.LOCAL_ACT[n];
+  });
   document.getElementById('cnt').textContent=list.length+' '+L[list.length===1?'dash.instance_single':'dash.instances'];
   document.getElementById('cards').innerHTML=list.map(i=>`
     <div class="card${i.running?' running':''}">
@@ -476,15 +486,30 @@ async function load(){
         <div><b>${fmtUp(i.uptime)}</b><small>${L['dash.uptime']}</small></div>
       </div><canvas class="spark" width="300" height="38"></canvas>`:''}
       <div class="row">
-        <a href="/i/${i.name}?token=${encodeURIComponent(T)}"><button>${L['common.menu']}</button></a>
-        ${i.installed
-          ? `<button onclick="act('${i.name}','start')">${L['common.start']}</button>
-             <button onclick="act('${i.name}','restart')">${L['common.restart']}</button>
-             <button onclick="updInst('${i.name}')">${L['common.update']}</button>
-             <button class="danger" onclick="act('${i.name}','stop')">${L['common.stop']}</button>
-             <button class="danger" onclick="delInst('${i.name}',${i.size_gb||0})">${L['common.delete']}</button>`
-          : `<button class="primary" onclick="install('${i.name}')">${L['dash.install']}</button>
-             <button class="danger" onclick="delInst('${i.name}',0)">${L['common.delete']}</button>`}
+        ${(()=>{
+          const la=(window.LOCAL_ACT||{})[i.name];
+          const a=i.action || (la&&la.what) || '';
+          // Waehrend Stop ist alles gesperrt. Waehrend Start/Restart/Update (und solange die
+          // Instanz hochfaehrt) bleibt nur Stop bedienbar - zum Abbrechen.
+          const startingNow = (a==='start'||a==='restart'||a==='update') || (i.running && !i.ready);
+          const stoppingNow = (a==='stop');
+          const off = ' disabled';
+          const menu = (dis)=>`<a href="/i/${i.name}?token=${encodeURIComponent(T)}"><button${dis}>${L['common.menu']}</button></a>`;
+          const bStart = (dis)=>`<button onclick="act('${i.name}','start')"${dis}>${L['common.start']}</button>`;
+          const bRestart=(dis)=>`<button onclick="act('${i.name}','restart')"${dis}>${L['common.restart']}</button>`;
+          const bUpdate = (dis)=>`<button onclick="updInst('${i.name}')"${dis}>${L['common.update']}</button>`;
+          const bStop   = (dis)=>`<button class="danger" onclick="act('${i.name}','stop')"${dis}>${L['common.stop']}</button>`;
+          const bDel    = (dis)=>`<button class="danger" onclick="delInst('${i.name}',${i.size_gb||0})"${dis}>${L['common.delete']}</button>`;
+          if(!i.installed)
+            return `<button class="primary" onclick="install('${i.name}')"${startingNow||stoppingNow?off:''}>${L['dash.install']}</button>
+                    <button class="danger" onclick="delInst('${i.name}',0)"${startingNow||stoppingNow?off:''}>${L['common.delete']}</button>`;
+          if(stoppingNow)
+            return menu(off)+bStart(off)+bRestart(off)+bUpdate(off)+bStop(off)+bDel(off);
+          if(startingNow)
+            return menu(off)+bStart(off)+bRestart(off)+bUpdate(off)+bStop('')+bDel(off);
+          return menu('')+bStart(i.running?off:'')+bRestart(i.running?'':off)+
+                 bUpdate(i.running?'':off)+bStop(i.running?'':off)+bDel('');
+        })()}
       </div>
       </div>${i.running?`<div class="logwrap"><div class="loghead">${L['dash.log']}</div><pre class="cardlog" data-inst="${i.name}">…</pre></div>`:''}
       </div>
@@ -577,6 +602,9 @@ async function act(name,what){
 
 async function updInst(name){
   if(!confirm(L['msg.confirm_update'])) return;
+  window.LOCAL_ACT = window.LOCAL_ACT || {};
+  window.LOCAL_ACT[name]={what:'update',ts:Date.now()};
+  load();
   try{
     await api('/api/update?name='+encodeURIComponent(name), {method:'POST'});
     alert(L['msg.update_started']);
@@ -1031,8 +1059,11 @@ async function refresh(){
       :'<span style="color:var(--dim)">– '+L['inst.no_players']+' –</span>';
   }catch(e){}
 }
-async function act(a){
-  try{ await api('/api/'+a,{method:'POST'}); }
+window.LOCAL_ACT = window.LOCAL_ACT || {};
+async function act(name,what){
+  window.LOCAL_ACT[name]={what:what,ts:Date.now()};   // sofort sperren, nicht erst nach dem Refresh
+  load();
+  try{ await api('/api/'+what+'?name='+name,{method:'POST'}); }
   catch(e){ alert((L['inst.action_failed']||'Aktion fehlgeschlagen:')+'\\n\\n'+(e&&e.message?e.message:e)); return; }
   setTimeout(refresh,1200);
 }
@@ -2133,7 +2164,9 @@ class Handler(BaseHTTPRequestHandler):
             for name in registry.names():
                 obj = registry.load(name)
                 if obj:
-                    out.append(registry.info(obj))
+                    row = registry.info(obj)
+                    row["action"] = ACTIONS.get(row["name"], "")
+                    out.append(row)
             self._json(out)
             return
 
@@ -2380,6 +2413,7 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/api/start", "/api/restart", "/api/update"):
             def _act() -> None:
                 _log_step(inst, "%s angefordert" % path.split("/")[-1])
+                ACTIONS[inst.name] = path.rsplit("/", 1)[-1]
                 try:
                     if path == "/api/start":
                         _log_step(inst, "start: PID %s" % runner.start(inst))
@@ -2392,15 +2426,20 @@ class Handler(BaseHTTPRequestHandler):
                     supervisor.notify(inst, "%s fehlgeschlagen: %s" % (path.split("/")[-1], exc))
                     supervisor.notify_event(inst, "Aktion fehlgeschlagen", str(exc)[:500], "error",
                                             {"Instanz": inst.name})
+                finally:
+                    ACTIONS.pop(inst.name, None)
             threading.Thread(target=_act, daemon=True).start()
             self._json({"ok": True, "info": "%s ausgeloest" % path.split("/")[-1]})
         elif path == "/api/stop":
             def _stop() -> None:
                 _log_step(inst, "stop angefordert")
+                ACTIONS[inst.name] = "stop"
                 try:
                     _log_step(inst, "stop: %s" % runner.stop(inst))
                 except Exception as exc:  # noqa: BLE001
                     _log_step(inst, "stop fehlgeschlagen: %s" % exc)
+                finally:
+                    ACTIONS.pop(inst.name, None)
             threading.Thread(target=_stop, daemon=True).start()
             self._json({"ok": True, "info": "stop ausgeloest"})
         elif path == "/api/rcon":
