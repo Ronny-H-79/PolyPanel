@@ -27,7 +27,7 @@ TIMEOUT = 12
 MAX_TEXT = 1500
 MAX_LOG_LINES = 30
 MAX_LOG_CHARS = 600          # Discord erlaubt 1024 Zeichen je Feldwert
-FENSTER_SEK = 900            # nur Meldungen der letzten 15 Minuten
+FENSTER_SEK = 3600           # Logzeilen der letzten Stunde
 MAX_ZEILEN = 12
 
 # Zeilen und Fragmente, die nie mitgeschickt werden
@@ -141,8 +141,10 @@ def panel_log(inst=None, zeilen: int = MAX_LOG_LINES) -> str:
                 teile.append("--- %s ---\n%s" % (name, rest))
 
     zusammen = "\n".join(t for t in teile if t)
+    # Fruehere Meldungen gehoeren nicht in eine neue Meldung
     brauchbar = [z for z in zusammen.splitlines()
-                 if z.strip() and not _GEHEIM.search(z) and "No entries" not in z]
+                 if z.strip() and not _GEHEIM.search(z)
+                 and "No entries" not in z and "Fehlermeldung:" not in z]
     return _saeubern(_nur_aktuell(brauchbar))[-MAX_LOG_CHARS:]
 
 
