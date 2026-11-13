@@ -1,3 +1,9 @@
+## [Unveröffentlicht]
+
+### Geändert
+- **RAM-Hinweis an die Praxis angepasst.** Statt „11–12 GB mit Mods" steht dort jetzt
+  „10–16 GB und mehr" mit dem gemessenen Wert für The Island (~10 GB).
+
 ## [0.7.37] — 2026-11-13
 
 ### Neu

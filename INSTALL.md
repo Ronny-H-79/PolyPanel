@@ -14,7 +14,7 @@ plus SteamCMD and Wine.
 | Python ≥ 3.10 | the program runs on it | `python3 -V` |
 | Wine ≥ 8 | runs the Windows server files | `wine --version` |
 | ~30 GB disk per instance | 12.4 GB download + backups | `df -h ~` |
-| ~4 GB RAM empty without mods, 11–12 GB with mods/world/players (no upper limit) | ARK needs it | `free -g` |
+| ~4 GB RAM empty without mods, 10–16 GB with mods/world/players (The Island measured ~10 GB, no upper limit) | ARK needs it | `free -g` |
 
 Missing Wine:
 
