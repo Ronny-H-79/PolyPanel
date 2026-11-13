@@ -29,7 +29,8 @@ from . import supervisor
 from . import whitelist as wl
 from .rcon import RconClient
 
-from .paths import TOKEN_PATH
+from .paths import TOKEN_PATH, CONF_DIR
+from . import catalog
 RE_PLAYER = re.compile(r"^\s*(\d+)\.\s*(.+?)\s*,\s*([0-9A-Za-z]{15,32})\s*$")
 INSTALLS: dict[str, dict] = {}
 # Laufende Aktion je Instanz (start/stop/restart/update). Die Oberflaeche sperrt danach
@@ -880,7 +881,12 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
     <pre id="out">–</pre>
   </section>
 
-  <section class="tab tab-overview on"><h2 data-t="inst.players">Spieler</h2><div id="players">…</div></section>
+  <section class="tab tab-overview on"><h2 data-t="inst.players">Spieler</h2>
+    <div class="row" style="margin-bottom:8px">
+      <button onclick="unbanOpen()" data-t="inst.unban">Entbannen</button>
+      <small style="color:var(--dim)" data-t="inst.unban_hint">EOS-ID eines gesperrten Spielers eingeben</small>
+    </div>
+    <div id="players">…</div></section>
 
   <section class="tab tab-server ark-only"><h2 data-t="wl.title">Whitelist &amp; Bans</h2>
     <div class="row" style="margin-bottom:8px">
@@ -1816,12 +1822,83 @@ async function saveSchedule(){
 async function pa(sid,action){ if(!confirm(action+' für '+sid+'?'))return;
   document.getElementById('out').textContent=await api('/api/player/action?steamid='+sid+'&action='+action,{method:'POST'});
   setTimeout(refresh,1500); }
-async function give(sid){ const bp=prompt('Blueprint','PrimalItemResource_Stone_C'); if(!bp)return;
+async function give(sid){ catOpen(sid); }
+async function giveDirect(sid){ const bp=prompt('Blueprint','PrimalItemResource_Stone_C'); if(!bp)return;
   const q=prompt('Menge','10')||'10';
   document.getElementById('out').textContent=await api('/api/player/give?steamid='+sid+'&bp='+encodeURIComponent(bp)+'&qty='+q,{method:'POST'}); }
 applyLang(); restoreTab(); setTimeout(restoreTab, 250); refresh(); updCheck(); renderCmds(); loadMods(); loadKeyState(); loadCfg(); loadWl(); loadSettings(); loadCluster(); loadSnaps(); loadBackups(); loadSchedule(); loadHooks();
 setInterval(refresh,5000); setInterval(updCheck,300000);
 </script>""" + FOOTER + """
+<div id="unbanModal" class="plModal"><div class="plBox" style="min-width:min(520px,94vw)">
+  <div class="row" style="justify-content:space-between">
+    <b data-t="inst.unban">Entbannen</b>
+    <button onclick="document.getElementById('unbanModal').classList.remove('on')">×</button>
+  </div>
+  <div style="margin:10px 0;color:var(--dim);font-size:11.5px" data-t="inst.unban_hint">EOS-ID eines gesperrten Spielers eingeben</div>
+  <div class="row" style="gap:8px">
+    <input id="unbanId" data-tp="inst.unban_id" placeholder="EOS-ID (32 Zeichen Hex)" style="flex:1;min-width:0">
+    <button onclick="unbanDo()" data-t="inst.unban">Entbannen</button>
+  </div>
+  <div id="unbanOut" class="plMsg"></div>
+</div></div>
+<div id="catModal" class="plModal"><div class="plBox">
+  <div class="row" style="justify-content:space-between">
+    <b id="catTitle">Item geben</b>
+    <button onclick="closeCat()">×</button>
+  </div>
+  <div class="row" style="margin:10px 0;gap:8px">
+    <input id="catQ" placeholder="Suchen (z. B. Metall, Axt, Riot) …" oninput="catSearch()" style="flex:1;min-width:0">
+    <input id="catQty" type="number" value="1" min="1" step="1" style="width:88px">
+    <button onclick="giveDirect(CAT_SID)">eigener Blueprint</button>
+  </div>
+  <div id="catList" class="plBody">…</div>
+</div></div>
+<script>
+function unbanOpen(){
+  document.getElementById('unbanId').value='';
+  document.getElementById('unbanOut').textContent='';
+  document.getElementById('unbanModal').classList.add('on');
+  setTimeout(function(){ const el=document.getElementById('unbanId'); if(el) el.focus(); }, 50);
+}
+async function unbanDo(){
+  const id=document.getElementById('unbanId').value.trim();
+  const out=document.getElementById('unbanOut');
+  if(!id){ out.textContent='EOS-ID fehlt'; return; }
+  try{
+    const r=await api('/api/player/action?steamid='+encodeURIComponent(id)+'&action=unban',{method:'POST'});
+    out.textContent='unban: '+String(r||'ok');
+  }catch(e){ out.textContent='Fehler: '+String(e); }
+}
+let CAT_SID='';
+function closeCat(){ document.getElementById('catModal').classList.remove('on'); }
+async function catOpen(sid){
+  CAT_SID=sid;
+  document.getElementById('catQ').value='';
+  document.getElementById('catModal').classList.add('on');
+  catSearch();
+  setTimeout(function(){ const el=document.getElementById('catQ'); if(el) el.focus(); }, 50);
+}
+async function catSearch(){
+  const q=document.getElementById('catQ').value||'';
+  let list=[];
+  try{ list=JSON.parse(await api('/api/catalog?q='+encodeURIComponent(q))); }catch(e){ return; }
+  const box=document.getElementById('catList');
+  if(!list.length){ box.innerHTML='<span style="color:var(--dim)">nichts gefunden - über ‚eigener Blueprint“ geht es trotzdem</span>'; return; }
+  box.innerHTML=list.map(function(e){
+    return '<div class="p"><span><b>'+e.label+'</b><br><small>'+e.name+'</small></span>'+
+           '<span class="row"><button data-bp="'+e.bp+'">geben</button></span></div>';
+  }).join('');
+}
+document.addEventListener('click', async function(ev){
+  const b=ev.target.closest('button[data-bp]');
+  if(!b || !CAT_SID) return;
+  const qty=document.getElementById('catQty').value||'1';
+  try{
+    const r=await api('/api/player/give?steamid='+encodeURIComponent(CAT_SID)+'&bp='+encodeURIComponent(b.dataset.bp)+'&qty='+encodeURIComponent(qty),{method:'POST'});
+    document.getElementById('catList').insertAdjacentHTML('afterbegin','<div class="plMsg">'+String(r||'ok')+' · x'+qty+'</div>');
+  }catch(e){ alert(String(e)); }
+});
+</script>
 </body></html>"""
 
 LICENSE_PAGE = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
@@ -2294,6 +2371,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, "\n".join(runner.tail_console(inst, int(q.get("n", ["40"])[0]))).encode())
         elif path == "/api/players":
             self._json(players(inst))
+        elif path == "/api/catalog":
+            self._json(catalog.suche(q.get("q", [""])[0]))
         elif path == "/api/update":
             self._json(runner.check_update(inst, 0 if q.get("refresh") else None))
         elif path == "/api/lang":

@@ -1,3 +1,14 @@
+## [0.7.37] — 2026-11-13
+
+### Neu
+- **Item-Dialog mit Liste statt Freitext.** Der Knopf „Item" öffnet eine durchsuchbare Liste
+  bekannter Gegenstände (Werkzeuge, Waffen, Munition, Verbrauch, Rohstoffe, Rüstungen) samt
+  Menge; der vollständige Blueprint-Pfad steckt in `polypanel/catalog.py`. Ein eigener
+  Blueprint lässt sich weiterhin eingeben. Neuer Endpunkt `/api/catalog?q=`.
+- **Entbannen-Fenster auf der Instanzseite.** Über der Spielerliste lässt sich die EOS-ID
+  eines gesperrten Spielers eingeben und entbannen — Offline-Spieler kann man nicht anklicken,
+  und ARK liefert keine Ban-Liste über RCON.
+
 ## [0.7.36] — 2026-11-13
 
 ### Geändert

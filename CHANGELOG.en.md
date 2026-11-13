@@ -1,3 +1,13 @@
+## [0.7.37] — 2026-11-13
+
+### Added
+- **Item dialog with a list instead of free text.** The "Item" button opens a searchable list
+  of known items (tools, weapons, ammo, consumables, resources, armour) plus a quantity field;
+  full blueprint paths live in `polypanel/catalog.py`. A custom blueprint can still be entered.
+  New endpoint `/api/catalog?q=`.
+- **Unban dialog on the instance page.** The EOS id of a banned player can be entered above the
+  player list - offline players cannot be clicked and ARK offers no ban list over RCON.
+
 ## [0.7.36] — 2026-11-13
 
 ### Changed
