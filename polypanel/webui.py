@@ -127,6 +127,20 @@ button:disabled{opacity:.35;cursor:not-allowed;border-color:#1b3a33;color:var(--
 button:disabled:hover{border-color:#1b3a33;color:var(--dim)}
 button.primary{border-color:var(--acc);color:var(--acc)}
 button.danger:hover{border-color:var(--err);color:var(--err)}
+.plTile{cursor:pointer}
+.plTile:hover b{color:var(--acc)}
+.plModal{display:none;position:fixed;inset:0;background:rgba(3,7,10,.78);z-index:60;
+ align-items:center;justify-content:center;padding:24px}
+.plModal.on{display:flex}
+.plBox{background:#08110f;border:1px solid #22453c;border-radius:4px;padding:14px 16px;
+ min-width:min(720px,94vw);max-height:80vh;overflow:auto;box-shadow:0 0 40px rgba(37,230,164,.12)}
+.plBody{margin-top:10px}
+.plTable{width:100%;border-collapse:collapse;font-size:12px}
+.plTable th{text-align:left;color:var(--dim);font-weight:400;padding:4px 6px;border-bottom:1px solid #16302a}
+.plTable td{padding:5px 6px;border-bottom:1px solid #0e211c;vertical-align:middle}
+.plTable td.mono{font-family:ui-monospace,monospace;color:var(--dim);font-size:11px}
+.plAct{text-align:right;white-space:nowrap}
+.plMsg{color:var(--acc);font-size:11.5px;padding:4px 0}
 #log{height:48vh;min-height:280px;max-height:none;resize:vertical;border:1px solid var(--line);
 border-radius:8px;padding:10px 12px;background:rgba(0,0,0,.28)}
 pre{margin:0;max-height:230px;overflow:auto;font-size:11.5px;white-space:pre-wrap;word-break:break-word;
@@ -482,7 +496,7 @@ async function load(){
       ${i.running?`<div class="stats">
         <div title="${L['dash.cpu_title'].replace('{p}',(i.cpu_pct!==undefined?i.cpu_pct:(i.cpu/(i.cores||navigator.hardwareConcurrency||1))).toFixed(1)).replace('{c}',(i.cpu/100).toFixed(1)).replace('{n}',i.cores||navigator.hardwareConcurrency||1)}"><b>${(i.cpu_pct!==undefined?i.cpu_pct:(i.cpu/(i.cores||navigator.hardwareConcurrency||1))).toFixed(1)}%</b><small>${L['dash.cpu']}</small></div>
         <div title="Spitze: ${i.ram_peak_gb||0} GB"><b>${i.ram_gb.toFixed(1)}G</b><small>${L['dash.ram']}</small></div>
-        <div><b>${i.players}</b><small>${L['dash.players']}</small></div>
+        <div class="plTile" onclick="showPlayers('${i.name}')" title="${L['dash.players_hint']}"><b>${i.players}</b><small>${L['dash.players']}</small></div>
         <div><b>${fmtUp(i.uptime)}</b><small>${L['dash.uptime']}</small></div>
       </div><canvas class="spark" width="300" height="38"></canvas>`:''}
       <div class="row">
@@ -795,6 +809,49 @@ async function polyPanelUpdate(){
 }
 applyLang(); load(); loadHost(); checkPolyPanel(); setInterval(load,3000); setInterval(loadHost,3000);
 </script>""" + FOOTER + """
+<div id="plModal" class="plModal"><div class="plBox">
+  <div class="row" style="justify-content:space-between">
+    <b id="plTitle">Spieler</b>
+    <button onclick="closePlayers()">×</button>
+  </div>
+  <div id="plBody" class="plBody">…</div>
+</div></div>
+<script>
+function closePlayers(){ document.getElementById('plModal').classList.remove('on'); }
+function plRow(inst, pl){
+  const n = String(pl.name).replace(/</g, '&lt;');
+  const id = String(pl.steamid);
+  // Aktionen ueber data-Attribute: keine verschachtelten Quotes im HTML
+  return '<tr><td>'+n+'</td><td class="mono">'+id+'</td><td class="plAct">'+
+    '<button data-inst="'+inst+'" data-eos="'+id+'" data-act="kick">'+L['dash.kick']+'</button>'+
+    '<button class="danger" data-inst="'+inst+'" data-eos="'+id+'" data-act="ban">'+L['dash.ban']+'</button>'+
+    '<button data-inst="'+inst+'" data-eos="'+id+'" data-act="unban">'+L['dash.unban']+'</button>'+
+    '</td></tr>';
+}
+async function showPlayers(inst){
+  const box=document.getElementById('plModal'), body=document.getElementById('plBody');
+  document.getElementById('plTitle').textContent=L['dash.players']+' · '+inst;
+  body.innerHTML='…'; box.classList.add('on');
+  let list=[];
+  try{ list=JSON.parse(await api('/api/players?name='+encodeURIComponent(inst))); }
+  catch(e){ body.textContent=String(e); return; }
+  if(!list.length){ body.innerHTML='<span style="color:var(--dim)">– '+L['inst.no_players']+' –</span>'; return; }
+  body.innerHTML='<table class="plTable"><thead><tr><th>'+L['dash.players']+'</th><th>'+L['dash.eos_id']+'</th><th></th></tr></thead><tbody>'+
+    list.map(function(pl){ return plRow(inst, pl); }).join('')+'</tbody></table>';
+}
+async function plAct(inst, eos, action){
+  if(action==='ban' && !confirm(L['dash.ban_confirm'].replace('{id}', eos))) return;
+  try{
+    const r=await api('/api/player/action?name='+encodeURIComponent(inst)+'&steamid='+encodeURIComponent(eos)+'&action='+action,{method:'POST'});
+    document.getElementById('plBody').insertAdjacentHTML('afterbegin','<div class="plMsg">'+action+': '+(r||'ok')+'</div>');
+    setTimeout(function(){ showPlayers(inst); }, 1200);
+  }catch(e){ alert(String(e)); }
+}
+document.addEventListener('click', function(ev){
+  const b=ev.target.closest('button[data-act]');
+  if(b) plAct(b.dataset.inst, b.dataset.eos, b.dataset.act);
+});
+</script>
 </body></html>"""
 
 INST = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">

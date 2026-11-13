@@ -1,3 +1,10 @@
+## [0.7.33] — 2026-11-13
+
+### Added
+- **Player window on the overview.** Clicking the player count opens a window listing every
+  player of the instance: name, **EOS id** and the actions **Kick**, **Ban**, **Unban**.
+  Ban asks for confirmation; the list reloads after each action.
+
 ## [0.7.32] — 2026-11-13
 
 ### Changed

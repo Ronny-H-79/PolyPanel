@@ -1,3 +1,10 @@
+## [0.7.33] — 2026-11-13
+
+### Neu
+- **Spielerfenster in der Übersicht.** Ein Klick auf die Spielerzahl öffnet ein Fenster mit
+  allen Spielern der Instanz: Name, **EOS-ID** und die Aktionen **Kick**, **Ban** und **Unban**.
+  Ban fragt vorher nach; nach jeder Aktion wird die Liste neu geladen.
+
 ## [0.7.32] — 2026-11-13
 
 ### Geändert
