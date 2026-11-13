@@ -30,3 +30,8 @@ Grobe Zusammenfassung dessen, was in den Panels steckt.
   (`~/.local/share/polypanel/se-cpufix/fakecpu.so`), der Wine 3.6 GHz meldet; im Serverlog steht
   danach `Experimental mode: No`. Voraussetzung ist ein C-Compiler (`build-essential`/`gcc`) —
   fehlt er, bleibt alles wie bisher und das Startlog sagt es.
+- **Hinweis-Popup zum Experimental-Modus entfernt.** Seit der Server die Hardwareprüfung besteht, war
+  das Fenster „Server läuft im Experimental-Modus" (plus die Warnleiste im Einstellungsreiter) nur noch
+  im Weg — es legte sich über die ganze Seite und schluckte Klicks. Beides ist raus, samt
+  `/api/experimental` und den zugehörigen Sprachschlüsseln; am Feld `ExperimentalMode` steht weiter
+  „wirksam: AN/aus" aus dem Serverlog, falls SE doch einmal selbst umschaltet.

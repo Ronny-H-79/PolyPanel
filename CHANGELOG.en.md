@@ -30,3 +30,8 @@ Rough summary of what the panels contain.
   (`~/.local/share/polypanel/se-cpufix/fakecpu.so`) that reports 3.6 GHz to Wine; the server log then
   shows `Experimental mode: No`. Requires a C compiler (`build-essential`/`gcc`) — if it is missing,
   nothing changes and the start log says so.
+- **Experimental-mode popup removed.** Now that the server passes the hardware check, the "server is
+  running in experimental mode" window (and the warning bar in the settings tab) only got in the way —
+  it covered the whole page and swallowed clicks. Both are gone, together with `/api/experimental` and
+  the related language keys; the `ExperimentalMode` field still shows "effective: on/off" from the
+  server log in case SE flips it by itself.

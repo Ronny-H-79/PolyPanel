@@ -1187,41 +1187,6 @@ async function setupPoll(){
   }catch(e){}
 }
 setTimeout(function(){ setupPoll(); setInterval(setupPoll, 2000); }, 300);
-// Hinweis-Popup, wenn der Server trotz ExperimentalMode=false experimentell laeuft
-async function expHinweis(force){
-  try{
-    const ex=JSON.parse(await api('/api/experimental'));
-    if(!ex || !ex.yes) return;
-    // Einmal zeigen (gemerkt im Browser), "Nicht mehr anzeigen" schaltet es dauerhaft ab.
-    // Wichtig: das Fenster legt sich ueber die ganze Seite - bleibt es offen, gehen ALLE
-    // Klicks ins Leere (auch "Änderungen speichern").
-    if(!force && (localStorage.getItem('expHintOff')==='1' || localStorage.getItem('expHintSeen')==='1')) return;
-    if(!force) localStorage.setItem('expHintSeen','1');
-    const ov=document.createElement('div');
-    ov.style.cssText='position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center';
-    const grund=ex.reasons?('<div style="margin-top:10px;color:var(--dim);font-size:11.5px">'+ex.reasons+'</div>'):'';
-    ov.innerHTML='<div style="max-width:540px;margin:16px;background:#0b131a;border:1px solid var(--warn);border-radius:10px;padding:16px 18px;color:var(--fg);font-size:13px;line-height:1.5">'
-      +'<b style="color:var(--warn)">'+(L['se.exp_title']||'Server laeuft im Experimental-Modus')+'</b>'
-      +'<div style="margin-top:10px;font-size:12.5px;line-height:1.7">'
-      +'<div>'+(L['se.exp_cfg']||'ExperimentalMode in der Config')+': <b>false</b> (aus)</div>'
-      +'<div>'+(L['se.exp_eff']||'ExperimentalMode wirksam')+': <b style="color:var(--warn)">true</b> (an)</div></div>'
-      +'<div style="margin-top:10px">'+(L['se.exp_body']||'Space Engineers hat den experimentellen Modus selbst aktiviert. Im Client muss Experimental in den Spieloptionen eingeschaltet sein, sonst laesst sich nicht beitreten.')+'</div>'
-      +grund
-      +'<div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">'
-      +'<button class="ghost" id="expNever">'+(L['se.exp_never']||'Nicht mehr anzeigen')+'</button>'
-      +'<button class="primary" id="expOk">OK</button></div></div>';
-    document.body.appendChild(ov);
-    ov.querySelector('#expOk').onclick=function(){ ov.remove(); };
-    ov.onclick=function(ev){ if(ev.target===ov) ov.remove(); };          // Klick daneben schliesst
-    document.addEventListener('keydown',function esc(ev){
-      if(ev.key==='Escape'){ ov.remove(); document.removeEventListener('keydown',esc); }
-    });
-    ov.querySelector('#expNever').onclick=function(){
-      localStorage.setItem('expHintOff','1'); ov.remove();
-    };
-  }catch(e){}
-}
-setTimeout(expHinweis, 2500);
 
 
 const L=__LANGJSON__;
@@ -1688,30 +1653,6 @@ function filterSettings(q){
 }
 async function loadSettings(){
   SETTINGS=JSON.parse(await api('/api/settings'));
-  // Warnung, wenn der Server trotz "Experimental=false" experimentell laeuft
-  try{
-    const ex=JSON.parse(await api('/api/experimental'));
-    const box=document.getElementById('settings');
-    if(ex && ex.yes && box){
-      let w=document.getElementById('expWarn');
-      if(!w){ w=document.createElement('div'); w.id='expWarn';
-        w.style.cssText='margin:0 0 10px;padding:8px 10px;border:1px solid var(--warn);border-radius:6px;'
-                       +'color:var(--warn);font-size:12px;line-height:1.45';
-        box.insertBefore(w, box.firstChild); }
-      w.textContent=(L['se.experimental_warn']||'Server laeuft im Experimental-Modus')
-                    +(ex.reasons?(' ('+ex.reasons+')'):'')
-                    +(L['se.experimental_hint']||' - im Client muss Experimental in den Spieloptionen aktiv sein.');
-      // Weg zurueck, wenn der Hinweis weggeklickt wurde: oeffnet das Fenster erneut
-      const mehr=document.createElement('button');
-      mehr.className='ghost'; mehr.style.cssText='margin-left:8px;font-size:11px;padding:2px 8px';
-      mehr.textContent=L['se.exp_show']||'Hinweis anzeigen';
-      mehr.onclick=function(){ localStorage.removeItem('expHintOff');
-                               sessionStorage.removeItem('expHint'); expHinweis(true); };
-      w.appendChild(mehr);
-    }else{
-      const w=document.getElementById('expWarn'); if(w) w.remove();
-    }
-  }catch(e){}
 
   const byGroup={};
   SETTINGS.forEach(v=>{ const g=v.group||'play'; (byGroup[g]=byGroup[g]||[]).push(v); });
@@ -2829,23 +2770,6 @@ class Handler(BaseHTTPRequestHandler):
                 "cluster_dir_custom": bool(inst.cluster_dir),
                 "transfer_filtering": bool(inst.cluster_transfer_filtering),
             })
-        elif path == "/api/experimental":
-            # SE entscheidet selbst ueber Experimental (Werte ueber Vanilla oder schwache Hardware
-            # laut VM-CPU). Der Config-Wert sagt nur, was gewuenscht ist - also im Serverlog nachsehen.
-            antwort = {"yes": False, "reasons": ""}
-            try:
-                import glob as _glob
-                treffer = sorted(_glob.glob(os.path.join(inst.directory, "SpaceEngineersDedicated_*.log")))
-                if treffer:
-                    with open(treffer[-1], encoding="utf-8", errors="replace") as fh:
-                        for zeile in fh:
-                            if "Experimental mode: Yes" in zeile:
-                                antwort["yes"] = True
-                            elif "Experimental mode reason:" in zeile:
-                                antwort["reasons"] = zeile.split("reason:", 1)[1].strip()
-            except OSError:
-                pass
-            self._json(antwort)
         elif path == "/api/settings":
             if inst.game != "ark":
                 self._json(_uebersetzte_settings(inst))     # nur die Felder dieses Spiels
