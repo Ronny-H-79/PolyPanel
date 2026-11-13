@@ -209,8 +209,6 @@ t() {
     de:hook_now)           echo "Melde-Webhook: $2" ;;
     en:hook_off)           echo "Report webhook: off (no reports are sent)" ;;
     de:hook_off)           echo "Melde-Webhook: aus (es werden keine Meldungen gesendet)" ;;
-    en:hook_pending)       echo "Report webhook: not set yet - install.sh uses the project address $2" ;;
-    de:hook_pending)       echo "Melde-Webhook: noch nicht gesetzt - install.sh traegt die Projektadresse ein ($2)" ;;
     en:language_saved)     echo "Language: English" ;;
     de:language_saved)     echo "Sprache: Deutsch" ;;
     *) return 1 ;;
@@ -442,7 +440,7 @@ elif [ "$CHECK_ONLY" = "1" ]; then
   case "$HOOK_ZUSTAND" in
     gesetzt) say "$(t hook_now "$(maskiere "$HOOK_URL")")" ;;
     aus)     warn "$(t hook_off)" ;;
-    *)       warn "$(t hook_pending "$(maskiere "$DEFAULT_HOOK")")" ;;
+    *)       : ;;
   esac
 elif [ -t 0 ] && [ "$AUTO" = "0" ]; then
   case "$HOOK_ZUSTAND" in
