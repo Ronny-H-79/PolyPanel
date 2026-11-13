@@ -1,3 +1,14 @@
+## [0.7.57] — 2026-11-13
+
+### Geändert
+- **Melde-Webhook ist jetzt reine Betreiber-Sache.** Das Feld, der Speichern- und der
+  Test-Knopf sind aus der Oberfläche verschwunden; gesetzt wird die Adresse nur noch auf der
+  Konsole: `ascendedpanel report-webhook https://discord.com/api/webhooks/…` (ohne Wert zeigt sie
+  die maskierte Adresse, `-` entfernt sie), Test mit `ascendedpanel report-test`.
+- Der Abschnitt „Fehler melden" erscheint nur, wenn ein Webhook hinterlegt ist — ohne Adresse ist
+  die Funktion für Nutzer unsichtbar, statt mit Fehlermeldung dazustehen. Die API-Wege zum Setzen
+  und Testen sind entfallen, damit niemand über die Oberfläche an die Adresse kommt.
+
 ## [0.7.56] — 2026-11-13
 
 ### Geändert

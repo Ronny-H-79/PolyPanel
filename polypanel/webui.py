@@ -1041,17 +1041,11 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
     </div>
   </section>
 
-  <section class="tab tab-server"><h2 data-t="report.title">Fehler melden</h2>
-    <div class="meta" data-t="report.hint">Meldung geht an einen Discord-Kanal. Mitgeschickt werden automatisch
+  <section class="tab tab-server" id="repSection" style="display:none"><h2 data-t="report.title">Fehler melden</h2>
+    <div class="meta" data-t="report.hint">Meldung geht an den Betreiber des Panels. Mitgeschickt werden automatisch
       Panel-Version, Instanz, Betriebssystem und die letzten Logzeilen — Passwörter und Token werden vorher entfernt.</div>
-    <div class="setrow" style="margin-top:8px">
-      <label><b data-t="report.url">Melde-Webhook</b><small data-t="report.url_hint">eine Adresse für alle Instanzen, leer = kein Melden</small></label>
-      <input id="repUrl" data-tp="report.url_ph" placeholder="https://discord.com/api/webhooks/…">
-    </div>
     <div class="row" style="margin-top:8px">
-      <button class="primary" onclick="saveRepHook()" data-t="common.save">Speichern</button>
-      <button onclick="testRep()" data-t="report.test">Testmeldung</button>
-      <button onclick="openReport()" data-t="report.open">Fehler melden</button>
+      <button class="primary" onclick="openReport()" data-t="report.open">Fehler melden</button>
       <span class="meta" id="repmsg"></span>
     </div>
   </section>
@@ -1839,31 +1833,12 @@ async function pa(sid,action){ const pname=(window.PNAMES||{})[sid]||'';
   setTimeout(refresh,1500); setTimeout(loadBans,1600); }
 async function give(sid){ catOpen(sid); }
 async function loadRepHook(){
+  // Melden gibt es nur, wenn der Betreiber einen Webhook hinterlegt hat (per Konsole)
   try{
     const d=await api('/api/report');
-    const el=document.getElementById('repUrl'), m=document.getElementById('repmsg');
-    if(el && !el.value) el.placeholder=d.webhook?'(gesetzt)':el.placeholder;
-    if(m){
-      if(d.webhook && d.maskiert){ m.textContent=(L['report.current']||'')+' '+d.maskiert; }
-      else { m.textContent=(L['report.not_set']||''); }
-    }
+    const s=document.getElementById('repSection');
+    if(s) s.style.display=d.webhook?'':'none';
   }catch(e){}
-}
-async function saveRepHook(){
-  const el=document.getElementById('repUrl'), msg=document.getElementById('repmsg');
-  try{
-    const r=await api('/api/report/webhook?url='+encodeURIComponent((el.value||'').trim()),{method:'POST'});
-    msg.textContent=r.ok?(r.url_gesetzt?'gespeichert':'entfernt'):(r.fehler||'Fehler');
-    if(r.ok) el.value='';
-  }catch(e){ msg.textContent=String(e); }
-}
-async function testRep(){
-  const msg=document.getElementById('repmsg');
-  msg.textContent=(L['common.loading']||'...');
-  try{
-    const r=await api('/api/report/test',{method:'POST'});
-    msg.textContent=r.ok?(L['report.sent']||'ok'):(r.fehler||'Fehler');
-  }catch(e){ msg.textContent=String(e); }
 }
 function openReport(){
   document.getElementById('repModal').classList.add('on');
@@ -2542,7 +2517,6 @@ class Handler(BaseHTTPRequestHandler):
             self._json(bans.laden(inst))
         elif path == "/api/report":
             self._json({"webhook": bool(report_mod.webhook()),
-                        "maskiert": report_mod.maskiert(),
                         "version": __version__,
                         "instanz": inst.name if inst else "",
                         "log": bool(report_mod.logauszug(inst)) if inst else False})
@@ -2814,20 +2788,6 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._json(report_mod.senden(inst, str(daten.get("text", "")),
                                         str(daten.get("steps", ""))))
-            return
-        elif path == "/api/report/webhook":
-            url = q.get("url", [""])[0].strip()
-            if url and not url.startswith("https://"):
-                self._json({"ok": False, "fehler": "Webhook muss mit https:// beginnen"})
-                return
-            report_mod.set_webhook(url)
-            self._json({"ok": True, "url_gesetzt": bool(url)})
-            return
-        elif path == "/api/report/test":
-            if not inst:
-                self._json({"ok": False, "fehler": "keine Instanz"})
-                return
-            self._json(report_mod.test(inst))
             return
         elif path == "/api/notify/test":
             url = q.get("url", [""])[0].strip() or inst.webhook_url

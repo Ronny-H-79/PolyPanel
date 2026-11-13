@@ -388,6 +388,33 @@ def cmd_wizard(args: argparse.Namespace) -> None:
     print("  http://127.0.0.1:8790/?token=%s" % _token())
 
 
+def cmd_report_hook(args: argparse.Namespace) -> None:
+    """Melde-Webhook anzeigen, setzen oder entfernen (bewusst nur auf der Konsole)."""
+    from . import report
+
+    if args.url is None:
+        print("Melde-Webhook: %s" % (report.maskiert() or "(nicht gesetzt)"))
+        return
+    ziel = args.url.strip()
+    if ziel in ("", "-", "aus", "none"):
+        report.set_webhook("")
+        print("Melde-Webhook entfernt")
+        return
+    if not ziel.startswith("https://"):
+        sys.exit("Webhook muss mit https:// beginnen")
+    report.set_webhook(ziel)
+    print("Melde-Webhook gesetzt: %s" % report.maskiert())
+
+
+def cmd_report_test(args: argparse.Namespace) -> None:
+    """Testmeldung an den Melde-Webhook schicken."""
+    from . import report
+
+    inst = load(args.name)
+    ergebnis = report.test(inst)
+    print("Testmeldung:", "gesendet" if ergebnis.get("ok") else ergebnis.get("fehler"))
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="PolyPanel", description="PolyPanel - Multigame-Server-Manager (ARK Ascended/Evolved, Satisfactory, 7 Days to Die, Space Engineers)")
     p.add_argument("--name", default=None, help="Instanzname (default: test)")
@@ -486,6 +513,15 @@ def main(argv: list[str] | None = None) -> None:
     pw.add_argument("--tls-cert", dest="tls_cert", default="")
     pw.add_argument("--tls-key", dest="tls_key", default="")
     pw.set_defaults(func=cmd_web)
+
+    prw = sub.add_parser("report-webhook", parents=[common],
+                         help="Melde-Webhook anzeigen/setzen/entfernen (ohne Wert: anzeigen)")
+    prw.add_argument("url", nargs="?", default=None)
+    prw.set_defaults(func=cmd_report_hook)
+
+    prt = sub.add_parser("report-test", parents=[common],
+                         help="Testmeldung an den Melde-Webhook schicken")
+    prt.set_defaults(func=cmd_report_test)
 
     args = p.parse_args(argv)
     if args.cmd != "wizard":

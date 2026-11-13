@@ -1,3 +1,14 @@
+## [0.7.57] — 2026-11-13
+
+### Changed
+- **The report webhook is now operator-only.** The field, the save button and the test button are
+  gone from the UI; the address is set on the console only:
+  `ascendedpanel report-webhook https://discord.com/api/webhooks/…` (without a value it shows the
+  masked address, `-` removes it), test with `ascendedpanel report-test`.
+- The "Report a bug" section only appears when a webhook is configured — without an address the
+  feature stays invisible for users instead of showing an error. The API routes for setting and
+  testing are gone so nobody can reach the address through the UI.
+
 ## [0.7.56] — 2026-11-13
 
 ### Changed
