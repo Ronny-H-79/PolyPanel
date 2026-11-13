@@ -159,6 +159,7 @@ loginctl enable-linger $USER      # keeps running without a logged-in session
 ## Uninstall
 
 ```bash
+cd ~/polypanel          # your clone of the repo
 ./install.sh --uninstall
 ```
 
@@ -170,25 +171,26 @@ backups (`~/polypanel-backups`), snapshots (`~/polypanel-snapshots`).
 ### Remove everything (instances and worlds too)
 
 ```bash
+cd ~/polypanel          # your clone of the repo
 ./install.sh --uninstall
-rm -rf ~/arkserver-* ~/.config/ascendedpanel ~/ascendedpanel-backups ~/ascendedpanel-snapshots
-rm -f /etc/systemd/system/ascendedpanel-*.service
+rm -rf ~/polypanel-instances ~/.config/polypanel ~/polypanel-backups ~/polypanel-snapshots
+rm -f /etc/systemd/system/polypanel-*.service
 systemctl daemon-reload
 ```
 
-Where things live: program `~/.local/share/ascendedpanel` and `~/.local/bin/ascendedpanel`, settings and
-token `~/.config/ascendedpanel`, instances with worlds `~/arkserver-<name>`, SteamCMD `~/steamcmd`,
+Where things live: program `~/.local/share/polypanel` and `~/.local/bin/polypanel`, settings and
+token `~/.config/polypanel`, instances with worlds `~/polypanel-instances/<name>`, SteamCMD `~/steamcmd`,
 `~/.steam` and `~/Steam`.
 
 ## Where things are
 
 | Path | Content |
 |---|---|
-| `~/.local/share/PolyPanel` | program |
-| `~/.local/bin/PolyPanel` | launcher |
+| `~/.local/share/polypanel` | program |
+| `~/.local/bin/polypanel` | launcher |
 | `~/.config/polypanel/<name>.json` | instance configuration |
 | `~/.config/polypanel/token` | web token (0600) |
-| `~/arkserver-<name>` | server files of the instance |
+| `~/polypanel-instances/<name>` | server files of the instance |
 | `~/polypanel-backups/<name>` | world backups (tar.gz) |
 | `~/polypanel-snapshots/<name>` | full instance snapshots (rollback after an update) |
 

@@ -151,7 +151,7 @@ Am Ende steht genau der Befehl, der zu deiner Wahl passt: der SSH-Tunnel mit dei
 |---|---|---|
 | `fatal: destination path 'PolyPanel' already exists` | der Ordner liegt schon da | `cd polypanel && git pull` statt erneut klonen |
 | `./install.sh: No such file or directory` **nach** `cd polypanel/polypanel` | du stehst im Paketordner `PolyPanel/PolyPanel` — dort liegen nur `.py`-Dateien | `cd ..` — `install.sh` liegt eine Ebene höher, im Projektordner |
-| `PolyPanel: command not found` | `~/.local/bin` ist nicht im `PATH` | als root legt der Installer `/usr/local/bin/PolyPanel` an; sonst `export PATH="$HOME/.local/bin:$PATH"` und neue Shell öffnen |
+| `PolyPanel: command not found` | `~/.local/bin` ist nicht im `PATH` | als root legt der Installer `/usr/local/bin/polypanel` an; sonst `export PATH="$HOME/.local/bin:$PATH"` und neue Shell öffnen |
 
 **Eine Falle bei Namensgleichheit:** im Projektordner heißt der Python-Teil ebenfalls `polypanel`.
 `cd polypanel/polypanel` führt dich also ein zweites Mal hinein — dort liegen `cli.py`, `i18n.py` und Co., aber kein
@@ -168,6 +168,7 @@ Details, Voraussetzungen und Deinstallation: [INSTALL.md](INSTALL.de.md)
 **Nur das Programm** (Instanzen, Backups und Einstellungen bleiben):
 
 ```bash
+cd ~/polypanel          # in den Klon des Repos wechseln
 ./install.sh --uninstall
 ```
 
@@ -175,9 +176,15 @@ Das beendet und entfernt auch die systemd-Dienste (`polypanel-web`, `polypanel-*
 kein Dienst mehr ins Leere zeigt. Ist der Quellordner schon weg, reicht von Hand:
 
 ```bash
-systemctl --user disable --now polypanel-web.service polypanel-test.service
-rm -f ~/.config/systemd/user/polypanel-*.service ~/.local/bin/PolyPanel
-rm -rf ~/.local/share/PolyPanel
+# Benutzer-Installation
+systemctl --user disable --now polypanel-web.service
+rm -f ~/.config/systemd/user/polypanel-*.service ~/.local/bin/polypanel
+rm -rf ~/.local/share/polypanel
+
+# Installation als root (Systemdienst, ~ ist /root)
+systemctl disable --now polypanel-web.service
+rm -f /etc/systemd/system/polypanel-*.service /usr/local/bin/polypanel
+rm -rf ~/.local/share/polypanel
 ```
 
 **Alles weg** — zusätzlich Konfiguration, Token, Sicherungen und Serverdaten (zusammen etwa 24 GB):
@@ -186,8 +193,8 @@ rm -rf ~/.local/share/PolyPanel
 rm -rf ~/.config/polypanel          # Instanzen, Token, Mod-Cache
 rm -rf ~/polypanel-backups          # Welt-Backups
 rm -rf ~/polypanel-snapshots        # Instanz-Snapshots
-rm -rf ~/arkserver             # die Serverdateien (12 GB)
-rm -rf ~/.wine-arkserver       # Wine-Prefix
+rm -rf ~/polypanel-instances        # die Serverdateien der Instanzen
+rm -rf ~/.wine-arkserver            # Wine-Prefix (falls gesetzt)
 ```
 
 Der letzte Schritt ist der einzige, der wirklich unwiederbringlich ist: Welt und Configs liegen in
@@ -198,14 +205,15 @@ Der letzte Schritt ist der einzige, der wirklich unwiederbringlich ist: Welt und
 ### Alles entfernen (auch Instanzen und Welten)
 
 ```bash
+cd ~/polypanel          # in den Klon des Repos wechseln
 ./install.sh --uninstall
-rm -rf ~/arkserver-* ~/.config/ascendedpanel ~/ascendedpanel-backups ~/ascendedpanel-snapshots
-rm -f /etc/systemd/system/ascendedpanel-*.service
+rm -rf ~/polypanel-instances ~/.config/polypanel ~/polypanel-backups ~/polypanel-snapshots
+rm -f /etc/systemd/system/polypanel-*.service
 systemctl daemon-reload
 ```
 
-Was wo liegt: Programm `~/.local/share/ascendedpanel` und `~/.local/bin/ascendedpanel`, Einstellungen und
-Token `~/.config/ascendedpanel`, Instanzen mit Welten `~/arkserver-<name>`, SteamCMD `~/steamcmd`,
+Was wo liegt: Programm `~/.local/share/polypanel` und `~/.local/bin/polypanel`, Einstellungen und
+Token `~/.config/polypanel`, Instanzen mit Welten `~/polypanel-instances/<name>`, SteamCMD `~/steamcmd`,
 `~/.steam` und `~/Steam`.
 
 ## Mehr

@@ -142,7 +142,7 @@ At the end you get the command that matches your choice: the SSH tunnel with you
 |---|---|---|
 | `fatal: destination path 'PolyPanel' already exists` | the folder is already there | `cd polypanel && git pull` instead of cloning again |
 | `./install.sh: No such file or directory` **after** `cd polypanel/polypanel` | you are in the package folder `PolyPanel/PolyPanel` — only `.py` files live there | `cd ..` — `install.sh` is one level up |
-| `PolyPanel: command not found` | `~/.local/bin` is not in `PATH` | as root the installer links `/usr/local/bin/PolyPanel`; otherwise `export PATH="$HOME/.local/bin:$PATH"` and open a new shell |
+| `PolyPanel: command not found` | `~/.local/bin` is not in `PATH` | as root the installer links `/usr/local/bin/polypanel`; otherwise `export PATH="$HOME/.local/bin:$PATH"` and open a new shell |
 
 Details, requirements and uninstall: [INSTALL.md](INSTALL.md)
 
@@ -151,6 +151,7 @@ Details, requirements and uninstall: [INSTALL.md](INSTALL.md)
 **The program only** (instances, backups and settings stay):
 
 ```bash
+cd ~/polypanel          # your clone of the repo
 ./install.sh --uninstall
 ```
 
@@ -158,9 +159,15 @@ This also stops and removes the systemd units (`polypanel-web`, `polypanel-*`) s
 file afterwards. If the source folder is already gone:
 
 ```bash
-systemctl --user disable --now polypanel-web.service polypanel-test.service
-rm -f ~/.config/systemd/user/polypanel-*.service ~/.local/bin/PolyPanel
-rm -rf ~/.local/share/PolyPanel
+# user installation
+systemctl --user disable --now polypanel-web.service
+rm -f ~/.config/systemd/user/polypanel-*.service ~/.local/bin/polypanel
+rm -rf ~/.local/share/polypanel
+
+# installation as root (system service, ~ is /root)
+systemctl disable --now polypanel-web.service
+rm -f /etc/systemd/system/polypanel-*.service /usr/local/bin/polypanel
+rm -rf ~/.local/share/polypanel
 ```
 
 **Everything** — additionally config, token, backups and server files (about 24 GB):
@@ -169,8 +176,8 @@ rm -rf ~/.local/share/PolyPanel
 rm -rf ~/.config/polypanel          # instances, token, mod cache
 rm -rf ~/polypanel-backups          # world backups
 rm -rf ~/polypanel-snapshots        # instance snapshots
-rm -rf ~/arkserver             # the server files (12 GB)
-rm -rf ~/.wine-arkserver       # Wine prefix
+rm -rf ~/polypanel-instances        # the server files of the instances
+rm -rf ~/.wine-arkserver            # Wine prefix (if set)
 ```
 
 Only the last step is irreversible: worlds and configs live in `~/polypanel-backups` — keep those and you can
@@ -181,14 +188,15 @@ restore everything later.
 ### Remove everything (instances and worlds too)
 
 ```bash
+cd ~/polypanel          # your clone of the repo
 ./install.sh --uninstall
-rm -rf ~/arkserver-* ~/.config/ascendedpanel ~/ascendedpanel-backups ~/ascendedpanel-snapshots
-rm -f /etc/systemd/system/ascendedpanel-*.service
+rm -rf ~/polypanel-instances ~/.config/polypanel ~/polypanel-backups ~/polypanel-snapshots
+rm -f /etc/systemd/system/polypanel-*.service
 systemctl daemon-reload
 ```
 
-Where things live: program `~/.local/share/ascendedpanel` and `~/.local/bin/ascendedpanel`, settings and
-token `~/.config/ascendedpanel`, instances with worlds `~/arkserver-<name>`, SteamCMD `~/steamcmd`,
+Where things live: program `~/.local/share/polypanel` and `~/.local/bin/polypanel`, settings and
+token `~/.config/polypanel`, instances with worlds `~/polypanel-instances/<name>`, SteamCMD `~/steamcmd`,
 `~/.steam` and `~/Steam`.
 
 ## More

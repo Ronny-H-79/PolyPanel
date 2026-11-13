@@ -159,6 +159,7 @@ loginctl enable-linger $USER      # läuft auch ohne angemeldete Sitzung
 ## Deinstallieren
 
 ```bash
+cd ~/polypanel          # in den Klon des Repos wechseln
 ./install.sh --uninstall
 ```
 
@@ -170,25 +171,26 @@ Entfernt Programm und Launcher. **Bleiben:** Instanzen (`~/arkserver-*`), Einste
 ### Alles entfernen (auch Instanzen und Welten)
 
 ```bash
+cd ~/polypanel          # in den Klon des Repos wechseln
 ./install.sh --uninstall
-rm -rf ~/arkserver-* ~/.config/ascendedpanel ~/ascendedpanel-backups ~/ascendedpanel-snapshots
-rm -f /etc/systemd/system/ascendedpanel-*.service
+rm -rf ~/polypanel-instances ~/.config/polypanel ~/polypanel-backups ~/polypanel-snapshots
+rm -f /etc/systemd/system/polypanel-*.service
 systemctl daemon-reload
 ```
 
-Was wo liegt: Programm `~/.local/share/ascendedpanel` und `~/.local/bin/ascendedpanel`, Einstellungen und
-Token `~/.config/ascendedpanel`, Instanzen mit Welten `~/arkserver-<name>`, SteamCMD `~/steamcmd`,
+Was wo liegt: Programm `~/.local/share/polypanel` und `~/.local/bin/polypanel`, Einstellungen und
+Token `~/.config/polypanel`, Instanzen mit Welten `~/polypanel-instances/<name>`, SteamCMD `~/steamcmd`,
 `~/.steam` und `~/Steam`.
 
 ## Wo was liegt
 
 | Pfad | Inhalt |
 |---|---|
-| `~/.local/share/PolyPanel` | Programm |
-| `~/.local/bin/PolyPanel` | Launcher |
+| `~/.local/share/polypanel` | Programm |
+| `~/.local/bin/polypanel` | Launcher |
 | `~/.config/polypanel/<name>.json` | Instanz-Konfiguration |
 | `~/.config/polypanel/token` | Web-Token (0600) |
-| `~/arkserver-<name>` | Serverdateien der Instanz |
+| `~/polypanel-instances/<name>` | Serverdateien der Instanz |
 | `~/polypanel-backups/<name>` | Welt-Backups (tar.gz) |
 | `~/polypanel-snapshots/<name>` | vollständige Instanz-Snapshots (Rollback nach Update) |
 
