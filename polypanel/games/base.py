@@ -49,6 +49,7 @@ class GameProfile:
     control_kind: str = "source"           # source | telnet | https | none
     needs_wine: bool = False
     refuses_root: bool = False   # True = Server startet nicht als root (z. B. Satisfactory)
+    console_via_stdin: bool = False   # True = Konsolenbefehle auch ohne API direkt auf stdin
     default_game_port: int = 7777
     default_query_port: int = 27016
     default_control_port: int = 27025

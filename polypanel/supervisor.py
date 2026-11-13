@@ -402,6 +402,19 @@ class Supervisor:
             self.state["no_port_ticks"] = 0
             _save_state(self.inst, self.state)
 
+        # Satisfactory: API-Token selbst erzeugen, sonst bleibt die Spielerliste leer.
+        # Einmal pro Stunde, nur solange keiner gespeichert ist.
+        if (not getattr(self.inst, "api_token", "")
+                and getattr(self.inst.profile, "needs_api_token", False)):
+            jetzt = time.time()
+            letzter = float(self.state.get("token_try_ts", 0) or 0)
+            if jetzt - letzter > 3600:
+                self.state["token_try_ts"] = jetzt
+                _save_state(self.inst, self.state)
+                tok = self.inst.profile.ensure_api_token(self.inst)
+                notify(self.inst, "API-Token %s" % ("erzeugt und gespeichert"
+                                                    if tok else "konnte nicht erzeugt werden"))
+
     def _maybe_update_notice(self) -> None:
         """Alle 6 Stunden pruefen, ob ein neuer Server-Build bereitsteht."""
         now = time.time()

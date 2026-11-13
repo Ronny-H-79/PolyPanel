@@ -11,6 +11,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import tempfile
 import time
@@ -58,6 +59,50 @@ def _archiv_info(z: zipfile.ZipFile) -> tuple[str, str, bool, str]:
             str(daten.get("SemVersion") or daten.get("VersionName") or ""))
 
 
+TOKEN_MUSTER = re.compile(r"[A-Za-z0-9+/=_.-]{16,}")
+
+
+def token_aus_konsole(inst) -> str:
+    """Letzten API-Token aus der Serverkonsole fischen (Zeile muss "token" enthalten)."""
+    from .. import runner
+    for zeile in reversed(runner.tail_console(inst, 60)):
+        if "token" not in zeile.lower():
+            continue
+        for treffer in TOKEN_MUSTER.findall(zeile):
+            if len(treffer) >= 16 and treffer.lower() not in ("generateapitoken", "servergenerateapitoken"):
+                return treffer
+    return ""
+
+
+def ensure_api_token(inst, warte: float = 3.0) -> str:
+    """Satisfactory braucht einen API-Token, sonst gibt es keine Spielerliste.
+
+    Der Token entsteht im Server selbst (`server.GenerateAPIToken`); der Befehl geht ueber die
+    stdin des Servers, damit man ihn nicht von Hand in der Konsole erzeugen muss.
+    """
+    from .. import registry, runner
+
+    if getattr(inst, "api_token", ""):
+        return inst.api_token
+    try:
+        tok = token_aus_konsole(inst)                 # vielleicht schon vorhanden
+        if not tok:
+            runner.send_console(inst, "server.GenerateAPIToken")
+            time.sleep(warte)
+            tok = token_aus_konsole(inst)
+        if not tok:
+            return ""
+        inst.api_token = tok
+        registry.save(inst)
+        try:
+            inst.write_ini()                          # ServerApiToken in die INI
+        except Exception:                             # noqa: BLE001
+            pass
+        return tok
+    except Exception:                                 # noqa: BLE001 - nie den Supervisor kippen
+        return ""
+
+
 class SatisfactoryProfile(GameProfile):
     key = "satisfactory"
     label = "Satisfactory (Dedicated Server)"
@@ -65,6 +110,10 @@ class SatisfactoryProfile(GameProfile):
     control_kind = "https"
     needs_wine = False
     refuses_root = True       # "Refusing to run with the root privileges" (UE-Server)
+    # Ohne API-Token (server.GenerateAPIToken) laesst die HTTPS-API nichts zu - Konsolenbefehle
+    # gehen dann direkt auf die stdin des Servers, sonst kaeme man nie an den Token.
+    console_via_stdin = True
+    needs_api_token = True      # ohne Token liefert die HTTPS-API keine Spielerliste
     default_game_port = 7777
     default_query_port = 15777
     default_control_port = 7777      # API laeuft auf dem Spielport

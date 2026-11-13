@@ -79,8 +79,13 @@ def _log_step(inst: Instance, text: str) -> None:
 
 
 def rcon_cmd(inst: Instance, cmd: str, timeout: float = 12.0) -> str:
-    with inst.control(timeout=timeout) as rc:
-        return rc.command(cmd, timeout=timeout + 5)
+    try:
+        with inst.control(timeout=timeout) as rc:
+            return rc.command(cmd, timeout=timeout + 5)
+    except Exception:                      # noqa: BLE001 - z. B. Satisfactory ohne API-Token
+        if getattr(inst.profile, "console_via_stdin", False):
+            return runner.send_console(inst, cmd)
+        raise
 
 
 def players(inst: Instance) -> list[dict[str, str]]:
@@ -887,7 +892,9 @@ async function showPlayers(inst){
   let list=[];
   try{ list=JSON.parse(await api('/api/players?name='+encodeURIComponent(inst))); }
   catch(e){ body.textContent=String(e); return; }
-  if(!list.length){ body.innerHTML='<span style="color:var(--dim)">– '+L['inst.no_players']+' –</span>'; return; }
+  if(!list.length){ body.innerHTML='<span style="color:var(--dim)">– '+L['inst.no_players']+' –</span>'
+    + ((document.body.dataset.game==='satisfactory') ? '<div class="meta" style="margin-top:6px">'+L['inst.players_hint_sf']+'</div>' : '');
+    return; }
   body.innerHTML='<table class="plTable"><thead><tr><th>'+L['dash.players']+'</th><th>'+L['dash.eos_id']+'</th><th></th></tr></thead><tbody>'+
     list.map(function(pl){ return plRow(inst, pl); }).join('')+'</tbody></table>';
 }
