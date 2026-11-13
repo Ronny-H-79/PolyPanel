@@ -507,8 +507,10 @@ async function load(){
             return menu(off)+bStart(off)+bRestart(off)+bUpdate(off)+bStop(off)+bDel(off);
           if(startingNow)
             return menu(off)+bStart(off)+bRestart(off)+bUpdate(off)+bStop('')+bDel(off);
+          // Update ist bewusst auch bei gestoppter Instanz bedienbar: genau dann
+          // lassen sich die Serverdateien tauschen.
           return menu('')+bStart(i.running?off:'')+bRestart(i.running?'':off)+
-                 bUpdate(i.running?'':off)+bStop(i.running?'':off)+bDel('');
+                 bUpdate('')+bStop(i.running?'':off)+bDel('');
         })()}
       </div>
       </div>${i.running?`<div class="logwrap"><div class="loghead">${L['dash.log']}</div><pre class="cardlog" data-inst="${i.name}">…</pre></div>`:''}

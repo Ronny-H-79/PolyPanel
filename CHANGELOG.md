@@ -1,3 +1,9 @@
+## [Unveröffentlicht]
+
+### Geändert
+- **Update ist auch bei gestoppter Instanz bedienbar.** Genau dann werden die
+  Serverdateien getauscht — vorher war der Knopf im gestoppten Zustand gesperrt.
+
 ## [0.7.31] — 2026-11-13
 
 ### Behoben

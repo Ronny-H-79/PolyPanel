@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### Changed
+- **Update stays available while the instance is stopped.** That is exactly when the server
+  files get replaced - previously the button was locked in the stopped state.
+
 ## [0.7.31] — 2026-11-13
 
 ### Fixed
