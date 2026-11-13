@@ -1192,8 +1192,11 @@ async function expHinweis(force){
   try{
     const ex=JSON.parse(await api('/api/experimental'));
     if(!ex || !ex.yes) return;
-    // Nur "Nicht mehr anzeigen" unterdrueckt das Fenster - sonst kommt es bei jedem Oeffnen
-    if(!force && localStorage.getItem('expHintOff')==='1') return;
+    // Einmal zeigen (gemerkt im Browser), "Nicht mehr anzeigen" schaltet es dauerhaft ab.
+    // Wichtig: das Fenster legt sich ueber die ganze Seite - bleibt es offen, gehen ALLE
+    // Klicks ins Leere (auch "Änderungen speichern").
+    if(!force && (localStorage.getItem('expHintOff')==='1' || localStorage.getItem('expHintSeen')==='1')) return;
+    if(!force) localStorage.setItem('expHintSeen','1');
     const ov=document.createElement('div');
     ov.style.cssText='position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center';
     const grund=ex.reasons?('<div style="margin-top:10px;color:var(--dim);font-size:11.5px">'+ex.reasons+'</div>'):'';
@@ -1209,6 +1212,10 @@ async function expHinweis(force){
       +'<button class="primary" id="expOk">OK</button></div></div>';
     document.body.appendChild(ov);
     ov.querySelector('#expOk').onclick=function(){ ov.remove(); };
+    ov.onclick=function(ev){ if(ev.target===ov) ov.remove(); };          // Klick daneben schliesst
+    document.addEventListener('keydown',function esc(ev){
+      if(ev.key==='Escape'){ ov.remove(); document.removeEventListener('keydown',esc); }
+    });
     ov.querySelector('#expNever').onclick=function(){
       localStorage.setItem('expHintOff','1'); ov.remove();
     };
