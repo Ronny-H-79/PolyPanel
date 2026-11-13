@@ -6,6 +6,7 @@ import os
 import re
 import hmac
 import secrets
+import socket
 import shutil
 import ssl
 import threading
@@ -3077,7 +3078,19 @@ def serve(host: str = "127.0.0.1", port: int = 8790,
         ctx.load_cert_chain(cert, key)
         srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
         scheme = "https"
-    adresse = "%s://%s:%d/?token=%s" % (scheme, host, port, token())
+    # 0.0.0.0 ist keine Adresse, die man im Browser aufruft - dort die echte IP einsetzen
+    anzeige_host = host
+    if host in ("0.0.0.0", "::", ""):
+        try:
+            _s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                _s.connect(("1.1.1.1", 80))
+                anzeige_host = _s.getsockname()[0]
+            finally:
+                _s.close()
+        except OSError:
+            anzeige_host = "127.0.0.1"
+    adresse = "%s://%s:%d/?token=%s" % (scheme, anzeige_host, port, token())
     print("PolyPanel UI: %s://%s:%d/?token=%s" % (scheme, host, port, token()), flush=True)
     # Adresse mitschreiben: `cat ~/.config/polypanel/url` liefert sie spaeter unveraendert
     try:
