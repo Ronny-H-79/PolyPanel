@@ -1188,12 +1188,12 @@ async function setupPoll(){
 }
 setTimeout(function(){ setupPoll(); setInterval(setupPoll, 2000); }, 300);
 // Hinweis-Popup, wenn der Server trotz ExperimentalMode=false experimentell laeuft
-async function expHinweis(){
+async function expHinweis(force){
   try{
     const ex=JSON.parse(await api('/api/experimental'));
     if(!ex || !ex.yes) return;
-    if(localStorage.getItem('expHintOff')==='1' || sessionStorage.getItem('expHint')==='1') return;
-    sessionStorage.setItem('expHint','1');
+    if(!force && (localStorage.getItem('expHintOff')==='1' || sessionStorage.getItem('expHint')==='1')) return;
+    if(!force) sessionStorage.setItem('expHint','1');
     const ov=document.createElement('div');
     ov.style.cssText='position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center';
     const grund=ex.reasons?('<div style="margin-top:10px;color:var(--dim);font-size:11.5px">'+ex.reasons+'</div>'):'';
@@ -1691,6 +1691,13 @@ async function loadSettings(){
       w.textContent=(L['se.experimental_warn']||'Server laeuft im Experimental-Modus')
                     +(ex.reasons?(' ('+ex.reasons+')'):'')
                     +(L['se.experimental_hint']||' - im Client muss Experimental in den Spieloptionen aktiv sein.');
+      // Weg zurueck, wenn der Hinweis weggeklickt wurde: oeffnet das Fenster erneut
+      const mehr=document.createElement('button');
+      mehr.className='ghost'; mehr.style.cssText='margin-left:8px;font-size:11px;padding:2px 8px';
+      mehr.textContent=L['se.exp_show']||'Hinweis anzeigen';
+      mehr.onclick=function(){ localStorage.removeItem('expHintOff');
+                               sessionStorage.removeItem('expHint'); expHinweis(true); };
+      w.appendChild(mehr);
     }else{
       const w=document.getElementById('expWarn'); if(w) w.remove();
     }
