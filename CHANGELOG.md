@@ -1,3 +1,12 @@
+## [0.7.48] — 2026-11-13
+
+### Behoben
+- **ID-Ermittlung ohne `strings` und mit Diagnose.** Die Speicherdateien werden jetzt direkt in
+  Python gelesen (ASCII **und** UTF-16LE, so wie UE seine Strings ablegt) — vorher hing die
+  Auflösung an `strings` aus binutils, das auf schlanken Servern fehlt und dann stillschweigend
+  nichts fand. Die Fehlermeldung nennt zusätzlich, wie viele Speicherdateien gefunden und wie
+  viele Spieler zugeordnet wurden.
+
 ## [0.7.47] — 2026-11-13
 
 ### Behoben

@@ -2849,8 +2849,8 @@ class Handler(BaseHTTPRequestHandler):
                 steamid = dauerhaft
             else:
                 self._send(200, ("Keine dauerhafte Spieler-ID gefunden — Gegenstand nicht "
-                                 "geschickt. Der Spieler muss einmal auf diesem Server "
-                                 "gespeichert sein (Join + Autosave).").encode())
+                                 "geschickt (%s). Der Spieler muss einmal gespeichert sein "
+                                 "(Join + Autosave)." % playerids.diagnose(inst)).encode())
                 return
             try:
                 self._send(200, rcon_cmd(inst, "GiveItemToPlayer %s %s %s 0 0" % (steamid, bp, qty)).encode())

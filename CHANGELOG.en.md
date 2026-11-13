@@ -1,3 +1,12 @@
+## [0.7.48] — 2026-11-13
+
+### Fixed
+- **ID lookup without `strings` plus diagnostics.** The save files are now parsed directly in
+  Python (ASCII **and** UTF-16LE, the way UE stores strings) — before, the lookup depended on
+  `strings` from binutils, which is missing on slim servers and then silently found nothing.
+  The error message now also reports how many save files were seen and how many players were
+  mapped.
+
 ## [0.7.47] — 2026-11-13
 
 ### Fixed

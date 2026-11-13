@@ -25,6 +25,27 @@ _TTL = 120.0
 
 
 def _strings(pfad: str, minimum: int) -> list[str]:
+    """Textzeilen aus einer Binärdatei lesen - ohne Abhängigkeit von `strings`.
+
+    UE-Saves speichern ihre Strings als UTF-16LE. Deshalb werden beide Kodierungen
+    ausgelesen; `strings` (binutils) dient nur als Notnagel, falls es installiert ist.
+    """
+    try:
+        with open(pfad, "rb") as fh:
+            roh = fh.read()
+    except OSError:
+        return []
+
+    treffer: list[str] = []
+    # ASCII
+    for m in re.finditer(rb"[\x20-\x7e]{%d,}" % minimum, roh):
+        treffer.append(m.group().decode("ascii", "ignore"))
+    # UTF-16LE (jedes zweite Byte 0x00)
+    for m in re.finditer(rb"(?:[\x20-\x7e]\x00){%d,}" % minimum, roh):
+        treffer.append(m.group().decode("utf-16-le", "ignore"))
+
+    if treffer:
+        return treffer
     try:
         return subprocess.run(["strings", "-n", str(minimum), pfad],
                               capture_output=True, text=True, timeout=60).stdout.splitlines()
@@ -94,3 +115,17 @@ def aufloesen(inst: Any, eos: str = "", name: str = "") -> str:
     if name and name in mapping:
         return mapping[name]
     return ""
+
+
+def diagnose(inst: Any) -> str:
+    """Kurze Auskunft fuer die Oberflaeche, wenn keine ID gefunden wurde."""
+    basis = getattr(inst, "directory", "") or ""
+    if not basis or not os.path.isdir(basis):
+        return "Instanzordner nicht gefunden: %s" % (basis or "?")
+    saves = []
+    for dirpath, _dirs, files in os.walk(basis):
+        for name in ("PlayerCache.sav", "Logs.sav"):
+            if name in files:
+                saves.append(name)
+    anzahl = len(karte(inst, neu_laden=True))
+    return "gefundene Speicherdateien: %d, zugeordnete Spieler: %d" % (len(saves), anzahl)
