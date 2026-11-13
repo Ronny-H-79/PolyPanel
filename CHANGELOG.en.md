@@ -1,3 +1,10 @@
+## [0.7.56] — 2026-11-13
+
+### Changed
+- **The report webhook is now shown masked** (`https://discord.com/api/webhooks/…`).
+  The input stays empty — the full address is never sent to the browser; the line next to the
+  buttons states which address is stored. Saving an empty value removes it.
+
 ## [0.7.55] — 2026-11-13
 
 ### Added

@@ -1841,9 +1841,12 @@ async function give(sid){ catOpen(sid); }
 async function loadRepHook(){
   try{
     const d=await api('/api/report');
-    const el=document.getElementById('repUrl');
+    const el=document.getElementById('repUrl'), m=document.getElementById('repmsg');
     if(el && !el.value) el.placeholder=d.webhook?'(gesetzt)':el.placeholder;
-    if(!d.webhook){ const m=document.getElementById('repmsg'); if(m) m.textContent=(L['report.not_set']||''); }
+    if(m){
+      if(d.webhook && d.maskiert){ m.textContent=(L['report.current']||'')+' '+d.maskiert; }
+      else { m.textContent=(L['report.not_set']||''); }
+    }
   }catch(e){}
 }
 async function saveRepHook(){
@@ -2539,6 +2542,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(bans.laden(inst))
         elif path == "/api/report":
             self._json({"webhook": bool(report_mod.webhook()),
+                        "maskiert": report_mod.maskiert(),
                         "version": __version__,
                         "instanz": inst.name if inst else "",
                         "log": bool(report_mod.logauszug(inst)) if inst else False})

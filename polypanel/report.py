@@ -59,6 +59,15 @@ def webhook() -> str:
     return str(_lesen().get("report_webhook", "") or "")
 
 
+def maskiert() -> str:
+    """Webhook so anzeigen, dass die Kennung nicht lesbar wird."""
+    url = webhook()
+    if not url:
+        return ""
+    kopf = url.rsplit("/", 2)[0]                    # https://discord.com/api/webhooks/<id>
+    return kopf + "/\u2026"
+
+
 def set_webhook(url: str) -> None:
     daten = _lesen()
     if url:

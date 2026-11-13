@@ -1,3 +1,10 @@
+## [0.7.56] — 2026-11-13
+
+### Geändert
+- **Melde-Webhook wird jetzt maskiert angezeigt** (`https://discord.com/api/webhooks/…`).
+  Das Eingabefeld bleibt leer — die vollständige Adresse wird nie an den Browser geschickt;
+  neben den Knöpfen steht, welche Adresse hinterlegt ist. Leer speichern entfernt sie.
+
 ## [0.7.55] — 2026-11-13
 
 ### Neu

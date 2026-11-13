@@ -392,6 +392,7 @@ T: dict[str, dict[str, str]] = {
     "report.url": {"de": "Melde-Webhook", "en": "Report webhook"},
     "report.url_hint": {"de": "eine Adresse für alle Instanzen, leer = kein Melden", "en": "one address for all instances, empty = no reporting"},
     "report.url_ph": {"de": "https://discord.com/api/webhooks/…", "en": "https://discord.com/api/webhooks/…"},
+    "report.current": {"de": "aktuell gesetzt:", "en": "currently set:"},
     "report.test": {"de": "Testmeldung", "en": "Test message"},
     "report.open": {"de": "Fehler melden", "en": "Report a bug"},
     "report.what": {"de": "Was ist passiert?", "en": "What happened?"},
