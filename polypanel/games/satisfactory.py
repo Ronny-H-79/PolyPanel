@@ -59,47 +59,77 @@ def _archiv_info(z: zipfile.ZipFile) -> tuple[str, str, bool, str]:
             str(daten.get("SemVersion") or daten.get("VersionName") or ""))
 
 
-TOKEN_MUSTER = re.compile(r"[A-Za-z0-9+/=_.-]{16,}")
+TOKEN_MUSTER = re.compile(r"[A-Za-z0-9_-]{16,64}")
 
 
-def token_aus_konsole(inst) -> str:
-    """Letzten API-Token aus der Serverkonsole fischen (Zeile muss "token" enthalten)."""
-    from .. import runner
-    for zeile in reversed(runner.tail_console(inst, 60)):
-        if "token" not in zeile.lower():
+def _konsolengroesse(inst) -> int:
+    try:
+        return os.path.getsize(inst.console_log)
+    except OSError:
+        return 0
+
+
+def _neue_konsolenzeilen(inst, ab: int) -> list[str]:
+    """Nur die Zeilen, die seit dem Absenden dazugekommen sind."""
+    try:
+        with open(inst.console_log, "rb") as fh:
+            fh.seek(ab)
+            daten = fh.read().decode("utf-8", "replace")
+    except OSError:
+        from .. import runner
+        return runner.tail_console(inst, 60)
+    return [z.strip() for z in daten.splitlines() if z.strip()]
+
+
+def _kandidaten(zeilen) -> list[str]:
+    """Token-Kandidaten: Zeile nennt einen Token, ist nicht das Echo unseres Befehls."""
+    treffer = []
+    for zeile in reversed(zeilen):
+        klein = zeile.lower()
+        if "token" not in klein or "generateapitoken" in klein:
             continue
-        for treffer in TOKEN_MUSTER.findall(zeile):
-            if len(treffer) >= 16 and treffer.lower() not in ("generateapitoken", "servergenerateapitoken"):
-                return treffer
-    return ""
+        for fund in TOKEN_MUSTER.findall(zeile):
+            if fund not in treffer:
+                treffer.append(fund)
+    return treffer
+
+
+def _token_gueltig(inst, token: str) -> bool:
+    """Nur einen Token speichern, mit dem die API wirklich antwortet."""
+    from ..control import SatisfactoryApi
+    try:
+        SatisfactoryApi("127.0.0.1", inst.port, token, timeout=6).state()
+        return True
+    except Exception:                                  # noqa: BLE001
+        return False
 
 
 def ensure_api_token(inst, warte: float = 3.0) -> str:
     """Satisfactory braucht einen API-Token, sonst gibt es keine Spielerliste.
 
-    Der Token entsteht im Server selbst (`server.GenerateAPIToken`); der Befehl geht ueber die
-    stdin des Servers, damit man ihn nicht von Hand in der Konsole erzeugen muss.
+    Der Token entsteht im Server selbst (`server.GenerateAPIToken`). Der Befehl geht ueber die
+    stdin des Servers - so muss ihn niemand von Hand im Admin-Konto erzeugen. Gespeichert wird
+    nur ein Token, den die API danach auch akzeptiert.
     """
     from .. import registry, runner
 
     if getattr(inst, "api_token", ""):
         return inst.api_token
     try:
-        tok = token_aus_konsole(inst)                 # vielleicht schon vorhanden
-        if not tok:
-            runner.send_console(inst, "server.GenerateAPIToken")
-            time.sleep(warte)
-            tok = token_aus_konsole(inst)
-        if not tok:
-            return ""
-        inst.api_token = tok
-        registry.save(inst)
-        try:
-            inst.write_ini()                          # ServerApiToken in die INI
-        except Exception:                             # noqa: BLE001
-            pass
-        return tok
-    except Exception:                                 # noqa: BLE001 - nie den Supervisor kippen
+        ab = _konsolengroesse(inst)
+        runner.send_console(inst, "server.GenerateAPIToken")
+        time.sleep(warte)
+        for kandidat in _kandidaten(_neue_konsolenzeilen(inst, ab)):
+            if _token_gueltig(inst, kandidat):
+                inst.api_token = kandidat
+                registry.save(inst)
+                try:
+                    inst.write_ini()
+                except Exception:                      # noqa: BLE001
+                    pass
+                return kandidat
+        return ""
+    except Exception:                                  # noqa: BLE001 - nie den Supervisor kippen
         return ""
 
 
