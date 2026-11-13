@@ -52,6 +52,8 @@ class GameProfile:
     default_game_port: int = 7777
     default_query_port: int = 27016
     default_control_port: int = 27025
+    # Spielerzahl fuer NEUE Instanzen (Spiele mit Vanilla-Grenze setzen das kleiner)
+    default_max_players: int = 20
     supports_mods: bool = False
     has_control: bool = True       # False = kein RCON/API vorhanden
     use_pty: bool = True          # False = direkt starten (kein PTY), z. B. .NET-Server

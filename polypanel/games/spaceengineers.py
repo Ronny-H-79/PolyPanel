@@ -132,6 +132,8 @@ class SpaceEngineersProfile(GameProfile):
     needs_wine = True    # es gibt nur SpaceEngineersDedicated.exe (.NET, Windows)
     default_game_port = 27016
     default_query_port = 27015
+    # Vanilla-Grenze: SE erzwingt Experimentell, sobald MaxPlayers ueber 16 liegt
+    default_max_players = 16
     default_control_port = 0          # kein RCON
     supports_mods = True
     has_control = False  # keine RCON/API-Anbindung
@@ -634,7 +636,7 @@ LABELS.update({
     "AssemblerEfficiencyMultiplier": ("Montierer-Effizienz", "Faktor"),
     "RefinerySpeedMultiplier": ("Raffinerie-Geschwindigkeit", "Faktor"),
     "OnlineMode": ("Online-Modus", "Public, Friends oder Offline"),
-    "MaxPlayers": ("Max. Spieler", "gleichzeitige Spieler"),
+    "MaxPlayers": ("Max. Spieler", "gleichzeitige Spieler - Vanilla sind 16, darueber erzwingt SE Experimental"),
     "MaxFloatingObjects": ("Max. freie Objekte", "schwebende Teile, Performance"),
     "MaxBackupSaves": ("Backup-Speicherstaende", "Anzahl automatischer Backups"),
     "EnvironmentHostility": ("Umgebung", "SAFE, NORMAL, EASY, HARD"),
@@ -674,7 +676,8 @@ LABELS.update({
     "Battle": ("Kampfmodus", "true = Battle-Szenario"),
     "Scenario": ("Szenario aktiv", "true = Szenario statt Sandbox"),
     "CanJoinRunning": ("Beitritt im Lauf", "true = spaeter einsteigen erlaubt"),
-    "PhysicsIterations": ("Physik-Iterationen", "hoeher = genauer, langsamer"),
+    "PhysicsIterations": ("Physik-Iterationen", "Vanilla 8 - andere Werte erzwingen Experimental"),
+    "BlockLimitsEnabled": ("Block-Limits", "GLOBALLY = Vanilla; NONE/PER_FACTION/PER_PLAYER erzwingen Experimental"),
     "SunRotationIntervalMinutes": ("Sonnenumlauf (Minuten)", "Laenge eines Tages"),
     "EnableJetpack": ("Jetpack", "true/false"),
     "SpawnWithTools": ("Start mit Werkzeug", "true/false"),

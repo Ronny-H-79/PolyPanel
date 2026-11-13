@@ -145,7 +145,7 @@ def _free_port(start: int, udp: bool = True) -> int:
 
 
 def create(name: str, map_name: str = "", port: int | None = None,
-           session_name: str = "", max_players: int = 20,
+           session_name: str = "", max_players: int | None = None,
            game: str = games.DEFAULT_GAME) -> Instance:
     if not name or not name.replace("-", "").replace("_", "").isalnum():
         raise ValueError("Name nur mit Buchstaben, Zahlen, - und _")
@@ -167,7 +167,7 @@ def create(name: str, map_name: str = "", port: int | None = None,
         query_port=game_port + 1,
         rcon_port=ctrl_port,
         rcon_password=secrets.token_hex(8),
-        max_players=max_players,
+        max_players=max_players if max_players is not None else prof.default_max_players,
     )
     inst.save(conf_path(name))
     return inst

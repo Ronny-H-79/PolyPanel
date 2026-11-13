@@ -39,3 +39,9 @@ Rough summary of what the panels contain.
   panel — the click looked like it landed in the settings while the install ran correctly in the
   background. During a running install the instance page now switches to "Overview" by itself, with
   progress bar and log.
+- **A fresh install now really starts without Experimental.** The template shipped
+  `PhysicsIterations 1` and `BlockLimitsEnabled NONE`, and new instances added `MaxPlayers 20` — three
+  deviations from the vanilla set, which is exactly why SE forces Experimental on its own
+  (`Experimental mode reason: MaxPlayers, PhysicsIterations, BlockLimitsEnabled`). Template and
+  instance default are now vanilla: physics 8, block limits GLOBALLY, 16 players; that more than 16
+  players forces Experimental is stated as a hint on the field.

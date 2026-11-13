@@ -39,3 +39,9 @@ Grobe Zusammenfassung dessen, was in den Panels steckt.
   „Einstellungen", verdeckte er das Installationsfenster — der Klick wirkte, als lande man in den
   Einstellungen, während im Hintergrund korrekt installiert wurde. Während einer laufenden
   Installation schaltet die Instanzseite jetzt selbst auf „Übersicht" mit Balken und Log.
+- **Frische Installation startet jetzt wirklich ohne Experimental.** Die Vorlage lieferte
+  `PhysicsIterations 1` und `BlockLimitsEnabled NONE`, neue Instanzen zusätzlich `MaxPlayers 20` —
+  drei Abweichungen vom Vanilla-Satz, wegen denen SE von sich aus auf Experimental schaltet
+  (`Experimental mode reason: MaxPlayers, PhysicsIterations, BlockLimitsEnabled`). Vorlage und
+  Instanz-Vorgabe sind jetzt Vanilla: Physics 8, Block-Limits GLOBALLY, 16 Spieler; dass mehr als
+  16 Spieler Experimental erzwingt, steht als Hinweis am Feld.
