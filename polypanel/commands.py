@@ -54,11 +54,6 @@ COMMANDS: list[dict] = [
     },
     # ------------------------------------------------------------------ Info
     {
-        "id": "players", "label": "Spielerliste", "group": "Info",
-        "cmd": "ListPlayers", "args": [], "confirm": False, "danger": False,
-        "note": "zeigt Online-Spieler mit SteamID",
-    },
-    {
         "id": "getchat", "label": "Chat abrufen", "group": "Info",
         "cmd": "GetChat", "args": [], "confirm": False, "danger": False,
         "note": "letzte Chatzeilen aus dem Serverpuffer",

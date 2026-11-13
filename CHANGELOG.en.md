@@ -1,3 +1,9 @@
+## [0.7.46] — 2026-11-13
+
+### Changed
+- **Removed the "Player list" button from the commands area.** The list lives on the instance
+  page and in the dashboard window — as an RCON button it was a duplicate.
+
 ## [0.7.45] — 2026-11-13
 
 ### Changed
