@@ -159,14 +159,15 @@ This also stops and removes the systemd units (`polypanel-web`, `polypanel-*`) s
 file afterwards. If the source folder is already gone:
 
 ```bash
-# user installation
-systemctl --user disable --now polypanel-web.service
-rm -f ~/.config/systemd/user/polypanel-*.service ~/.local/bin/polypanel
-rm -rf ~/.local/share/polypanel
-
-# installation as root (system service, ~ is /root)
+# installation as root (system service) - the normal case on a server
 systemctl disable --now polypanel-web.service
 rm -f /etc/systemd/system/polypanel-*.service /usr/local/bin/polypanel
+rm -rf /root/.local/share/polypanel
+
+# only for a normal user installation: needs a running session of that user,
+# otherwise systemctl --user fails ("DBUS_SESSION_BUS_ADDRESS not defined")
+systemctl --user disable --now polypanel-web.service
+rm -f ~/.config/systemd/user/polypanel-*.service ~/.local/bin/polypanel
 rm -rf ~/.local/share/polypanel
 ```
 
