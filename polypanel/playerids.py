@@ -53,6 +53,37 @@ def _strings(pfad: str, minimum: int) -> list[str]:
         return []
 
 
+def _home_walk(limit: int = 20000, sekunden: float = 5.0):
+    """Sehr begrenzte Suche im Benutzerordner - findet Saves bei ungewoehnlichem Aufbau."""
+    start = time.time()
+    gesehen = 0
+    skip = {".git", "node_modules", "__pycache__", "cache", ".cache", "steamapps"}
+    for dirpath, dirs, files in os.walk(os.path.expanduser("~")):
+        dirs[:] = [d for d in dirs if d not in skip and not d.startswith(".Trash")]
+        gesehen += 1
+        if gesehen > limit or time.time() - start > sekunden:
+            return
+        yield dirpath, dirs, files
+
+
+def _lese_playercache(pfad: str, mapping: dict) -> None:
+    """PlayerID/PlayerName/EosName aus einer PlayerCache.sav in die Zuordnung uebernehmen."""
+    zeilen = _strings(pfad, 4)
+    pid = pname = eos = None
+    for i, line in enumerate(zeilen):
+        if line.startswith("PlayerID_"):
+            pid = zeilen[i + 2].strip() if i + 2 < len(zeilen) else None
+        elif line.startswith("PlayerName_"):
+            pname = zeilen[i + 2].strip() if i + 2 < len(zeilen) else None
+        elif line.startswith("EosName_"):
+            eos = zeilen[i + 2].strip() if i + 2 < len(zeilen) else None
+            if pid and eos:
+                mapping[eos] = pid
+                if pname:
+                    mapping.setdefault(pname, pid)
+            pid = pname = eos = None
+
+
 def _aus_saves(inst: Any) -> dict[str, str]:
     mapping: dict[str, str] = {}
     basis = getattr(inst, "directory", "") or ""
@@ -68,23 +99,17 @@ def _aus_saves(inst: Any) -> dict[str, str]:
             if m:
                 mapping[m.group(1).strip()] = m.group(2)
 
+    # Wenn im Instanzordner keine Save liegt (anderer Aufbau, Wine-Prefix), im Home suchen.
+    if not any(name in files
+               for _d, _dirs, files in os.walk(basis) for name in ("PlayerCache.sav",)):
+        for dirpath, dirs, files in _home_walk():
+            if "PlayerCache.sav" in files:
+                _lese_playercache(os.path.join(dirpath, "PlayerCache.sav"), mapping)
+
     for dirpath, _dirs, files in os.walk(basis):
         if "PlayerCache.sav" not in files:
             continue
-        zeilen = _strings(os.path.join(dirpath, "PlayerCache.sav"), 4)
-        pid = pname = eos = None
-        for i, line in enumerate(zeilen):
-            if line.startswith("PlayerID_"):
-                pid = zeilen[i + 2].strip() if i + 2 < len(zeilen) else None
-            elif line.startswith("PlayerName_"):
-                pname = zeilen[i + 2].strip() if i + 2 < len(zeilen) else None
-            elif line.startswith("EosName_"):
-                eos = zeilen[i + 2].strip() if i + 2 < len(zeilen) else None
-                if pid and eos:
-                    mapping[eos] = pid              # Loginname -> dauerhafte ID
-                    if pname:
-                        mapping.setdefault(pname, pid)
-                pid = pname = eos = None
+        _lese_playercache(os.path.join(dirpath, "PlayerCache.sav"), mapping)
     return mapping
 
 
@@ -115,6 +140,28 @@ def aufloesen(inst: Any, eos: str = "", name: str = "") -> str:
     if name and name in mapping:
         return mapping[name]
     return ""
+
+
+def pfade(inst: Any) -> dict:
+    """Diagnose: wo gesucht wurde und was gefunden wurde (fuer die Oberflaeche)."""
+    basis = getattr(inst, "directory", "") or ""
+    ergebnis = {"basis": basis, "existiert": False, "oben": [], "saves": [], "id_karte": 0}
+    if not basis or not os.path.isdir(basis):
+        return ergebnis
+    ergebnis["existiert"] = True
+    try:
+        ergebnis["oben"] = sorted(os.listdir(basis))[:20]
+    except OSError:
+        pass
+    for dirpath, dirs, files in os.walk(basis):
+        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__")]
+        for name in ("PlayerCache.sav", "Logs.sav"):
+            if name in files:
+                ergebnis["saves"].append(os.path.join(dirpath, name))
+        if len(ergebnis["saves"]) > 20:
+            break
+    ergebnis["id_karte"] = len(karte(inst, neu_laden=True))
+    return ergebnis
 
 
 def diagnose(inst: Any) -> str:

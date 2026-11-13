@@ -1,3 +1,13 @@
+## [0.7.50] — 2026-11-13
+
+### Added
+- **ID diagnostics in the item dialog.** A button next to "custom blueprint" shows where the
+  panel looks: instance folder, save files found and how many players were mapped. That makes
+  it obvious whether the path is wrong or the save is still missing.
+- **Fallback search in the home directory.** If the instance folder holds no `PlayerCache.sav`,
+  the panel searches the home directory within limits (20,000 directories / 5 seconds) — for
+  servers with a different layout or a Wine prefix.
+
 ## [0.7.49] — 2026-11-13
 
 ### Fixed

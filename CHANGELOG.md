@@ -1,3 +1,13 @@
+## [0.7.50] — 2026-11-13
+
+### Neu
+- **ID-Diagnose im Item-Dialog.** Neben „eigener Blueprint" sitzt jetzt ein Knopf, der zeigt, wo
+  das Panel sucht: Instanzordner, gefundene Speicherdateien und Anzahl zugeordneter Spieler.
+  Das macht sichtbar, ob der Pfad nicht passt oder die Save noch fehlt.
+- **Notfallsuche im Benutzerordner.** Liegt im Instanzordner keine `PlayerCache.sav`, sucht das
+  Panel begrenzt (20.000 Ordner / 5 Sekunden) im Home weiter — für Server mit anderem Aufbau
+  oder Wine-Prefix.
+
 ## [0.7.49] — 2026-11-13
 
 ### Behoben

@@ -1845,6 +1845,7 @@ setInterval(refresh,5000); setInterval(updCheck,300000);
     <input id="catQ" placeholder="Suchen (z. B. Metall, Axt, Riot) …" oninput="catSearch()" style="flex:1;min-width:0">
     <input id="catQty" type="number" value="1" min="1" step="1" style="width:88px">
     <button onclick="giveDirect(CAT_SID)">eigener Blueprint</button>
+    <button onclick="idDebug()" title="zeigt, wo nach Spieler-IDs gesucht wird">ID-Diagnose</button>
   </div>
   <div id="catList" class="plBody">…</div>
 </div></div>
@@ -1895,6 +1896,18 @@ async function catOpen(sid){
   document.getElementById('catModal').classList.add('on');
   catSearch();
   setTimeout(function(){ const el=document.getElementById('catQ'); if(el) el.focus(); }, 50);
+}
+async function idDebug(){
+  const box=document.getElementById('catList');
+  const NL=String.fromCharCode(10);
+  try{
+    const d=JSON.parse(await api('/api/playerids/debug'));
+    const kopf=['Instanzordner: '+d.basis, 'existiert: '+d.existiert];
+    const saves=(d.saves||[]).map(function(s){ return '  '+s; });
+    const rest=['zugeordnete Spieler: '+d.id_karte, 'Inhalt oben: '+(d.oben||[]).join(', ')];
+    const zeilen=kopf.concat(saves.length?['Speicherdateien:'].concat(saves):['Speicherdateien: keine'], rest);
+    box.innerHTML='<pre style="white-space:pre-wrap;font-size:11px">'+zeilen.join(NL)+'</pre>';
+  }catch(e){ box.textContent='Fehler: '+String(e); }
 }
 async function catSearch(){
   const q=document.getElementById('catQ').value||'';
@@ -2394,6 +2407,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(catalog.suche(q.get("q", [""])[0]))
         elif path == "/api/bans":
             self._json(bans.laden(inst))
+        elif path == "/api/playerids/debug":
+            self._json(playerids.pfade(inst))
         elif path == "/api/update":
             self._json(runner.check_update(inst, 0 if q.get("refresh") else None))
         elif path == "/api/lang":
