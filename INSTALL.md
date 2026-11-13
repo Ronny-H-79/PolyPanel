@@ -156,6 +156,21 @@ systemctl --user enable --now polypanel-<name>
 loginctl enable-linger $USER      # keeps running without a logged-in session
 ```
 
+## Report webhook (report errors)
+
+The **report error** button in the panel only shows up when a webhook is configured — a Discord webhook
+URL (server settings → integrations → webhooks → "copy webhook URL"). It is set during installation (the
+installer asks for it) or any time from the console:
+
+```bash
+./install.sh --report-hook https://discord.com/api/webhooks/…
+polypanel report-webhook            # show the current value (token masked)
+polypanel report-webhook -          # remove it
+```
+
+Without a webhook the button stays hidden; the entry in `~/.config/polypanel/settings.json` survives a
+re-run of `install.sh` and is then only confirmed.
+
 ## Uninstall
 
 ```bash

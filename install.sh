@@ -8,6 +8,7 @@
 #   ./install.sh --auto          fehlende Pakete ohne Rueckfrage installieren (sudo)
 #   ./install.sh --wizard        optional: danach den Konsolen-Assistenten starten
 #   ./install.sh --user polypanel     als eigener Dienst-Benutzer installieren (root, empfohlen)
+#   ./install.sh --report-hook <url>  Melde-Webhook fuer Fehlermeldungen ('-' = entfernen)
 #   ./install.sh --uninstall     wieder entfernen (Instanzen bleiben erhalten)
 #
 # Umgebungsvariablen: POLYPANEL_HOME (Zielordner), NOAH_BIN (Launcher-Ordner),
@@ -20,6 +21,7 @@ BIN="${NOAH_BIN:-$HOME/.local/bin}"
 PY="${PYTHON:-python3}"
 RUN_WIZARD=0
 UNINSTALL=0
+REP_HOOK=""
 CHECK_ONLY=0
 AUTO=0
 LANG_SEL="${NOAH_LANG:-}"
@@ -30,6 +32,8 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --wizard) RUN_WIZARD=1 ;;
     --uninstall) UNINSTALL=1 ;;
+    --report-hook=*) REP_HOOK="${1#*=}" ;;
+    --report-hook) shift; REP_HOOK="${1:-}" ;;
     --check) CHECK_ONLY=1 ;;
     --auto|-y|--yes) AUTO=1 ;;
     --web) WANT_WEB=1 ;;
@@ -189,6 +193,20 @@ t() {
     de:web_failed)         echo "Dienst konnte nicht aktiviert werden - manuell starten mit: polypanel web" ;;
     en:web_skipped)        echo "No service created - start the UI when needed with: polypanel web" ;;
     de:web_skipped)        echo "Kein Dienst angelegt - Oberflaeche bei Bedarf starten mit: polypanel web" ;;
+    en:hook_ask)           echo "Report webhook for error reports (optional, Enter = none):" ;;
+    de:hook_ask)           echo "Melde-Webhook fuer Fehlermeldungen (optional, Enter = keiner):" ;;
+    en:hook_ask_keep)      echo "Report webhook (Enter = keep, - = remove):" ;;
+    de:hook_ask_keep)      echo "Melde-Webhook (Enter = behalten, - = entfernen):" ;;
+    en:hook_set)           echo "Report webhook saved: $2" ;;
+    de:hook_set)           echo "Melde-Webhook gespeichert: $2" ;;
+    en:hook_removed)       echo "Report webhook removed" ;;
+    de:hook_removed)       echo "Melde-Webhook entfernt" ;;
+    en:hook_invalid)       echo "Webhook must start with https://" ;;
+    de:hook_invalid)       echo "Webhook muss mit https:// beginnen" ;;
+    en:hook_now)           echo "Report webhook: $2" ;;
+    de:hook_now)           echo "Melde-Webhook: $2" ;;
+    en:hook_none)          echo "Report webhook: not set (the 'report error' button stays hidden)" ;;
+    de:hook_none)          echo "Melde-Webhook: nicht gesetzt (Knopf 'Fehler melden' bleibt versteckt)" ;;
     en:language_saved)     echo "Language: English" ;;
     de:language_saved)     echo "Sprache: Deutsch" ;;
     *) return 1 ;;
@@ -347,6 +365,80 @@ PYEOF
 
 save_lang
 say "$(t language_saved)"
+
+# ---------------------------------------------------------------- Melde-Webhook
+CONF_JSON="$HOME/.config/polypanel/settings.json"
+
+hook_lesen() {
+  "$PY" - "$CONF_JSON" <<'PYEOF'
+import json, sys
+try:
+    with open(sys.argv[1], encoding="utf-8") as fh:
+        data = json.load(fh)
+    print(str(data.get("report_webhook", "") or "") if isinstance(data, dict) else "")
+except (OSError, ValueError):
+    print("")
+PYEOF
+}
+
+hook_schreiben() {
+  mkdir -p "$(dirname "$CONF_JSON")"
+  "$PY" - "$CONF_JSON" "$1" <<'PYEOF'
+import json, os, sys
+path, url = sys.argv[1], sys.argv[2].strip()
+try:
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    if not isinstance(data, dict):
+        data = {}
+except (OSError, ValueError):
+    data = {}
+if url:
+    data["report_webhook"] = url
+else:
+    data.pop("report_webhook", None)
+tmp = path + ".tmp"
+with open(tmp, "w", encoding="utf-8") as fh:
+    json.dump(data, fh, indent=2, ensure_ascii=False)
+os.chmod(tmp, 0o600)
+os.replace(tmp, path)
+PYEOF
+}
+
+# Webhook nie vollstaendig ausgeben: .../webhooks/<id>/…
+maskiere() {
+  local u="$1" kopf rest id
+  kopf="${u%/webhooks/*}"
+  rest="${u#*/webhooks/}"
+  id="${rest%%/*}"
+  printf '%s/webhooks/%s/…' "$kopf" "$id"
+}
+
+if [ -n "$REP_HOOK" ]; then
+  case "$REP_HOOK" in
+    -|aus|none) hook_schreiben ""; say "$(t hook_removed)" ;;
+    https://*)  hook_schreiben "$REP_HOOK"; say "$(t hook_set "$(maskiere "$REP_HOOK")")" ;;
+    *) die "$(t hook_invalid)" ;;
+  esac
+elif [ "$CHECK_ONLY" = "1" ]; then
+  _hook="$(hook_lesen)"
+  if [ -n "$_hook" ]; then say "$(t hook_now "$(maskiere "$_hook")")"; else warn "$(t hook_none)"; fi
+elif [ -t 0 ] && [ "$AUTO" = "0" ]; then
+  _hook="$(hook_lesen)"
+  if [ -n "$_hook" ]; then
+    printf '  %s [%s] ' "$(t hook_ask_keep)" "$(maskiere "$_hook")"
+  else
+    printf '  %s ' "$(t hook_ask)"
+  fi
+  read -r _eingabe || _eingabe=""
+  case "$_eingabe" in
+    "") : ;;
+    -|aus|none) hook_schreiben ""; say "$(t hook_removed)" ;;
+    https://*)  hook_schreiben "$_eingabe"; say "$(t hook_set "$(maskiere "$_eingabe")")" ;;
+    *) warn "$(t hook_invalid)" ;;
+  esac
+fi
+
 
 MISSING=0
 
