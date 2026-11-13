@@ -1903,9 +1903,13 @@ async function idDebug(){
   try{
     const d=JSON.parse(await api('/api/playerids/debug'));
     const kopf=['Instanzordner: '+d.basis, 'existiert: '+d.existiert];
-    const saves=(d.saves||[]).map(function(s){ return '  '+s; });
+    const saves=((d.profile||[]).concat(d.sav_dateien||[])).map(function(s){ return '  '+s; });
+    const savs=(d.sav_dateien||[]).map(function(s){ return '  '+s; });
     const rest=['zugeordnete Spieler: '+d.id_karte, 'Inhalt oben: '+(d.oben||[]).join(', ')];
-    const zeilen=kopf.concat(saves.length?['Speicherdateien:'].concat(saves):['Speicherdateien: keine'], rest);
+    let zeilen=kopf.concat(saves.length?['Profile/Saves:'].concat(saves):['Profile/Saves: keine'],
+                           savs.length?['.sav-Dateien ('+savs.length+'):'].concat(savs):['.sav-Dateien: keine'],
+                           rest);
+    if(d.ordner){ Object.keys(d.ordner).forEach(function(k){ zeilen=zeilen.concat([k+': '+(d.ordner[k]||[]).join(', ')]); }); }
     box.innerHTML='<pre style="white-space:pre-wrap;font-size:11px">'+zeilen.join(NL)+'</pre>';
   }catch(e){ box.textContent='Fehler: '+String(e); }
 }

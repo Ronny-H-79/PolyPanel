@@ -1,3 +1,14 @@
+## [0.7.51] — 2026-11-13
+
+### Behoben
+- **Spieler-ID aus dem `.arkprofile` lesen.** Auf Servern, die unter
+  `Saved/SavedArks/<Map>/` speichern, gibt es keine `PlayerCache.sav`. Die ARKID steht aber
+  in der Datei `<EOS-ID>.arkprofile` als Property `PlayerDataID` (UInt64) — der Parser liest
+  sie jetzt direkt (UE-Property-Kopf: Größe 8, optional GUID, dann 8 Byte Wert).
+  Fallback bleibt das Server-Log (`AdminCmd: … ARKID: … PlatformID: …`) und, auf älteren
+  Servern, `PlayerCache.sav`/`AwesomeAdminTools/Logs.sav`.
+  Gegenprobe: EOS `00023634…` → `840709058`, Name `sorbid79` → `840709058`.
+
 ## [0.7.50] — 2026-11-13
 
 ### Neu

@@ -1,19 +1,22 @@
-"""Dauerhafte Spieler-IDs einer Instanz ermitteln.
+"""Dauerhafte Spieler-IDs (ARKID) einer Instanz ermitteln.
 
-Warum das nötig ist: `GiveItemToPlayer` erwartet die **dauerhafte** Spieler-ID (eine Zahl wie
-761591001), nicht die EOS-/Steam-ID aus `ListPlayers` (`00023634c152…`). Mit der falschen ID
-meldet RCON trotzdem „ok", im Inventar landet aber nichts.
+Warum: `GiveItemToPlayer` braucht die **dauerhafte Spieler-ID** (ARKID, z. B. 840709058) —
+nicht die EOS-/Steam-ID aus `ListPlayers` (00023634c152…). Mit der falschen ID meldet RCON
+trotzdem „ok", im Inventar landet aber nichts.
 
-Quellen, beide auf der Platte der Instanz:
-- `AwesomeAdminTools/Logs.sav` — Zeilen wie „… gave … for 237249734." (nur AAT-Nutzer)
-- `PlayerCache.sav` — kennt alle Spieler; Aufbau je Eintrag:
-  `PlayerID_x` → StrProperty → <id>, `PlayerName_y` → <name>, `EosName_z` → <Loginname>
-
-Die Zuordnung gilt pro Server, deshalb wird nichts global gespeichert.
+Quellen, in dieser Reihenfolge:
+1. **`.arkprofile`-Dateien** (`Saved/SavedArks/<Map>/<EOS-ID>.arkprofile`, aeltere Ableger auch
+   unter `Saved/SaveGames/…`). Der Dateiname ist die EOS-ID, im Inhalt steht die Property
+   `PlayerDataID` (UInt64) = ARKID und `PlayerName`.
+2. **Server-Log** (`ShooterGame.log`): Zeilen wie
+   `AdminCmd: fly (PlayerName: sorbid79, ARKID: 840709058, PlatformID: 00023634…)`.
+3. `PlayerCache.sav` / `AwesomeAdminTools/Logs.sav` (aeltere Server-Variante).
 """
 
+import glob
 import os
 import re
+import struct
 import subprocess
 import threading
 import time
@@ -24,26 +27,16 @@ _LOCK = threading.Lock()
 _TTL = 120.0
 
 
-def _strings(pfad: str, minimum: int) -> list[str]:
-    """Textzeilen aus einer Binärdatei lesen - ohne Abhängigkeit von `strings`.
-
-    UE-Saves speichern ihre Strings als UTF-16LE. Deshalb werden beide Kodierungen
-    ausgelesen; `strings` (binutils) dient nur als Notnagel, falls es installiert ist.
-    """
+# ------------------------------------------------------------------ Hilfsmittel
+def _strings(pfad: str, minimum: int = 4) -> list[str]:
+    """Textzeilen aus einer Binaerdatei - ohne Abhaengigkeit von `strings`."""
     try:
         with open(pfad, "rb") as fh:
             roh = fh.read()
     except OSError:
         return []
-
-    treffer: list[str] = []
-    # ASCII
-    for m in re.finditer(rb"[\x20-\x7e]{%d,}" % minimum, roh):
-        treffer.append(m.group().decode("ascii", "ignore"))
-    # UTF-16LE (jedes zweite Byte 0x00)
-    for m in re.finditer(rb"(?:[\x20-\x7e]\x00){%d,}" % minimum, roh):
-        treffer.append(m.group().decode("utf-16-le", "ignore"))
-
+    treffer = [m.group().decode("ascii", "ignore")
+               for m in re.finditer(rb"[\x20-\x7e]{%d,}" % minimum, roh)]
     if treffer:
         return treffer
     try:
@@ -53,38 +46,104 @@ def _strings(pfad: str, minimum: int) -> list[str]:
         return []
 
 
-def _home_walk(limit: int = 20000, sekunden: float = 5.0):
-    """Sehr begrenzte Suche im Benutzerordner - findet Saves bei ungewoehnlichem Aufbau."""
-    start = time.time()
-    gesehen = 0
-    skip = {".git", "node_modules", "__pycache__", "cache", ".cache", "steamapps"}
-    for dirpath, dirs, files in os.walk(os.path.expanduser("~")):
-        dirs[:] = [d for d in dirs if d not in skip and not d.startswith(".Trash")]
-        gesehen += 1
-        if gesehen > limit or time.time() - start > sekunden:
-            return
-        yield dirpath, dirs, files
+def _arkid_aus_profil(pfad: str) -> int:
+    """Liest die Property `PlayerDataID` (UInt64) aus einer .arkprofile."""
+    try:
+        with open(pfad, "rb") as fh:
+            roh = fh.read()
+    except OSError:
+        return 0
+
+    i_name = roh.find(b"PlayerDataID")
+    i_type = roh.find(b"UInt64Property", i_name if i_name >= 0 else 0)
+    if i_name < 0 or i_type < 0:
+        return 0
+
+    pos = i_type + len(b"UInt64Property") + 1          # Ende des Typnamens
+    if pos + 13 > len(roh):
+        return 0
+    size = struct.unpack_from("<i", roh, pos + 4)[0]
+    mit_guid = roh[pos + 8]
+    wert_pos = pos + 9 + (16 if mit_guid else 0)
+    if size not in (4, 8) or wert_pos + 8 > len(roh):
+        return 0
+    wert = struct.unpack_from("<Q", roh, wert_pos)[0]
+    return wert if 1_000_000 <= wert <= 5_000_000_000 else 0
 
 
-def _lese_playercache(pfad: str, mapping: dict) -> None:
-    """PlayerID/PlayerName/EosName aus einer PlayerCache.sav in die Zuordnung uebernehmen."""
-    zeilen = _strings(pfad, 4)
-    pid = pname = eos = None
-    for i, line in enumerate(zeilen):
-        if line.startswith("PlayerID_"):
-            pid = zeilen[i + 2].strip() if i + 2 < len(zeilen) else None
-        elif line.startswith("PlayerName_"):
-            pname = zeilen[i + 2].strip() if i + 2 < len(zeilen) else None
-        elif line.startswith("EosName_"):
-            eos = zeilen[i + 2].strip() if i + 2 < len(zeilen) else None
-            if pid and eos:
-                mapping[eos] = pid
-                if pname:
-                    mapping.setdefault(pname, pid)
-            pid = pname = eos = None
+def _name_aus_profil(pfad: str) -> str:
+    """Spielername aus der .arkprofile (Property PlayerName)."""
+    try:
+        with open(pfad, "rb") as fh:
+            roh = fh.read()
+    except OSError:
+        return ""
+    i = roh.find(b"PlayerName")
+    if i < 0:
+        return ""
+    rest = roh[i + len(b"PlayerName") + 1:i + 160]
+    # zwischen Property-Name und Wert steht der Typname "StrProperty"
+    j = rest.find(b"StrProperty")
+    if j < 0:
+        return ""
+    p = j + len(b"StrProperty") + 1
+    if p + 12 > len(rest):
+        return ""
+    size = struct.unpack_from("<i", rest, p + 4)[0]
+    if not (0 < size < 120):
+        return ""
+    name = rest[p + 9:p + 9 + size].split(b"\x00")[0].decode("utf-8", "ignore")
+    # Nur brauchbare Namen durchlassen (keine Steuerzeichen, 2-40 Zeichen)
+    if not (2 <= len(name) <= 40) or any(ord(c) < 32 for c in name):
+        return ""
+    return name
+
+
+# ------------------------------------------------------------------ Quellen
+def _aus_profilen(inst: Any) -> dict[str, str]:
+    mapping: dict[str, str] = {}
+    basis = getattr(inst, "directory", "") or ""
+    if not basis or not os.path.isdir(basis):
+        return mapping
+    muster = [
+        os.path.join(basis, "**", "SavedArks", "*", "*.arkprofile"),
+        os.path.join(basis, "**", "SaveGames", "**", "*.arkprofile"),
+    ]
+    gesehen = set()
+    for form in muster:
+        for pfad in glob.glob(form, recursive=True):
+            if pfad in gesehen:
+                continue
+            gesehen.add(pfad)
+            eos = os.path.basename(pfad).split(".", 1)[0].lower()
+            wert = _arkid_aus_profil(pfad)
+            if not wert:
+                continue
+            kennung = str(wert)
+            mapping[eos] = kennung
+            name = _name_aus_profil(pfad)
+            if name:
+                mapping.setdefault(name, kennung)
+    return mapping
+
+
+def _aus_log(inst: Any) -> dict[str, str]:
+    mapping: dict[str, str] = {}
+    basis = getattr(inst, "directory", "") or ""
+    if not basis or not os.path.isdir(basis):
+        return mapping
+    for pfad in glob.glob(os.path.join(basis, "**", "Logs", "ShooterGame*.log"), recursive=True):
+        for zeile in _strings(pfad, 20):
+            m = re.search(r"\(PlayerName: ([^,]+), ARKID: (\d+), PlatformID: ([0-9a-zA-Z]+)\)", zeile)
+            if m:
+                name, arkid, plattform = m.group(1).strip(), m.group(2), m.group(3).lower()
+                mapping[plattform] = arkid
+                mapping.setdefault(name, arkid)
+    return mapping
 
 
 def _aus_saves(inst: Any) -> dict[str, str]:
+    """Alte Variante: PlayerCache.sav und AwesomeAdminTools/Logs.sav."""
     mapping: dict[str, str] = {}
     basis = getattr(inst, "directory", "") or ""
     if not basis or not os.path.isdir(basis):
@@ -99,53 +158,62 @@ def _aus_saves(inst: Any) -> dict[str, str]:
             if m:
                 mapping[m.group(1).strip()] = m.group(2)
 
-    # Wenn im Instanzordner keine Save liegt (anderer Aufbau, Wine-Prefix), im Home suchen.
-    if not any(name in files
-               for _d, _dirs, files in os.walk(basis) for name in ("PlayerCache.sav",)):
-        for dirpath, dirs, files in _home_walk():
-            if "PlayerCache.sav" in files:
-                _lese_playercache(os.path.join(dirpath, "PlayerCache.sav"), mapping)
-
     for dirpath, _dirs, files in os.walk(basis):
         if "PlayerCache.sav" not in files:
             continue
-        _lese_playercache(os.path.join(dirpath, "PlayerCache.sav"), mapping)
+        zeilen = _strings(os.path.join(dirpath, "PlayerCache.sav"), 4)
+        pid = pname = eos = None
+        for i, line in enumerate(zeilen):
+            if line.startswith("PlayerID_"):
+                pid = zeilen[i + 2].strip() if i + 2 < len(zeilen) else None
+            elif line.startswith("PlayerName_"):
+                pname = zeilen[i + 2].strip() if i + 2 < len(zeilen) else None
+            elif line.startswith("EosName_"):
+                eos = zeilen[i + 2].strip() if i + 2 < len(zeilen) else None
+                if pid and eos:
+                    mapping[eos] = pid
+                    if pname:
+                        mapping.setdefault(pname, pid)
+                pid = pname = eos = None
     return mapping
 
 
+# ------------------------------------------------------------------ oeffentlich
 def karte(inst: Any, neu_laden: bool = False) -> dict[str, str]:
-    """Zuordnung Name/EOS -> dauerhafte ID (mit kurzem Zwischenspeicher)."""
     schluessel = getattr(inst, "name", "") or ""
     with _LOCK:
         eintrag = _CACHE.get(schluessel)
         if not neu_laden and eintrag and time.time() - eintrag[0] < _TTL:
             return eintrag[1]
-    mapping = _aus_saves(inst)
+
+    mapping: dict[str, str] = {}
+    for quelle in (_aus_profilen, _aus_log, _aus_saves):
+        try:
+            for schluessel_name, wert in quelle(inst).items():
+                mapping.setdefault(schluessel_name, wert)
+        except Exception:                     # noqa: BLE001 - eine Quelle darf ausfallen
+            continue
+
     with _LOCK:
         _CACHE[schluessel] = (time.time(), mapping)
     return mapping
 
 
 def aufloesen(inst: Any, eos: str = "", name: str = "") -> str:
-    """Liefert die dauerhafte ID zu EOS-ID oder Name; leer, wenn unbekannt."""
-    mapping = karte(inst)
-    if eos and eos in mapping:
-        return mapping[eos]
-    if name and name in mapping:
-        return mapping[name]
-    # Zweiter Versuch mit frisch gelesenen Saves (Spieler war gerade neu auf dem Server)
-    mapping = karte(inst, neu_laden=True)
-    if eos and eos in mapping:
-        return mapping[eos]
-    if name and name in mapping:
-        return mapping[name]
+    """Liefert die ARKID zu EOS-ID oder Name; leer, wenn unbekannt."""
+    for neu in (False, True):
+        mapping = karte(inst, neu_laden=neu)
+        if eos and (eos.lower() in mapping or eos in mapping):
+            return mapping.get(eos.lower()) or mapping.get(eos, "")
+        if name and name in mapping:
+            return mapping[name]
     return ""
 
 
 def pfade(inst: Any) -> dict:
-    """Diagnose: wo gesucht wurde und was gefunden wurde (fuer die Oberflaeche)."""
     basis = getattr(inst, "directory", "") or ""
-    ergebnis = {"basis": basis, "existiert": False, "oben": [], "saves": [], "id_karte": 0}
+    ergebnis = {"basis": basis, "existiert": False, "oben": [], "profile": [],
+                "id_karte": 0, "sav_dateien": []}
     if not basis or not os.path.isdir(basis):
         return ergebnis
     ergebnis["existiert"] = True
@@ -153,26 +221,13 @@ def pfade(inst: Any) -> dict:
         ergebnis["oben"] = sorted(os.listdir(basis))[:20]
     except OSError:
         pass
-    for dirpath, dirs, files in os.walk(basis):
-        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__")]
-        for name in ("PlayerCache.sav", "Logs.sav"):
-            if name in files:
-                ergebnis["saves"].append(os.path.join(dirpath, name))
-        if len(ergebnis["saves"]) > 20:
-            break
+    ergebnis["profile"] = glob.glob(os.path.join(basis, "**", "*.arkprofile"), recursive=True)[:20]
+    ergebnis["sav_dateien"] = glob.glob(os.path.join(basis, "**", "*.sav"), recursive=True)[:20]
     ergebnis["id_karte"] = len(karte(inst, neu_laden=True))
     return ergebnis
 
 
 def diagnose(inst: Any) -> str:
-    """Kurze Auskunft fuer die Oberflaeche, wenn keine ID gefunden wurde."""
-    basis = getattr(inst, "directory", "") or ""
-    if not basis or not os.path.isdir(basis):
-        return "Instanzordner nicht gefunden: %s" % (basis or "?")
-    saves = []
-    for dirpath, _dirs, files in os.walk(basis):
-        for name in ("PlayerCache.sav", "Logs.sav"):
-            if name in files:
-                saves.append(name)
-    anzahl = len(karte(inst, neu_laden=True))
-    return "gefundene Speicherdateien: %d, zugeordnete Spieler: %d" % (len(saves), anzahl)
+    d = pfade(inst)
+    return ("Profile: %d, .sav: %d, zugeordnete Spieler: %d"
+            % (len(d["profile"]), len(d["sav_dateien"]), d["id_karte"]))
