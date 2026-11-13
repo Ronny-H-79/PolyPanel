@@ -3057,6 +3057,18 @@ class Handler(BaseHTTPRequestHandler):
             # Spiele mit eigenem Befehl (7D2D: `give <Name> <Item> <Anzahl>`) - kein Blueprint-Pfad
             gabe = getattr(inst.profile, "give_command", "")
             if gabe:
+                # Nur an Spieler geben, die wirklich in der Welt sind: ein `give` an einen
+                # Spieler im Ladebildschirm reisst dessen Client mit (7D2D trennt die Verbindung,
+                # im Log steht dann "persistent player disconnect").
+                try:
+                    drin = players(inst)
+                except Exception:                 # noqa: BLE001
+                    drin = []
+                namen = {str(p.get("name", "")).lower() for p in drin} | {str(p.get("id", "")) for p in drin}
+                if pname and pname.lower() not in namen and steamid not in namen:
+                    self._send(200, ("%s ist gerade nicht in der Welt - Gegenstand nicht geschickt "
+                                     "(erst geben, wenn der Spieler gespawnt ist)." % pname).encode())
+                    return
                 ziel = pname if getattr(inst.profile, "player_action_by_name", False) and pname else steamid
                 try:
                     antwort = rcon_cmd(inst, gabe % (ziel, bp, qty)) or "ok"
