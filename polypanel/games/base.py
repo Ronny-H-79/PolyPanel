@@ -50,6 +50,10 @@ class GameProfile:
     needs_wine: bool = False
     refuses_root: bool = False   # True = Server startet nicht als root (z. B. Satisfactory)
     console_via_stdin: bool = False   # True = Konsolenbefehle auch ohne API direkt auf stdin
+
+    def ensure_api_token(self, inst) -> str:
+        """Selbsteinrichtung eines API-Tokens (nur Spiele, die so etwas brauchen)."""
+        return ""
     default_game_port: int = 7777
     default_query_port: int = 27016
     default_control_port: int = 27025

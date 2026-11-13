@@ -144,6 +144,11 @@ class SatisfactoryProfile(GameProfile):
     # gehen dann direkt auf die stdin des Servers, sonst kaeme man nie an den Token.
     console_via_stdin = True
     needs_api_token = True      # ohne Token liefert die HTTPS-API keine Spielerliste
+
+    def ensure_api_token(self, inst) -> str:
+        """Token im Server erzeugen und speichern (siehe Modulfunktion)."""
+        return ensure_api_token(inst)
+
     default_game_port = 7777
     default_query_port = 15777
     default_control_port = 7777      # API laeuft auf dem Spielport
