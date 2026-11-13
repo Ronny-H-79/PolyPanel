@@ -115,7 +115,18 @@ Wenn der Befehl nicht im `PATH` liegt (Dienst-Benutzer, andere Sitzung) — voll
 ```bash
 /home/polypanel/.local/bin/polypanel token              # als Benutzer polypanel
 su - polypanel -c '/home/polypanel/.local/bin/polypanel token'   # als root
-cat /home/polypanel/.config/polypanel/token             # nur die Datei (Rechte 600)
+```
+
+Wenn du nur die **Adresse** willst (mit IP und Token fertig zum Kopieren):
+
+```bash
+/home/polypanel/.local/bin/polypanel url        # http://<IP>:8790/?token=...
+```
+
+Ohne den Befehl (reine Shell, falls nichts installiert ist oder der PATH fehlt):
+
+```bash
+echo "http://$(hostname -I | awk '{print $1}'):8790/?token=$(cat /home/polypanel/.config/polypanel/token)"
 ```
 
 Der Token liegt zusätzlich in `/home/polypanel/.config/polypanel/token` für den Dienst-Benutzer

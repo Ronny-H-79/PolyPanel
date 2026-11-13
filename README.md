@@ -106,7 +106,18 @@ If the command is not on your `PATH` (service user, other session) - full path:
 ```bash
 /home/polypanel/.local/bin/polypanel token              # as user polypanel
 su - polypanel -c '/home/polypanel/.local/bin/polypanel token'   # as root
-cat /home/polypanel/.config/polypanel/token             # the file only (mode 600)
+```
+
+If you only want the **address** (with IP and token, ready to paste):
+
+```bash
+/home/polypanel/.local/bin/polypanel url        # http://<IP>:8790/?token=...
+```
+
+Without the command (plain shell, if nothing is installed or the PATH is missing):
+
+```bash
+echo "http://$(hostname -I | awk '{print $1}'):8790/?token=$(cat /home/polypanel/.config/polypanel/token)"
 ```
 
 The token is also stored in `/home/polypanel/.config/polypanel/token` for the service user, or
