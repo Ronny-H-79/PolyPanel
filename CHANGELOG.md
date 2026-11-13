@@ -1,4 +1,4 @@
-## [Unveröffentlicht]
+## [0.7.36] — 2026-11-13
 
 ### Geändert
 - **Ungenutzte Log-Styles entfernt** (`.logwrap`, `.loghead`, `.cardlog`) — Reste des

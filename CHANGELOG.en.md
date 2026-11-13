@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.7.36] — 2026-11-13
 
 ### Changed
 - **Removed unused log styles** (`.logwrap`, `.loghead`, `.cardlog`) - leftovers of the log
