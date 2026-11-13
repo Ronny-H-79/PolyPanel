@@ -439,7 +439,7 @@ DASH = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
   <button onclick="openChangelog()" id="clogbtn" style="padding:2px 8px"
     data-t="self.changelog" title="Changelog">Changelog</button>
   <button onclick="restartPanel()" id="rstpbtn" style="padding:2px 8px"
-    data-t="self.restart" title="Panel neu starten">Neustart</button>
+    data-t="self.restart" title="Panel neu starten">Panel Neustart</button>
   <button onclick="openReport()" id="repbtn" style="padding:2px 8px;display:none"
     data-t="report.open" title="Fehler im Panel melden">Fehler melden</button>
   <button onclick="toggleLang()" id="langbtn" style="padding:2px 8px">EN</button></span>""" + HEADER_ICONS + """</header>

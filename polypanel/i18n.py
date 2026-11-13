@@ -341,7 +341,7 @@ T: dict[str, dict[str, str]] = {
     "self.build_only": {"de": "gleiche Version, nur ein neuer Build - kein Update nötig",
                         "en": "same version, only a new build - no update needed"},
     "self.changelog": {"de": "Changelog", "en": "Changelog"},
-    "self.restart": {"de": "Neustart", "en": "Restart"},
+    "self.restart": {"de": "Panel Neustart", "en": "Panel restart"},
     "self.restart_ask": {"de": "Panel neu starten? Laufende Server bleiben an.",
                           "en": "Restart the panel? Running servers stay up."},
     "self.restarting": {"de": "Panel startet neu …", "en": "Panel restarting …"},
