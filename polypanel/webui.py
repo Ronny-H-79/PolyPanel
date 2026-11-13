@@ -1767,7 +1767,11 @@ function banner(text,farbe){
 async function saveSettings(){
   const payload=[];
   document.querySelectorAll('#settings input, #settings textarea, #settings select').forEach(el=>{
-    const v=SETTINGS[Number(el.dataset.i)];
+    // Felder ohne Zuordnung (Suchfeld, Dateiauswahl) haben kein data-i - ohne diesen
+    // Sprung wirft hier ein TypeError und das Speichern passiert NIE (kein Request, keine Meldung).
+    const i=Number(el.dataset.i);
+    const v=Number.isInteger(i)?SETTINGS[i]:null;
+    if(!v || !v.key) return;
     let value;
     if(el.type==='checkbox') value=el.checked?'true':'false';
     else if(el.tagName==='TEXTAREA') value=el.value.split(String.fromCharCode(13)).join('').split(String.fromCharCode(10)).join(String.fromCharCode(92)+'n').trim();
