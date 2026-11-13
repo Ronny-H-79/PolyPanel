@@ -1,3 +1,9 @@
+## [Unveröffentlicht]
+
+### Geändert
+- **„1 Instanzen" statt „1 Instanz".** Die Anzahl auf dem Dashboard nutzt jetzt die Einzahl,
+  wenn genau eine Instanz existiert (neuer Textschlüssel `dash.instance_single`).
+
 ## [0.7.30] — 2026-11-12
 
 ### Behoben

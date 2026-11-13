@@ -1,3 +1,9 @@
+## [Unreleased]
+
+### Changed
+- **"1 instances" instead of "1 instance".** The dashboard counter now uses the singular form when
+  exactly one instance exists (new text key `dash.instance_single`).
+
 ## [0.7.30] — 2026-11-12
 
 ### Fixed

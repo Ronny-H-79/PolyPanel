@@ -53,6 +53,7 @@ T: dict[str, dict[str, str]] = {
     "status.update_available": {"de": "UPDATE", "en": "UPDATE"},
     # ---------------------------------------------------------------- Dashboard
     "dash.instances": {"de": "Instanzen", "en": "instances"},
+    "dash.instance_single": {"de": "Instanz", "en": "instance"},
     "dash.dashboard": {"de": "Dashboard", "en": "Dashboard"},
     "dash.new_instance": {"de": "Neue Instanz", "en": "New instance"},
     "dash.name_ph": {"de": "Instanz-Name (nur intern, z. B. valguero)", "en": "Instance name (internal only, e.g. valguero)"},

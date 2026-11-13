@@ -456,7 +456,7 @@ async function load(){
   const _b=document.getElementById('actbanner'); if(_b && _b.dataset.done==='1'){ _b.style.display='none'; }
   const list=JSON.parse(await api('/api/instances'));
   DATA=list;
-  document.getElementById('cnt').textContent=list.length+' '+L['dash.instances'];
+  document.getElementById('cnt').textContent=list.length+' '+L[list.length===1?'dash.instance_single':'dash.instances'];
   document.getElementById('cards').innerHTML=list.map(i=>`
     <div class="card${i.running?' running':''}">
       ${i.map_image?`<div class="bgimg" style="background-image:url('${i.map_image}?token=${encodeURIComponent(T)}')"></div>`:''}
