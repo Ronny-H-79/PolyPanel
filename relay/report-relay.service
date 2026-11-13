@@ -1,0 +1,24 @@
+[Unit]
+Description=Report-Relay - Panel-Fehlermeldungen an Discord weiterleiten
+Documentation=https://github.com/Ronny-H-79/PolyPanel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=reportrelay
+Group=reportrelay
+ExecStart=/usr/bin/python3 /opt/report-relay/report-relay.py --config /etc/report-relay.conf
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
