@@ -755,7 +755,9 @@ async function install(name){
         bar.style.display='block'; label.style.display='block';
         fill.classList.add('indet');
         fill.style.width='100%';
-        label.textContent='Laufzeit: '+p.phase;
+        const sek=(p.elapsed===null||p.elapsed===undefined)?null:Number(p.elapsed);
+        const dauer=sek===null?'':(sek<60?(' — '+sek+' s'):(' — '+Math.floor(sek/60)+' min '+(sek%60)+' s'));
+        label.textContent='Laufzeit: '+p.phase+dauer;
         return;
       }
       fill.classList.remove('indet');
@@ -2180,6 +2182,8 @@ def install_progress(inst) -> dict[str, object]:
         if zeile.startswith("Laufzeit: "):
             daten["phase"] = zeile.strip()[len("Laufzeit: "):][:80]
             daten["percent"] = None
+            start = (INSTALLS.get(inst.name) or {}).get("runtime_started")
+            daten["elapsed"] = int(time.time() - start) if start else None
             return daten
         if "Success! App" in zeile or "Installation beendet" in zeile:
             daten["done"] = True
@@ -2213,6 +2217,9 @@ def _start_install(inst: Instance) -> None:
                 _logp = os.path.join(inst.directory, ".install.log")
 
                 def _log(msg: str, _ziel=_logp) -> None:
+                    eintrag = INSTALLS.get(inst.name)
+                    if eintrag is not None and "runtime_started" not in eintrag:
+                        eintrag["runtime_started"] = time.time()
                     try:
                         with open(_ziel, "a") as fh:
                             fh.write("Laufzeit: %s\n" % msg)

@@ -414,23 +414,46 @@ fi
 winetricks_install() {
   command -v winetricks >/dev/null 2>&1 && command -v cabextract >/dev/null 2>&1 && return 0
   _root() { if [ "$(id -u)" = "0" ]; then "$@"; else sudo "$@"; fi; }
-  # Fortschritt zeigen statt stumm zu installieren: apt/dnf brauchen hier 1-2 Minuten,
-  # ohne Ausgabe wirkt das wie ein Haenger. Die Ausgabe wird eingerueckt durchgereicht.
+  # Fortschritt zeigen statt stumm zu installieren: apt/dnf brauchen hier 1-2 Minuten.
+  # Ohne laufende Uhr wirkt das wie ein Haenger, deshalb Timer + Spinner + Ausgabe am Ende.
   say "$(t step_hint "winetricks, cabextract, wine32 (i386)")"
   _zeige() { while IFS= read -r _z; do printf '    %s\n' "$_z"; done; }
+  # _mit_uhr BESCHREIBUNG BEFEHL...: zeigt Sekunden/Spinner, Ausgabe landet im Log
+  _mit_uhr() {
+    _label="$1"; shift
+    _log="$(mktemp)"
+    "$@" >"$_log" 2>&1 &
+    _pid=$!
+    _start=$SECONDS
+    _i=0
+    while kill -0 "$_pid" 2>/dev/null; do
+      _i=$((_i + 1))
+      case $((_i % 4)) in 1) _s='|';; 2) _s='/';; 3) _s='-';; *) _s='\\';; esac
+      printf '\r    %s %s  %ds ' "$_label" "$_s" "$((SECONDS - _start))"
+      sleep 1
+    done
+    wait "$_pid"; _rc=$?
+    printf '\r    %s fertig nach %ds          \n' "$_label" "$((SECONDS - _start))"
+    if [ "$_rc" != "0" ]; then
+      printf '    (Ausgabe der Paketverwaltung:)\n'
+      tail -15 "$_log" | _zeige
+    fi
+    rm -f "$_log"
+    return "$_rc"
+  }
   case "$PKG_MGR" in
     apt)
       _root dpkg --add-architecture i386 >/dev/null 2>&1 || true
       _root apt-get update -qq >/dev/null 2>&1 || true
-      _root apt-get install -y winetricks cabextract wine32:i386 2>&1 | _zeige || true
-      # Rueckfall ohne i386, falls wine32 nicht verfuegbar ist (Ergebnis pruefen, nicht den Pipe-Status)
+      _mit_uhr "apt: winetricks, cabextract, wine32" _root apt-get install -y winetricks cabextract wine32:i386 || true
+      # Rueckfall ohne i386, falls wine32 nicht verfuegbar ist
       if ! command -v winetricks >/dev/null 2>&1 || ! command -v cabextract >/dev/null 2>&1; then
-        _root apt-get install -y winetricks cabextract 2>&1 | _zeige || true
+        _mit_uhr "apt: winetricks, cabextract" _root apt-get install -y winetricks cabextract || true
       fi
       ;;
-    dnf)    _root dnf install -y winetricks cabextract 2>&1 | _zeige || true ;;
-    zypper) _root zypper --non-interactive install winetricks cabextract 2>&1 | _zeige || true ;;
-    pacman) _root pacman -S --needed --noconfirm winetricks cabextract 2>&1 | _zeige || true ;;
+    dnf)    _mit_uhr "dnf: winetricks, cabextract" _root dnf install -y winetricks cabextract || true ;;
+    zypper) _mit_uhr "zypper: winetricks, cabextract" _root zypper --non-interactive install winetricks cabextract || true ;;
+    pacman) _mit_uhr "pacman: winetricks, cabextract" _root pacman -S --needed --noconfirm winetricks cabextract || true ;;
   esac
   # winetricks sucht wineserver im PATH, Debian/Ubuntu legt es nur in den lib-Ordner
   if ! command -v wineserver >/dev/null 2>&1; then
