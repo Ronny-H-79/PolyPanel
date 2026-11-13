@@ -2333,6 +2333,25 @@ def _translate_hits(data: dict, field: str, limit: int = 24) -> dict:
     return data
 
 
+def _experimental_wirksam(inst) -> tuple[bool, str]:
+    """Laeuft der Server laut Log experimentell? Der Config-Wert ist nur ein Wunsch."""
+    try:
+        import glob as _glob
+        treffer = sorted(_glob.glob(os.path.join(inst.directory, "SpaceEngineersDedicated_*.log")))
+        if not treffer:
+            return False, ""
+        ja, grund = False, ""
+        with open(treffer[-1], encoding="utf-8", errors="replace") as fh:
+            for zeile in fh:
+                if "Experimental mode: Yes" in zeile:
+                    ja = True
+                elif "Experimental mode reason:" in zeile:
+                    grund = zeile.split("reason:", 1)[1].strip()
+        return ja, grund
+    except OSError:
+        return False, ""
+
+
 def _uebersetzte_settings(inst) -> list:
     """Einstellungen mit Label und Hinweis in der aktuellen Sprache.
 
@@ -2349,6 +2368,16 @@ def _uebersetzte_settings(inst) -> list:
             continue
         label, hint = _i18n.setting(feld.get("key", ""), feld.get("label", ""), feld.get("hint", ""))
         feld["label"], feld["hint"] = label, hint
+    if inst.game == "spaceengineers":
+        # "ExperimentalMode = false" heisst nur "nicht angefordert". Wenn der Server trotzdem
+        # experimentell laeuft, muss das am Feld stehen - sonst wirkt die Anzeige falsch.
+        wirksam, grund = _experimental_wirksam(inst)
+        for feld in felder:
+            if isinstance(feld, dict) and feld.get("key") == "ExperimentalMode":
+                feld["wirksam"] = wirksam
+                feld["hint"] = (feld.get("hint", "") + " — wirksam: "
+                                + ("AN" if wirksam else "aus")
+                                + ((" (erzwungen: %s)" % grund) if wirksam and grund else ""))
     return felder
 
 
