@@ -185,20 +185,51 @@ SDTD_ITEMS: list[tuple[str, str]] = [
 GAMES = {"ark": "ark", "asa": "ark", "ase": "ark", "arkse": "ark", "7d2d": "7d2d", "sv7dtd": "7d2d"}
 
 
-def eintraege_spiel(game: str = "") -> list[dict]:
+def eintraege_spiel(game: str = "", inst_dir: str = "") -> list[dict]:
     """Katalog fuer ein Spiel; leer, wenn es keinen gibt."""
     art = GAMES.get((game or "").lower(), "ark")
     if art == "7d2d":
-        return [{"name": n, "label": lb, "cat": "7D2D"} for n, lb in SDTD_ITEMS]
+        return sdtd_aus_datei(inst_dir)
     return eintraege()
 
 
-def suche_spiel(q: str, game: str = "", limit: int = 40) -> list[dict]:
+def suche_spiel(q: str, game: str = "", limit: int = 40, inst_dir: str = "") -> list[dict]:
     wort = (q or "").strip().lower()
     treffer = []
-    for e in eintraege_spiel(game):
+    for e in eintraege_spiel(game, inst_dir):
         if not wort or wort in (e["label"] + " " + e["name"]).lower():
             treffer.append(e)
         if len(treffer) >= limit:
             break
     return treffer
+
+_SDTD_LABELS = {n: lb for n, lb in SDTD_ITEMS}
+
+
+def sdtd_aus_datei(inst_dir: str) -> list[dict]:
+    """Alle Items aus Data/Config/items.xml der Instanz.
+
+    Die eingebaute Liste ist nur eine Auswahl; das Spiel kennt rund 1400 Itemnamen, und in
+    Mods kommen weitere dazu. Deshalb hier die echte Datei lesen - der `give`-Befehl braucht
+    genau diesen Namen. Bezeichnungen: bekannte aus der Kurzliste, sonst der Itemname.
+    """
+    import os
+    import re
+
+    pfad = os.path.join(inst_dir or "", "Data", "Config", "items.xml")
+    if not os.path.isfile(pfad):
+        return [{"name": n, "label": lb, "bp": n, "cat": "7D2D"} for n, lb in SDTD_ITEMS]
+    try:
+        with open(pfad, encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+    except OSError:
+        return [{"name": n, "label": lb, "bp": n, "cat": "7D2D"} for n, lb in SDTD_ITEMS]
+    namen = re.findall(r'<item\s+name="([^"]+)"', text)
+    gesehen = set()
+    out = []
+    for n in namen:
+        if n in gesehen:
+            continue
+        gesehen.add(n)
+        out.append({"name": n, "label": _SDTD_LABELS.get(n, n), "bp": n, "cat": "7D2D"})
+    return out or [{"name": n, "label": lb, "bp": n, "cat": "7D2D"} for n, lb in SDTD_ITEMS]

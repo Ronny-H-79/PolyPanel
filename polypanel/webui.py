@@ -2564,11 +2564,12 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/players":
             self._json(players(inst))
         elif path == "/api/catalog":
-            spiel = ""
+            spiel, ordner = "", ""
             if q.get("name", [""])[0]:
                 _i = self._inst(q)
-                spiel = _i.game if _i else ""
-            self._json(catalog.suche_spiel(q.get("q", [""])[0], spiel))
+                if _i:
+                    spiel, ordner = _i.game, _i.directory
+            self._json(catalog.suche_spiel(q.get("q", [""])[0], spiel, inst_dir=ordner))
         elif path == "/api/bans":
             self._json(bans.laden(inst))
         elif path == "/api/playerids/debug":
