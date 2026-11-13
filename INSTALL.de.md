@@ -158,19 +158,22 @@ loginctl enable-linger $USER      # läuft auch ohne angemeldete Sitzung
 
 ## Melde-Webhook (Fehler melden)
 
-Der Knopf **Fehler melden** im Panel erscheint nur, wenn eine Webhook-Adresse hinterlegt ist — die
-Adresse eines Discord-Webhooks (Servereinstellungen → Integrationen → Webhooks → „Webhook-URL
-kopieren"). Gesetzt wird sie beim Installieren (der Installer fragt danach) oder jederzeit auf der
-Konsole:
+Das Panel ist öffentlich: der Installer trägt deshalb die **Projektadresse** als Melde-Webhook ein,
+damit Fehlermeldungen beim Betreiber ankommen. Der Knopf **Fehler melden** erscheint nur, wenn eine
+Adresse hinterlegt ist. Beim Installieren fragt der Installer danach (Enter = Projektadresse
+übernehmen); ändern lässt sich das jederzeit auf der Konsole:
 
 ```bash
-./install.sh --report-hook https://discord.com/api/webhooks/…
-polypanel report-webhook            # aktuellen Stand anzeigen (Token maskiert)
-polypanel report-webhook -          # entfernen
+./install.sh --report-hook https://discord.com/api/webhooks/…   # eigene Adresse
+./install.sh --report-hook -                                    # aus (Knopf bleibt versteckt)
+./install.sh --report-hook standard                             # Projektadresse zurückholen
+polypanel report-webhook                                        # Stand anzeigen (Token maskiert)
 ```
 
-Ohne Webhook bleibt der Knopf versteckt; der Eintrag in `~/.config/polypanel/settings.json` bleibt bei
-einem erneuten `install.sh` erhalten und wird beim nächsten Lauf nur noch bestätigt.
+Eine einmal getroffene Wahl bleibt bei jedem weiteren `install.sh` erhalten: der Eintrag steht in
+`~/.config/polypanel/settings.json` (`chmod 600`), „aus" wird als leerer Wert gespeichert und nicht
+überschrieben.
+
 
 ## Deinstallieren
 

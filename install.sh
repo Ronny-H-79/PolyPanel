@@ -193,20 +193,24 @@ t() {
     de:web_failed)         echo "Dienst konnte nicht aktiviert werden - manuell starten mit: polypanel web" ;;
     en:web_skipped)        echo "No service created - start the UI when needed with: polypanel web" ;;
     de:web_skipped)        echo "Kein Dienst angelegt - Oberflaeche bei Bedarf starten mit: polypanel web" ;;
-    en:hook_ask)           echo "Report webhook for error reports (optional, Enter = none):" ;;
-    de:hook_ask)           echo "Melde-Webhook fuer Fehlermeldungen (optional, Enter = keiner):" ;;
-    en:hook_ask_keep)      echo "Report webhook (Enter = keep, - = remove):" ;;
-    de:hook_ask_keep)      echo "Melde-Webhook (Enter = behalten, - = entfernen):" ;;
-    en:hook_set)           echo "Report webhook saved: $2" ;;
-    de:hook_set)           echo "Melde-Webhook gespeichert: $2" ;;
-    en:hook_removed)       echo "Report webhook removed" ;;
-    de:hook_removed)       echo "Melde-Webhook entfernt" ;;
+    en:hook_ask_default)   echo "Report webhook for error reports [standard: $2, Enter = use it, - = off]:" ;;
+    de:hook_ask_default)   echo "Melde-Webhook fuer Fehlermeldungen [Standard: $2, Enter = uebernehmen, - = aus]:" ;;
+    en:hook_ask_keep)      echo "Report webhook (Enter = keep, - = off, URL = replace):" ;;
+    de:hook_ask_keep)      echo "Melde-Webhook (Enter = behalten, - = aus, URL = ersetzen):" ;;
+    en:hook_ask_off)       echo "Report webhook is off ('standard' = project address, URL = your own, Enter = keep off):" ;;
+    de:hook_ask_off)       echo "Melde-Webhook ist aus ('standard' = Projektadresse, URL = eigene, Enter = aus lassen):" ;;
+    en:hook_set)           echo "Report webhook: $2" ;;
+    de:hook_set)           echo "Melde-Webhook: $2" ;;
+    en:hook_removed)       echo "Report webhook off (report button stays hidden)" ;;
+    de:hook_removed)       echo "Melde-Webhook aus (Knopf 'Fehler melden' bleibt versteckt)" ;;
     en:hook_invalid)       echo "Webhook must start with https://" ;;
     de:hook_invalid)       echo "Webhook muss mit https:// beginnen" ;;
     en:hook_now)           echo "Report webhook: $2" ;;
     de:hook_now)           echo "Melde-Webhook: $2" ;;
-    en:hook_none)          echo "Report webhook: not set (the 'report error' button stays hidden)" ;;
-    de:hook_none)          echo "Melde-Webhook: nicht gesetzt (Knopf 'Fehler melden' bleibt versteckt)" ;;
+    en:hook_off)           echo "Report webhook: off (no reports are sent)" ;;
+    de:hook_off)           echo "Melde-Webhook: aus (es werden keine Meldungen gesendet)" ;;
+    en:hook_pending)       echo "Report webhook: not set yet - install.sh uses the project address $2" ;;
+    de:hook_pending)       echo "Melde-Webhook: noch nicht gesetzt - install.sh traegt die Projektadresse ein ($2)" ;;
     en:language_saved)     echo "Language: English" ;;
     de:language_saved)     echo "Sprache: Deutsch" ;;
     *) return 1 ;;
@@ -367,17 +371,26 @@ save_lang
 say "$(t language_saved)"
 
 # ---------------------------------------------------------------- Melde-Webhook
+# Der Melde-Knopf gehoert zum oeffentlichen Panel: alle Installationen schicken Fehlermeldungen an
+# diese Projektadresse. Wer das nicht will, setzt mit `--report-hook -` eine eigene oder keine.
+DEFAULT_HOOK="https://discord.com/api/webhooks/1570718682060038315/XP0H1Ak9vy72wHFx3Myu44aJak_98VMx97yGYrlJ75ZhKSv9Ek6YaXSZzistHPqFoTcK"
 CONF_JSON="$HOME/.config/polypanel/settings.json"
 
-hook_lesen() {
+hook_status() {
   "$PY" - "$CONF_JSON" <<'PYEOF'
 import json, sys
 try:
     with open(sys.argv[1], encoding="utf-8") as fh:
-        data = json.load(fh)
-    print(str(data.get("report_webhook", "") or "") if isinstance(data, dict) else "")
+        daten = json.load(fh)
+    if not isinstance(daten, dict):
+        daten = {}
 except (OSError, ValueError):
-    print("")
+    daten = {}
+if "report_webhook" not in daten:
+    print("fehlt")
+else:
+    wert = str(daten.get("report_webhook") or "").strip()
+    print(("gesetzt " + wert) if wert else "aus")
 PYEOF
 }
 
@@ -388,18 +401,15 @@ import json, os, sys
 path, url = sys.argv[1], sys.argv[2].strip()
 try:
     with open(path, encoding="utf-8") as fh:
-        data = json.load(fh)
-    if not isinstance(data, dict):
-        data = {}
+        daten = json.load(fh)
+    if not isinstance(daten, dict):
+        daten = {}
 except (OSError, ValueError):
-    data = {}
-if url:
-    data["report_webhook"] = url
-else:
-    data.pop("report_webhook", None)
+    daten = {}
+daten["report_webhook"] = url            # leerer Wert = bewusst aus (bleibt bei Neuinstallation aus)
 tmp = path + ".tmp"
 with open(tmp, "w", encoding="utf-8") as fh:
-    json.dump(data, fh, indent=2, ensure_ascii=False)
+    json.dump(daten, fh, indent=2, ensure_ascii=False)
 os.chmod(tmp, 0o600)
 os.replace(tmp, path)
 PYEOF
@@ -414,31 +424,48 @@ maskiere() {
   printf '%s/webhooks/%s/…' "$kopf" "$id"
 }
 
+_stand="$(hook_status)"
+case "$_stand" in
+  gesetzt*) HOOK_ZUSTAND="gesetzt"; HOOK_URL="${_stand#gesetzt }" ;;
+  aus)      HOOK_ZUSTAND="aus";     HOOK_URL="" ;;
+  *)        HOOK_ZUSTAND="fehlt";   HOOK_URL="" ;;
+esac
+
 if [ -n "$REP_HOOK" ]; then
   case "$REP_HOOK" in
     -|aus|none) hook_schreiben ""; say "$(t hook_removed)" ;;
+    standard|default) hook_schreiben "$DEFAULT_HOOK"; say "$(t hook_set "$(maskiere "$DEFAULT_HOOK")")" ;;
     https://*)  hook_schreiben "$REP_HOOK"; say "$(t hook_set "$(maskiere "$REP_HOOK")")" ;;
     *) die "$(t hook_invalid)" ;;
   esac
 elif [ "$CHECK_ONLY" = "1" ]; then
-  _hook="$(hook_lesen)"
-  if [ -n "$_hook" ]; then say "$(t hook_now "$(maskiere "$_hook")")"; else warn "$(t hook_none)"; fi
+  case "$HOOK_ZUSTAND" in
+    gesetzt) say "$(t hook_now "$(maskiere "$HOOK_URL")")" ;;
+    aus)     warn "$(t hook_off)" ;;
+    *)       warn "$(t hook_pending "$(maskiere "$DEFAULT_HOOK")")" ;;
+  esac
 elif [ -t 0 ] && [ "$AUTO" = "0" ]; then
-  _hook="$(hook_lesen)"
-  if [ -n "$_hook" ]; then
-    printf '  %s [%s] ' "$(t hook_ask_keep)" "$(maskiere "$_hook")"
-  else
-    printf '  %s ' "$(t hook_ask)"
-  fi
+  case "$HOOK_ZUSTAND" in
+    gesetzt)
+      printf '  %s [%s] ' "$(t hook_ask_keep)" "$(maskiere "$HOOK_URL")" ;;
+    aus)
+      printf '  %s ' "$(t hook_ask_off)" ;;
+    *)
+      printf '  %s [%s] ' "$(t hook_ask_default)" "$(maskiere "$DEFAULT_HOOK")" ;;
+  esac
   read -r _eingabe || _eingabe=""
   case "$_eingabe" in
-    "") : ;;
+    "") [ "$HOOK_ZUSTAND" = "fehlt" ] && { hook_schreiben "$DEFAULT_HOOK"; say "$(t hook_set "$(maskiere "$DEFAULT_HOOK")")"; } ;;
     -|aus|none) hook_schreiben ""; say "$(t hook_removed)" ;;
+    standard|default) hook_schreiben "$DEFAULT_HOOK"; say "$(t hook_set "$(maskiere "$DEFAULT_HOOK")")" ;;
     https://*)  hook_schreiben "$_eingabe"; say "$(t hook_set "$(maskiere "$_eingabe")")" ;;
     *) warn "$(t hook_invalid)" ;;
   esac
+elif [ "$HOOK_ZUSTAND" = "fehlt" ]; then
+  # keine Rueckfrage moeglich (--auto, Pipe): Projektadresse eintragen
+  hook_schreiben "$DEFAULT_HOOK"
+  say "$(t hook_set "$(maskiere "$DEFAULT_HOOK")")"
 fi
-
 
 MISSING=0
 
