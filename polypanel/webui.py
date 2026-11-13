@@ -3077,5 +3077,14 @@ def serve(host: str = "127.0.0.1", port: int = 8790,
         ctx.load_cert_chain(cert, key)
         srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
         scheme = "https"
+    adresse = "%s://%s:%d/?token=%s" % (scheme, host, port, token())
     print("PolyPanel UI: %s://%s:%d/?token=%s" % (scheme, host, port, token()), flush=True)
+    # Adresse mitschreiben: `cat ~/.config/polypanel/url` liefert sie spaeter unveraendert
+    try:
+        from .paths import URL_PATH
+        os.makedirs(os.path.dirname(URL_PATH), exist_ok=True)
+        with open(os.open(URL_PATH, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600), "w") as fh:
+            fh.write(adresse + "\n")
+    except OSError:
+        pass
     srv.serve_forever()

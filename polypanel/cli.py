@@ -165,7 +165,16 @@ def cmd_url(args: argparse.Namespace) -> None:
                 sock.close()
     except Exception:  # noqa: BLE001
         pass
-    print("http://%s:%d/?token=%s" % (host, args.port, token()))
+    adresse = "http://%s:%d/?token=%s" % (host, args.port, token())
+    print(adresse)
+    try:                                  # Adresse mitschreiben, damit sie nicht verloren geht
+        from .paths import URL_PATH
+        import os as _os
+        _os.makedirs(_os.path.dirname(URL_PATH), exist_ok=True)
+        with open(_os.open(URL_PATH, _os.O_CREAT | _os.O_TRUNC | _os.O_WRONLY, 0o600), "w") as _fh:
+            _fh.write(adresse + "\n")
+    except OSError:
+        pass
     dom = ""
     try:
         from . import i18n as _i18n

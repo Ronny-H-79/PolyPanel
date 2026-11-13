@@ -132,6 +132,9 @@ echo "http://$(hostname -I | awk '{print $1}'):8790/?token=$(cat /home/polypanel
 Der Token liegt zusätzlich in `/home/polypanel/.config/polypanel/token` für den Dienst-Benutzer
 bzw. `~/.config/polypanel/token` bei einer Installation im eigenen Konto (Rechte `600`).
 
+Die fertige Adresse schreibt das Panel zusätzlich nach `/home/polypanel/.config/polypanel/url` (Rechte `600`) —
+`cat` genügt, sie bleibt auch nach einem Neustart aktuell.
+
 Instanzen legst du **im Browser** an: Adresse aus der Ausgabe öffnen, Namen eintragen, Spiel und Karte
 wählen, **Anlegen** drücken — die Karte bietet dann **Installieren** an (SteamCMD, danach Start).
 Nach dem ersten Befehl braucht es kein Terminal mehr.

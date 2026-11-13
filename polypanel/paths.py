@@ -13,6 +13,8 @@ import shutil
 ALT_CONF = os.path.expanduser("~/.config/noah2games")
 CONF_DIR = os.path.expanduser(os.environ.get("POLYPANEL_CONFIG", "~/.config/polypanel"))
 TOKEN_PATH = os.path.join(CONF_DIR, "token")
+# Fertige Adresse inklusive Token - praktisch, wenn die Konsole laengst gescrollt ist.
+URL_PATH = os.path.join(CONF_DIR, "url")
 SETTINGS_PATH = os.path.join(CONF_DIR, "settings.json")
 CACHE_DIR = os.path.join(CONF_DIR, "cache")
 

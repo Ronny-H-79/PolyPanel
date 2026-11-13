@@ -208,6 +208,9 @@ echo "http://$(hostname -I | awk '{print $1}'):8790/?token=$(cat /home/polypanel
 The token is also stored in `/home/polypanel/.config/polypanel/token` for the service user, or
 `~/.config/polypanel/token` for an install in your own account (mode `600`).
 
+The panel also writes the finished address to `/home/polypanel/.config/polypanel/url` (mode `600`) -
+`cat` is enough, and it stays current across restarts.
+
 ## Uninstall
 
 ```bash
