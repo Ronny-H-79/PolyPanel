@@ -443,16 +443,21 @@ multilib_pkgs() {
 install_multilib() {
   local pkgs; pkgs="$(multilib_pkgs)"
   [ -n "$pkgs" ] || { warn "$(t no_pkgmgr "$(t multilib_label)")"; return 1; }
-  have_sudo || { warn "$(t no_sudo "$(t multilib_label)")"; return 1; }
+  # als root direkt, sonst per sudo - nach dem Umschalten auf den Dienst-Benutzer
+  # laeuft der Installer als root weiter und sudo ist evtl. gar nicht installiert
+  _root() { if [ "$(id -u)" = "0" ]; then "$@"; else sudo "$@"; fi; }
+  if [ "$(id -u)" != "0" ] && ! command -v sudo >/dev/null 2>&1; then
+    warn "$(t no_sudo "$(t multilib_label)")"; return 1
+  fi
   case "$PKG_MGR" in
     apt)
-      sudo dpkg --add-architecture i386 || true
-      sudo apt-get update -qq
-      sudo apt-get install -y $pkgs || sudo apt-get install -y lib32gcc1 lib32stdc++6 libc6:i386
+      _root dpkg --add-architecture i386 || true
+      _root apt-get update -qq
+      _root apt-get install -y $pkgs || _root apt-get install -y lib32gcc1 lib32stdc++6 libc6:i386
       ;;
-    dnf)    sudo dnf install -y $pkgs ;;
-    zypper) sudo zypper --non-interactive install $pkgs ;;
-    pacman) sudo pacman -S --needed --noconfirm $pkgs ;;
+    dnf)    _root dnf install -y $pkgs ;;
+    zypper) _root zypper --non-interactive install $pkgs ;;
+    pacman) _root pacman -S --needed --noconfirm $pkgs ;;
   esac
 }
 
@@ -460,20 +465,17 @@ if have_multilib; then
   say "$(t multilib_ok)"
 else
   MISSING=1
-  if [ "$AUTO" = "1" ]; then
+  if [ "$CHECK_ONLY" = "1" ]; then
+    warn "$(t check_missing "$(t multilib_label)" "$(multilib_pkgs)")"
+  else
+    # ohne Rueckfrage: SteamCMD ist ein 32-Bit-Programm und bricht sonst mit "Exit 127" ab
     say "$(t auto_install "$(t multilib_label)")"
     install_multilib >/dev/null 2>&1 || true
-  elif [ "$CHECK_ONLY" != "1" ] && [ -t 0 ]; then
-    printf '  %s ' "$(t multilib_ask)"
-    read -r _ml || _ml=""
-    case "$_ml" in
-      j|J|y|Y|ja|Ja|yes|Yes) install_multilib >/dev/null 2>&1 || true ;;
-    esac
-  fi
-  if have_multilib; then
-    say "$(t installed "$(t multilib_label)")"
-  else
-    warn "$(t multilib_failed "$(multilib_pkgs)")"
+    if have_multilib; then
+      say "$(t installed "$(t multilib_label)")"
+    else
+      warn "$(t multilib_failed "$(multilib_pkgs)")"
+    fi
   fi
 fi
 

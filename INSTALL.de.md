@@ -22,6 +22,8 @@ sudo apt install wine         # Debian / Ubuntu
 ```
 
 SteamCMD wird beim ersten Installieren automatisch nach `~/steamcmd` geladen — kein root nötig.
+Die nötigen 32-Bit-Bibliotheken richtet der Installer selbst ein (lib32gcc, libc6:i386 bzw. die
+Pakete der Distribution); ohne sie bricht SteamCMD mit „Exit 127“ ab.
 
 ## Sprache
 

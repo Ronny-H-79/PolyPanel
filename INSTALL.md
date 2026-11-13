@@ -23,7 +23,9 @@ sudo pacman -S wine           # Arch / CachyOS
 sudo apt install wine         # Debian / Ubuntu
 ```
 
-SteamCMD is downloaded automatically to `~/steamcmd` on first install — no root needed.
+SteamCMD is downloaded automatically to `~/steamcmd` on first install — no root needed. The required
+32-bit libraries are installed by the installer itself (lib32gcc, libc6:i386 or the distribution's
+packages); without them SteamCMD aborts with “exit 127”.
 
 ## Language
 
