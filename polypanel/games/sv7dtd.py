@@ -312,6 +312,13 @@ class SevenDaysProfile(GameProfile):
             props.append((name, value, hint))
         return props
 
+    # Eigenschaften mit festen Werten bekommen eine Auswahlliste statt eines Textfelds.
+    # 7D2D kennt fuer Region genau diese Bezeichner (serverconfig.xml, <property name="Region">).
+    CHOICES = {
+        "Region": ["None", "NorthAmericaEast", "NorthAmericaWest", "NorthAmericaCentral",
+                   "SouthAmerica", "Europe", "MiddleEast", "Asia", "Africa", "Oceania"],
+    }
+
     def settings(self, inst) -> list[dict]:
         props = self._read_props(inst)
         if not props:
@@ -329,9 +336,16 @@ class SevenDaysProfile(GameProfile):
             if "password" in name.lower() or "token" in name.lower():
                 typ = "password"
             label, hint_de = LABELS.get(name, (name, hint))
-            out.append({"file": "instance", "section": "", "key": name,
-                        "label": label, "hint": hint_de, "type": typ,
-                        "value": str(value), "group": self._gruppierung(name)})
+            eintrag = {"file": "instance", "section": "", "key": name,
+                       "label": label, "hint": hint_de, "type": typ,
+                       "value": str(value), "group": self._gruppierung(name)}
+            if name in self.CHOICES:
+                eintrag["type"] = "select"
+                eintrag["choices"] = list(self.CHOICES[name])
+                if str(value) not in eintrag["choices"] and str(value):
+                    # unbekannter Wert aus einer aelteren Config bleibt waehlbar
+                    eintrag["choices"].insert(0, str(value))
+            out.append(eintrag)
         return out
 
     def apply_settings(self, inst, items) -> int:

@@ -1417,6 +1417,10 @@ function _setField(v){
   if(v.type==='bool'){
     const on=(v.value||'').toLowerCase()==='true';
     field=`<div class="bool"><input type="checkbox" data-i="${i}" ${on?'checked':''}></div>`;
+  } else if(v.type==='select'){
+    const opts=(v.choices||[]).map(o=>`<option value="${String(o).replace(/"/g,'&quot;')}"`
+      + (String(v.value)===String(o)?' selected':'')+`>${o}</option>`).join('');
+    field=`<select data-i="${i}">${opts}</select>`;
   } else if(v.type==='longtext'){
     field=`<textarea data-i="${i}" rows="4" style="width:100%;resize:vertical"
              >${(v.value||'').replace(/\\n/g,String.fromCharCode(10)).replace(/</g,'&lt;')}</textarea>`;
