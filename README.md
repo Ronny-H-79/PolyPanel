@@ -101,7 +101,16 @@ polypanel token --quiet  # only the token (for scripts)
 polypanel url            # ready-made address including the token
 ```
 
-The token is also stored in `~/.config/polypanel/token` (mode `600`).
+If the command is not on your `PATH` (service user, other session) - full path:
+
+```bash
+/home/polypanel/.local/bin/polypanel token              # as user polypanel
+su - polypanel -c '/home/polypanel/.local/bin/polypanel token'   # as root
+cat /home/polypanel/.config/polypanel/token             # the file only (mode 600)
+```
+
+The token is also stored in `/home/polypanel/.config/polypanel/token` for the service user, or
+`~/.config/polypanel/token` for an install in your own account (mode `600`).
 
 Instances are created **in the browser**: open the address the command prints, enter a name, pick the
 game and map and press **Anlegen / Create** — the card then offers **Install** (SteamCMD, then start).

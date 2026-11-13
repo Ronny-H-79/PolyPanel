@@ -110,7 +110,16 @@ polypanel token --quiet  # nur der Token (für Skripte)
 polypanel url            # fertige Adresse inklusive Token
 ```
 
-Der Token liegt zusätzlich in `~/.config/polypanel/token` (Rechte `600`).
+Wenn der Befehl nicht im `PATH` liegt (Dienst-Benutzer, andere Sitzung) — voller Pfad:
+
+```bash
+/home/polypanel/.local/bin/polypanel token              # als Benutzer polypanel
+su - polypanel -c '/home/polypanel/.local/bin/polypanel token'   # als root
+cat /home/polypanel/.config/polypanel/token             # nur die Datei (Rechte 600)
+```
+
+Der Token liegt zusätzlich in `/home/polypanel/.config/polypanel/token` für den Dienst-Benutzer
+bzw. `~/.config/polypanel/token` bei einer Installation im eigenen Konto (Rechte `600`).
 
 Instanzen legst du **im Browser** an: Adresse aus der Ausgabe öffnen, Namen eintragen, Spiel und Karte
 wählen, **Anlegen** drücken — die Karte bietet dann **Installieren** an (SteamCMD, danach Start).
