@@ -106,13 +106,20 @@ class SpaceEngineersProfile(GameProfile):
             return False
         os.makedirs(pref, exist_ok=True)
         env = {**os.environ, "WINEPREFIX": pref, "WINEDEBUG": "-all"}
+        # winetricks startet Windows-Installer: ohne Display bricht das mit Status 126 ab
+        # ("XDG_RUNTIME_DIR is invalid or not set"). Deshalb unter Xvfb, wenn keins da ist.
+        xvfb = shutil.which("xvfb-run")
+        vorlauf = [xvfb, "-a"] if (xvfb and not os.environ.get("DISPLAY")) else []
+        # dotnet48: .NET 4.8; vcrun2019: x64-Runtime, ohne die SE mit "Please install latest
+        # C++ redistributable package" abbricht; win10: Prefix stand sonst auf Windows XP.
         for paket, marker, dauer in (("dotnet48", ".dotnet48-ok", "10-20 min"),
-                                     ("vcrun2019", None, "2 min")):
+                                     ("vcrun2019", ".vcrun2019-ok", "2 min"),
+                                     ("win10", None, "Sekunden")):
             if marker and os.path.exists(os.path.join(pref, marker)):
                 continue
             log("SE: installiere %s in %s (einmalig, %s)" % (paket, pref, dauer))
             try:
-                rc = subprocess.run([tricks, "-q", paket], env=env,
+                rc = subprocess.run(vorlauf + [tricks, "-q", paket], env=env,
                                     stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
                                     timeout=2400).returncode
             except (OSError, subprocess.TimeoutExpired) as exc:
