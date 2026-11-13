@@ -1,3 +1,16 @@
+## [0.7.55] — 2026-11-13
+
+### Neu
+- **Fehler melden aus der Oberfläche.** Einstellungen → „Fehler melden": kurzes Fenster mit
+  „Was ist passiert?" und optional „Wie kam es dazu?"; die Meldung geht an einen Discord-Webhook.
+  Mitgeschickt werden automatisch Panel-Version, Instanz und Karte, Betriebssystem und Python sowie
+  die letzten 30 Logzeilen. Passwörter, RCON- und Admin-Passwörter, Token und API-Keys werden vorher
+  entfernt (`ServerAdminPassword=…`, `password: …` → `[entfernt]`); Logfelder sind auf das
+  Discord-Limit gekürzt.
+- Der Melde-Webhook ist eine **Panel**-Einstellung (`settings.json`, eine Adresse für alle Instanzen),
+  getrennt vom Instanz-Webhook für Abstürze. Dazu **Testmeldung**, und bei Ablehnung durch Discord
+  steht die Antwort im Fehlertext statt nur „HTTP 400".
+
 ## [0.7.54] — 2026-11-13
 
 ### Behoben

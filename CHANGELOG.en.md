@@ -1,3 +1,15 @@
+## [0.7.55] — 2026-11-13
+
+### Added
+- **Report a bug from the UI.** Settings → "Report a bug": a small window with "What happened?"
+  and an optional "How did it happen?"; the report goes to a Discord webhook. Panel version, instance
+  and map, operating system and Python as well as the last 30 log lines are attached automatically.
+  Passwords, RCON and admin passwords, tokens and API keys are stripped first
+  (`ServerAdminPassword=…`, `password: …` → `[removed]`); log fields are trimmed to Discord's limit.
+- The report webhook is a **panel** setting (`settings.json`, one address for all instances), separate
+  from the per-instance crash webhook. Includes a **test message**, and if Discord rejects the payload
+  its answer is shown instead of a bare "HTTP 400".
+
 ## [0.7.54] — 2026-11-13
 
 ### Fixed

@@ -21,6 +21,8 @@ from . import backups as bk
 from . import config as cfgfile
 from . import metrics
 from . import notify as notify_mod
+from . import report as report_mod
+from . import __version__
 from . import mods as modlib
 from . import games, registry
 from . import runner
@@ -135,6 +137,7 @@ button.danger:hover{border-color:var(--err);color:var(--err)}
 .plModal.on{display:flex}
 /* Mengen-Fenster liegt ueber dem Katalog-Fenster */
 #qtyModal{z-index:75}
+#repModal{z-index:78}
 .plBox{background:#08110f;border:1px solid #22453c;border-radius:4px;padding:14px 16px;
  min-width:min(720px,94vw);max-height:80vh;overflow:auto;box-shadow:0 0 40px rgba(37,230,164,.12)}
 .plBody{margin-top:10px}
@@ -1038,6 +1041,21 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
     </div>
   </section>
 
+  <section class="tab tab-server"><h2 data-t="report.title">Fehler melden</h2>
+    <div class="meta" data-t="report.hint">Meldung geht an einen Discord-Kanal. Mitgeschickt werden automatisch
+      Panel-Version, Instanz, Betriebssystem und die letzten Logzeilen — Passwörter und Token werden vorher entfernt.</div>
+    <div class="setrow" style="margin-top:8px">
+      <label><b data-t="report.url">Melde-Webhook</b><small data-t="report.url_hint">eine Adresse für alle Instanzen, leer = kein Melden</small></label>
+      <input id="repUrl" data-tp="report.url_ph" placeholder="https://discord.com/api/webhooks/…">
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="primary" onclick="saveRepHook()" data-t="common.save">Speichern</button>
+      <button onclick="testRep()" data-t="report.test">Testmeldung</button>
+      <button onclick="openReport()" data-t="report.open">Fehler melden</button>
+      <span class="meta" id="repmsg"></span>
+    </div>
+  </section>
+
   <section class="tab tab-server wide"><h2 data-t="sched.title">Zeitplan</h2>
     <div id="tasklist"></div>
     <div class="row" style="margin:6px 0 12px">
@@ -1820,6 +1838,53 @@ async function pa(sid,action){ const pname=(window.PNAMES||{})[sid]||'';
   document.getElementById('out').textContent=await api(url,{method:'POST'});
   setTimeout(refresh,1500); setTimeout(loadBans,1600); }
 async function give(sid){ catOpen(sid); }
+async function loadRepHook(){
+  try{
+    const d=await api('/api/report');
+    const el=document.getElementById('repUrl');
+    if(el && !el.value) el.placeholder=d.webhook?'(gesetzt)':el.placeholder;
+    if(!d.webhook){ const m=document.getElementById('repmsg'); if(m) m.textContent=(L['report.not_set']||''); }
+  }catch(e){}
+}
+async function saveRepHook(){
+  const el=document.getElementById('repUrl'), msg=document.getElementById('repmsg');
+  try{
+    const r=await api('/api/report/webhook?url='+encodeURIComponent((el.value||'').trim()),{method:'POST'});
+    msg.textContent=r.ok?(r.url_gesetzt?'gespeichert':'entfernt'):(r.fehler||'Fehler');
+    if(r.ok) el.value='';
+  }catch(e){ msg.textContent=String(e); }
+}
+async function testRep(){
+  const msg=document.getElementById('repmsg');
+  msg.textContent=(L['common.loading']||'...');
+  try{
+    const r=await api('/api/report/test',{method:'POST'});
+    msg.textContent=r.ok?(L['report.sent']||'ok'):(r.fehler||'Fehler');
+  }catch(e){ msg.textContent=String(e); }
+}
+function openReport(){
+  document.getElementById('repModal').classList.add('on');
+  const t=document.getElementById('repText'); if(t) t.focus();
+}
+function closeReport(){
+  document.getElementById('repModal').classList.remove('on');
+  const s=document.getElementById('repstate'); if(s) s.textContent='';
+}
+async function sendReport(){
+  const text=(document.getElementById('repText').value||'').trim();
+  const steps=(document.getElementById('repSteps').value||'').trim();
+  const state=document.getElementById('repstate');
+  if(!text){ state.textContent=(L['report.need_text']||''); return; }
+  state.textContent=(L['common.loading']||'...');
+  try{
+    const r=await api('/api/report',{method:'POST',body:JSON.stringify({text:text,steps:steps})});
+    if(r.ok){
+      state.textContent=(L['report.sent']||'ok');
+      document.getElementById('repText').value=''; document.getElementById('repSteps').value='';
+      setTimeout(closeReport, 1200);
+    }else{ state.textContent=(r.fehler||'Fehler'); }
+  }catch(e){ state.textContent=String(e); }
+}
 let QTY_PENDING=null;
 function qtyClose(){ document.getElementById('qtyModal').classList.remove('on'); QTY_PENDING=null; }
 function qtyOpen(bp, label){
@@ -1857,7 +1922,7 @@ async function giveDirect(sid){
       '<div class="plMsg">'+String(r||'ok')+' · x'+q+'</div>');
   }catch(e){ alert(String(e)); }
 }
-applyLang(); restoreTab(); setTimeout(restoreTab, 250); refresh(); updCheck(); renderCmds(); loadMods(); loadKeyState(); loadCfg(); loadWl(); loadSettings(); loadCluster(); loadSnaps(); loadBackups(); loadSchedule(); loadHooks();
+applyLang(); restoreTab(); setTimeout(restoreTab, 250); refresh(); updCheck(); renderCmds(); loadMods(); loadKeyState(); loadCfg(); loadWl(); loadSettings(); loadCluster(); loadSnaps(); loadBackups(); loadSchedule(); loadHooks(); loadRepHook();
 setInterval(refresh,5000); setInterval(updCheck,300000);
 </script>""" + FOOTER + """
 <div id="unbanModal" class="plModal"><div class="plBox" style="min-width:min(520px,94vw)">
@@ -1871,6 +1936,23 @@ setInterval(refresh,5000); setInterval(updCheck,300000);
     <button onclick="unbanDo()" data-t="inst.unban">Entbannen</button>
   </div>
   <div id="unbanOut" class="plMsg"></div>
+</div></div>
+<div id="repModal" class="plModal"><div class="plBox" style="min-width:min(560px,94vw)">
+  <div class="row" style="justify-content:space-between">
+    <b data-t="report.title">Fehler melden</b>
+    <button onclick="closeReport()">×</button>
+  </div>
+  <div style="margin:12px 0 6px"><b data-t="report.what">Was ist passiert?</b></div>
+  <textarea id="repText" rows="4" style="width:100%" data-tp="report.what_ph"
+            placeholder="z. B. Start bricht nach dem Update ab, die Konsole bleibt leer"></textarea>
+  <div style="margin:10px 0 6px"><b data-t="report.steps">Wie kam es dazu? (optional)</b></div>
+  <textarea id="repSteps" rows="2" style="width:100%" data-tp="report.steps_ph"
+            placeholder="z. B. Mod hinzugefügt, dann auf Restart gedrückt"></textarea>
+  <div class="row" style="margin-top:12px;gap:8px">
+    <button class="primary" onclick="sendReport()" data-t="report.send">Meldung senden</button>
+    <button onclick="closeReport()" data-t="common.cancel">Abbrechen</button>
+    <span class="meta" id="repstate"></span>
+  </div>
 </div></div>
 <div id="qtyModal" class="plModal"><div class="plBox" style="min-width:min(430px,92vw)">
   <div class="row" style="justify-content:space-between">
@@ -2455,6 +2537,11 @@ class Handler(BaseHTTPRequestHandler):
             self._json(catalog.suche(q.get("q", [""])[0]))
         elif path == "/api/bans":
             self._json(bans.laden(inst))
+        elif path == "/api/report":
+            self._json({"webhook": bool(report_mod.webhook()),
+                        "version": __version__,
+                        "instanz": inst.name if inst else "",
+                        "log": bool(report_mod.logauszug(inst)) if inst else False})
         elif path == "/api/playerids/debug":
             self._json(playerids.pfade(inst))
         elif path == "/api/update":
@@ -2710,6 +2797,33 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "error": str(exc)[:200]})
                 return
             self._json(result)
+            return
+        elif path == "/api/report":
+            laenge = int(self.headers.get("Content-Length") or 0)
+            roh = self.rfile.read(laenge).decode("utf-8", "replace") if laenge else "{}"
+            try:
+                daten = json.loads(roh) if roh.strip() else {}
+            except ValueError:
+                daten = {}
+            if not inst:
+                self._json({"ok": False, "fehler": "keine Instanz"})
+                return
+            self._json(report_mod.senden(inst, str(daten.get("text", "")),
+                                        str(daten.get("steps", ""))))
+            return
+        elif path == "/api/report/webhook":
+            url = q.get("url", [""])[0].strip()
+            if url and not url.startswith("https://"):
+                self._json({"ok": False, "fehler": "Webhook muss mit https:// beginnen"})
+                return
+            report_mod.set_webhook(url)
+            self._json({"ok": True, "url_gesetzt": bool(url)})
+            return
+        elif path == "/api/report/test":
+            if not inst:
+                self._json({"ok": False, "fehler": "keine Instanz"})
+                return
+            self._json(report_mod.test(inst))
             return
         elif path == "/api/notify/test":
             url = q.get("url", [""])[0].strip() or inst.webhook_url
