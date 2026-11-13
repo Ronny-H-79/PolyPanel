@@ -1,3 +1,10 @@
+## [0.7.40] — 2026-11-13
+
+### Neu
+- **Hinweis zur Ban-Liste.** Im Fenster steht jetzt, dass dort nur Sperren aus dem Panel
+  erscheinen — ARK gibt die Liste nicht über RCON her. Außerhalb gebannte Spieler lassen sich
+  über das EOS-ID-Feld entbannen.
+
 ## [0.7.39] — 2026-11-13
 
 ### Neu
