@@ -762,6 +762,12 @@ elif [ "$ACCESS" = "tunnel" ]; then
   say "$(t access_tunnel)"
 fi
 
+# Der Token wird beim Lesen der Adresse als root angelegt - Rechte danach noch einmal setzen,
+# sonst kann der Dienst-Benutzer seine eigene Config nicht lesen (PermissionError beim Start).
+if [ -n "$SERVICE_USER" ]; then
+  chown -R "$SERVICE_USER":"$SERVICE_USER" "$HOME/.config/polypanel" "$DEST" "$BIN" 2>/dev/null || true
+fi
+
 if [ "$RUN_WIZARD" = "1" ]; then
   echo
   exec "$BIN/polypanel" wizard
