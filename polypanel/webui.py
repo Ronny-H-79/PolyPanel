@@ -3128,6 +3128,8 @@ class Handler(BaseHTTPRequestHandler):
                         changed += 1
                     except (KeyError, TypeError):
                         continue
+            plog.write("EINSTELLUNGEN %s: %d Werte empfangen, %d uebernommen"
+                       % (inst.name, len(items), changed))
             text = "%d Einstellung(en) gespeichert - wirksam nach Neustart" % changed
             if changed < len(items):
                 # Nicht jede Zeile landet in der Datei (unbekannter Schluessel, ungueltiger
