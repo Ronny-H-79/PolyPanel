@@ -30,7 +30,7 @@ from . import whitelist as wl
 from .rcon import RconClient
 
 from .paths import TOKEN_PATH
-RE_PLAYER = re.compile(r"^\s*(\d+)\.\s*(.+?),\s*([0-9]{15,17})\s*$")
+RE_PLAYER = re.compile(r"^\s*(\d+)\.\s*(.+?)\s*,\s*([0-9A-Za-z]{15,32})\s*$")
 INSTALLS: dict[str, dict] = {}
 
 

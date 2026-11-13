@@ -1,3 +1,10 @@
+## [0.7.30] — 2026-11-12
+
+### Fixed
+- **Player count stayed at 0 with players online.** `ListPlayers` line detection only accepted
+  15-17 digit ids (SteamID). ARK: Survival Ascended returns the **32 character hex EOS id**, so no
+  line matched and the player list stayed empty. Both formats are accepted now.
+
 ## [0.7.29] — 2026-11-11
 
 ### Fixed

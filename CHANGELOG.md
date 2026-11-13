@@ -1,3 +1,11 @@
+## [0.7.30] — 2026-11-12
+
+### Behoben
+- **Spielerzahl blieb bei 0, obwohl Spieler online waren.** Die Erkennung der `ListPlayers`-Zeilen
+  akzeptierte als ID nur 15–17 Ziffern (SteamID). ARK: Survival Ascended liefert die **32-stellige
+  EOS-ID in Hex**; damit passte keine Zeile und die Spielerliste blieb leer. Beide Formate werden
+  jetzt akzeptiert.
+
 ## [0.7.29] — 2026-11-11
 
 ### Behoben

@@ -71,7 +71,7 @@ def players_cached(inst: Instance) -> tuple[int, list[str]]:
         with inst.control(timeout=8) as rc:
             out = rc.command("ListPlayers", timeout=10)
         names = [m.group(2).strip() for m in
-                 (re.match(r"^\s*(\d+)\.\s*(.+?)\s*,\s*[0-9]{15,17}\s*$", ln) for ln in out.splitlines())
+                 (re.match(r"^\s*(\d+)\.\s*(.+?)\s*,\s*([0-9A-Za-z]{15,32})\s*$", ln) for ln in out.splitlines())
                  if m]
     except Exception:  # noqa: BLE001
         names = []
