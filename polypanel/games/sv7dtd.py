@@ -318,6 +318,10 @@ class SevenDaysProfile(GameProfile):
         # Werte laut Kommentar in der serverconfig.xml des Spiels
         "Region": ["NorthAmericaEast", "NorthAmericaWest", "CentralAmerica", "SouthAmerica",
                    "Europe", "Russia", "Asia", "MiddleEast", "Africa", "Oceania"],
+        # Welt: Navezgane (feste Karte) oder RWG (Zufallswelt). Eigene/pregenerierte Weltnamen
+        # bleiben waehlbar, weil der aktuelle Wert immer mit in die Liste wandert.
+        "GameWorld": ["Navezgane", "RWG"],
+        "WorldGenSize": ["6144", "8192", "10240"],
     }
 
     def settings(self, inst) -> list[dict]:
