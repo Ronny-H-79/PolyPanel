@@ -1,4 +1,4 @@
-## [Unreleased]
+## [0.7.32] — 2026-11-13
 
 ### Changed
 - **Update stays available while the instance is stopped.** That is exactly when the server

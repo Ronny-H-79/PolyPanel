@@ -1,4 +1,4 @@
-## [Unveröffentlicht]
+## [0.7.32] — 2026-11-13
 
 ### Geändert
 - **Update ist auch bei gestoppter Instanz bedienbar.** Genau dann werden die
