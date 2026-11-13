@@ -30,7 +30,7 @@ from . import whitelist as wl
 from .rcon import RconClient
 
 from .paths import TOKEN_PATH, CONF_DIR
-from . import catalog
+from . import catalog, bans
 RE_PLAYER = re.compile(r"^\s*(\d+)\.\s*(.+?)\s*,\s*([0-9A-Za-z]{15,32})\s*$")
 INSTALLS: dict[str, dict] = {}
 # Laufende Aktion je Instanz (start/stop/restart/update). Die Oberflaeche sperrt danach
@@ -888,6 +888,10 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
     </div>
     <div id="players">…</div></section>
 
+  <section class="tab tab-overview on"><h2 data-t="inst.bans">Gesperrte Spieler</h2>
+    <div id="bans"><span style="color:var(--dim)">–</span></div>
+  </section>
+
   <section class="tab tab-server ark-only"><h2 data-t="wl.title">Whitelist &amp; Bans</h2>
     <div class="row" style="margin-bottom:8px">
       <button id="wlbtn" onclick="toggleWl()">Whitelist …</button>
@@ -1099,11 +1103,12 @@ async function refresh(){
        _end(); requestAnimationFrame(()=>{_end(); setTimeout(_end,60);}); }catch(e){}
   try{
     const pl=JSON.parse(await api('/api/players'));
+    loadBans();
     document.getElementById('players').innerHTML=pl.length?pl.map(p=>
       `<div class="p"><span><b>${p.name}</b><br><small>${p.steamid}</small></span>
        <span class="row">
          <button onclick="pa('${p.steamid}','kick')">${L['inst.kick']}</button>
-         <button class="danger" onclick="pa('${p.steamid}','ban')">${L['inst.ban']}</button>
+         <button class="danger" onclick="pa('${p.steamid}','ban',${JSON.stringify(p.name)})">${L['inst.ban']}</button>
          <button onclick="pa('${p.steamid}','whitelist')">${L['inst.whitelist']}</button>
          <button onclick="give('${p.steamid}')">${L['inst.item']}</button>
        </span></div>`).join('')
@@ -1819,7 +1824,7 @@ async function saveSchedule(){
     snaptimes:(document.getElementById('snapTimes')||{}).value||''});
   document.getElementById('schedmsg').textContent=await api('/api/schedule?'+p.toString(),{method:'POST'});
 }
-async function pa(sid,action){ if(!confirm(action+' für '+sid+'?'))return;
+async function pa(sid,action,pname){ if(!confirm(action+' für '+(pname||sid)+'?'))return;
   document.getElementById('out').textContent=await api('/api/player/action?steamid='+sid+'&action='+action,{method:'POST'});
   setTimeout(refresh,1500); }
 async function give(sid){ catOpen(sid); }
@@ -1854,6 +1859,28 @@ setInterval(refresh,5000); setInterval(updCheck,300000);
   <div id="catList" class="plBody">…</div>
 </div></div>
 <script>
+async function loadBans(){
+  const box=document.getElementById('bans');
+  if(!box) return;
+  let list=[];
+  try{ list=JSON.parse(await api('/api/bans')); }catch(e){ return; }
+  if(!list.length){ box.innerHTML='<span style="color:var(--dim)">– '+L['inst.no_bans']+' –</span>'; return; }
+  box.innerHTML=list.map(function(b){
+    const n=b.name?String(b.name).replace(/</g,'&lt;'):'–';
+    return '<div class="p"><span><b>'+n+'</b><br><small class="mono">'+b.eos+'</small></span>'+
+           '<span class="row"><small style="color:var(--dim)">'+(b.zeit||'')+'</small>'+
+           '<button data-unban="'+b.eos+'">'+L['inst.unban']+'</button></span></div>';
+  }).join('');
+}
+document.addEventListener('click', async function(ev){
+  const b=ev.target.closest('button[data-unban]');
+  if(!b) return;
+  const id=b.dataset.unban;
+  if(!confirm(L['inst.confirm_unban'].replace('{id}', id))) return;
+  try{ await api('/api/player/action?steamid='+encodeURIComponent(id)+'&action=unban',{method:'POST'}); }
+  catch(e){ alert(String(e)); }
+  loadBans();
+});
 function unbanOpen(){
   document.getElementById('unbanId').value='';
   document.getElementById('unbanOut').textContent='';
@@ -2373,6 +2400,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(players(inst))
         elif path == "/api/catalog":
             self._json(catalog.suche(q.get("q", [""])[0]))
+        elif path == "/api/bans":
+            self._json(bans.laden(inst))
         elif path == "/api/update":
             self._json(runner.check_update(inst, 0 if q.get("refresh") else None))
         elif path == "/api/lang":
@@ -2791,10 +2820,23 @@ class Handler(BaseHTTPRequestHandler):
             if not steamid or not tpl:
                 self._send(400, b"steamid/action fehlt")
                 return
+            action = q.get("action", [""])[0]
+            pname = q.get("pname", [""])[0]
             try:
-                self._send(200, (rcon_cmd(inst, tpl % steamid) or "ok").encode())
+                antwort = rcon_cmd(inst, tpl % steamid) or "ok"
             except Exception as exc:  # noqa: BLE001
                 self._send(200, ("RCON-Fehler: %s" % exc).encode())
+                return
+            # Eigene Liste pflegen: ARK gibt die Ban-Liste nicht ueber RCON her.
+            try:
+                if action == "ban":
+                    bans.merken(inst, steamid, pname)
+                elif action == "unban":
+                    bans.vergessen(inst, steamid)
+            except OSError as exc:
+                self._send(200, ("%s (Liste nicht gespeichert: %s)" % (antwort, exc)).encode())
+                return
+            self._send(200, antwort.encode())
         elif path == "/api/player/give":
             steamid = q.get("steamid", [""])[0]
             bp = q.get("bp", [""])[0]

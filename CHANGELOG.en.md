@@ -1,3 +1,12 @@
+## [0.7.39] — 2026-11-13
+
+### Added
+- **"Banned players" window on the instance page.** Lists every player banned through the
+  panel with name, EOS id and timestamp - each with an **Unban** button. Needed because ARK
+  does not expose the ban list over RCON (`ListBannedPlayers` returns nothing), so the panel
+  keeps its own list in `bans.json` next to the instance. Bans made outside the panel stay
+  unbannable through the EOS id field.
+
 ## [0.7.38] — 2026-11-13
 
 ### Changed

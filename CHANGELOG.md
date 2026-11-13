@@ -1,3 +1,12 @@
+## [0.7.39] — 2026-11-13
+
+### Neu
+- **Fenster „Gesperrte Spieler" auf der Instanzseite.** Zeigt alle über das Panel gebannten
+  Spieler mit Name, EOS-ID und Zeitpunkt — jeweils mit **Entbannen**-Knopf. Nötig, weil ARK
+  die Ban-Liste nicht über RCON liefert (`ListBannedPlayers` antwortet leer); das Panel führt
+  die Liste deshalb selbst in `bans.json` neben der Instanz. Wer außerhalb des Panels bannt,
+  bleibt über das EOS-Feld entbannbar.
+
 ## [0.7.38] — 2026-11-13
 
 ### Geändert
