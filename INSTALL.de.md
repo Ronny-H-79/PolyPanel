@@ -47,14 +47,11 @@ cd polypanel && ./install.sh
 ```
 
 Alles landet unter `~/.local/share/polypanel`, Instanzen unter `~/polypanel-instances`, die Server laufen
-unter deinem Benutzer. **Satisfactory startet nur so** — der Server verweigert den Start als root. Der
-Installer warnt beim Lauf als root und bricht ab, wenn man nicht ausdrücklich zustimmt.
+unter deinem Benutzer. **Satisfactory startet nur so** — der Server verweigert den Start als root.
 
-Auf einem Server, den mehrere Leute nutzen, ist ein eigener Dienst-Benutzer sauberer:
-
-```bash
-sudo ./install.sh --user polypanel      # legt den Benutzer an, installiert nach /home/polypanel, User-Dienst + linger
-```
+Wer `install.sh` als **root** startet, bekommt das automatisch: der Installer legt den Dienst-Benutzer
+`polypanel` an und installiert dorthin (`/home/polypanel`), damit weder Panel noch Server als root laufen.
+Ein anderer Benutzername geht mit `--user <name>`.
 
 Weitere Aufrufe:
 

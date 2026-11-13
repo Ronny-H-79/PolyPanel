@@ -45,6 +45,19 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+# ---------------------------------------------------------------- root = Dienst-Benutzer
+# Als root gestartet: Installation und Server laufen automatisch unter einem eigenen
+# Dienst-Benutzer. Nicht aus Bequemlichkeit - Satisfactory startet als root gar nicht,
+# und ein Webserver als root ist ohnehin keine gute Idee.
+if [ "$(id -u)" = "0" ] && [ -z "$SERVICE_USER" ] && [ "$CHECK_ONLY" = "0" ]; then
+  if [ "$UNINSTALL" = "1" ]; then
+    # beim Entfernen nur umschalten, wenn es den Benutzer wirklich gibt
+    getent passwd "polypanel" >/dev/null 2>&1 && SERVICE_USER="polypanel"
+  else
+    SERVICE_USER="polypanel"
+  fi
+fi
+
 # ---------------------------------------------------------------- Dienst-Benutzer
 if [ -n "$SERVICE_USER" ]; then
   if [ "$(id -u)" != "0" ]; then
@@ -54,7 +67,7 @@ if [ -n "$SERVICE_USER" ]; then
   case "$SERVICE_USER" in
     *[!a-z0-9_-]*|"") echo "Ungueltiger Benutzername: $SERVICE_USER"; exit 1 ;;
   esac
-  if ! id "$SERVICE_USER" >/dev/null 2>&1; then
+  if [ "$UNINSTALL" = "0" ] && ! id "$SERVICE_USER" >/dev/null 2>&1; then
     useradd -m -s /bin/bash "$SERVICE_USER"
     echo "Benutzer $SERVICE_USER angelegt."
   fi
@@ -189,12 +202,8 @@ t() {
     de:web_failed)         echo "Dienst konnte nicht aktiviert werden - manuell starten mit: polypanel web" ;;
     en:web_skipped)        echo "No service created - start the UI when needed with: polypanel web" ;;
     de:web_skipped)        echo "Kein Dienst angelegt - Oberflaeche bei Bedarf starten mit: polypanel web" ;;
-    en:root_warn)          echo "Installed as root: everything goes to /root, and Satisfactory refuses to run as root. Better: install as a normal user (no sudo), or use --user <name>." ;;
-    de:root_warn)          echo "Als root installiert: alles landet unter /root, und Satisfactory startet als root nicht. Besser: als normaler Benutzer installieren (ohne sudo) oder --user <name> verwenden." ;;
-    en:root_ask)           echo "Install as root anyway? [y/N] " ;;
-    de:root_ask)           echo "Trotzdem als root installieren? [j/N] " ;;
-    en:root_abort)         echo "Aborted. Without root: ./install.sh   -   with a service user: ./install.sh --user <name>" ;;
-    de:root_abort)         echo "Abgebrochen. Ohne root: ./install.sh   -   mit eigenem Dienst-Benutzer: ./install.sh --user <name>" ;;
+    en:as_user)            echo "Running as root - installing as service user $SERVICE_USER (servers must not run as root)" ;;
+    de:as_user)            echo "Als root gestartet - Installation und Server laufen als Dienst-Benutzer $SERVICE_USER" ;;
     en:language_saved)     echo "Language: English" ;;
     de:language_saved)     echo "Sprache: Deutsch" ;;
     *) return 1 ;;
@@ -340,19 +349,8 @@ fi
 t title
 echo "-------------------"
 
-# ---------------------------------------------------------------- root-Warnung
-# Satisfactory und andere native UE-Server starten nicht als root. Wer als root
-# installiert, legt alles unter /root an - der Server startet dann nie.
-if [ "$(id -u)" = "0" ] && [ -z "$SERVICE_USER" ] && [ "$UNINSTALL" = "0" ] && [ "$CHECK_ONLY" = "0" ]; then
-  warn "$(t root_warn)"
-  if [ -t 0 ] && [ "$AUTO" = "0" ]; then
-    printf '  %s ' "$(t root_ask)"
-    read -r _root_antwort || _root_antwort=""
-    case "$_root_antwort" in
-      j|J|y|Y|ja|Ja|yes|Yes) : ;;
-      *) die "$(t root_abort)" ;;
-    esac
-  fi
+if [ -n "$SERVICE_USER" ]; then
+  say "$(t as_user)"
 fi
 
 

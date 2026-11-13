@@ -49,8 +49,11 @@ cd polyPanel && ./install.sh
 ```
 
 Everything goes to `~/.local/share/polypanel`, instances to `~/polypanel-instances`, servers run as your
-user. **Satisfactory only starts this way** — the server refuses to run as root; the installer warns when
-started as root and aborts unless you confirm.
+user. **Satisfactory only starts this way** — the server refuses to run as root.
+
+Starting `install.sh` as **root** is handled automatically: it creates the service user `polypanel` and
+installs there (`/home/polypanel`), so neither the panel nor the servers run as root. A different name
+via `--user <name>`.
 
 On a **server**, use a dedicated service user so nothing runs as root:
 
