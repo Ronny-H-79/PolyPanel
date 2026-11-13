@@ -570,7 +570,8 @@ async function load(){
           const a=i.action || (la&&la.what) || '';
           // Waehrend Stop ist alles gesperrt. Waehrend Start/Restart/Update (und solange die
           // Instanz hochfaehrt) bleibt nur Stop bedienbar - zum Abbrechen.
-          const startingNow = (a==='start'||a==='restart'||a==='update') || (i.running && !i.ready);
+          // Loeschen laeuft wie Start/Restart/Update: nur Stop bleibt bedienbar
+          const startingNow = (a==='start'||a==='restart'||a==='update'||a==='delete') || (i.running && !i.ready);
           const stoppingNow = (a==='stop');
           const off = ' disabled';
           const menu = (dis)=>`<a href="/i/${i.name}?token=${encodeURIComponent(T)}"><button${dis}>${L['common.menu']}</button></a>`;
@@ -691,6 +692,10 @@ async function delInst(name, sizeGb){
   }
   const msg = document.getElementById('instmsg');
   if(msg) msg.textContent='…';
+  // sofort sperren: bis die Antwort kommt, ist der Server am Stoppen
+  window.LOCAL_ACT = window.LOCAL_ACT || {};
+  window.LOCAL_ACT[name]={what:'delete',ts:Date.now()};
+  load();
   try{
     const raw = await api('/api/instance/delete?name='+encodeURIComponent(name)+'&files='+files, {method:'POST'});
     let r; try{ r = JSON.parse(raw); }catch(e){ r = {ok:true}; }
@@ -2886,13 +2891,19 @@ class Handler(BaseHTTPRequestHandler):
             return
         elif path == "/api/instance/delete":
             files = q.get("files", ["0"])[0] in ("1", "true", "yes")
-            if runner.is_running(inst):
-                runner.stop(inst, timeout=90)
+            # Waehrend des Loeschens (Server stoppen, Dateien entfernen) darf in der Oberflaeche
+            # nur noch Stop bedienbar sein - sonst klickt man in einen laufenden Loeschvorgang.
+            ACTIONS[inst.name] = "delete"
             try:
-                result = registry.forget(inst.name, delete_files=files)
-            except Exception as exc:  # noqa: BLE001
-                self._json({"ok": False, "error": str(exc)[:200]})
-                return
+                if runner.is_running(inst):
+                    runner.stop(inst, timeout=90)
+                try:
+                    result = registry.forget(inst.name, delete_files=files)
+                except Exception as exc:  # noqa: BLE001
+                    self._json({"ok": False, "error": str(exc)[:200]})
+                    return
+            finally:
+                ACTIONS.pop(inst.name, None)
             self._json(result)
             return
         elif path == "/api/notify/test":
