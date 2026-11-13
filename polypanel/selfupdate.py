@@ -384,13 +384,19 @@ def _session_env() -> dict:
     return env
 
 
-def restart_service() -> dict:
-    """Web-Dienst und Supervisor neu starten, damit der neue Code laeuft."""
+def restart_service(no_block: bool = False) -> dict:
+    """Web-Dienst und Supervisor neu starten, damit der neue Code laeuft.
+
+    `no_block=True` gibt den Auftrag nur an systemd weiter (`--no-block`) - wichtig, wenn der
+    Neustart aus dem Dienst selbst heraus angefordert wird: der aufrufende Prozess wird beim
+    Stoppen beendet, der Job in systemd bleibt aber bestehen.
+    """
     env = _session_env()
+    flag = ["--no-block"] if no_block else []
     done = []
     for service in ("polypanel-web", "PolyPanel-supervise"):
-        for cmd, kind in ((["systemctl", "restart", service], "system"),
-                          (["systemctl", "--user", "restart", service], "user")):
+        for cmd, kind in ((["systemctl"] + flag + ["restart", service], "system"),
+                          (["systemctl", "--user"] + flag + ["restart", service], "user")):
             try:
                 res = subprocess.run(cmd, capture_output=True, timeout=30, env=env)
                 if res.returncode == 0:

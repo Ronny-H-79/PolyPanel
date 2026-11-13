@@ -438,6 +438,8 @@ DASH = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
   <button onclick="polyPanelUpdate()" id="verbtn" style="padding:2px 8px">PolyPanel</button>
   <button onclick="openChangelog()" id="clogbtn" style="padding:2px 8px"
     data-t="self.changelog" title="Changelog">Changelog</button>
+  <button onclick="restartPanel()" id="rstpbtn" style="padding:2px 8px"
+    data-t="self.restart" title="Panel neu starten">Neustart</button>
   <button onclick="openReport()" id="repbtn" style="padding:2px 8px;display:none"
     data-t="report.open" title="Fehler im Panel melden">Fehler melden</button>
   <button onclick="toggleLang()" id="langbtn" style="padding:2px 8px">EN</button></span>""" + HEADER_ICONS + """</header>
@@ -841,6 +843,26 @@ async function openChangelog(){
   box.innerHTML='<div style="max-height:64vh;overflow:auto;padding-right:6px">'+_mdToHtml(d.text)+'</div>'+
     (d.url?('<div style="margin-top:10px"><a href="'+d.url+'" target="_blank">'+L['self.on_github']+'</a></div>'):'');
 }
+async function restartPanel(){
+  if(!confirm(L['self.restart_ask']||'Panel neu starten?')) return;
+  const b=document.getElementById('rstpbtn');
+  if(b){ b.disabled=true; b.textContent='…'; }
+  try{ await api('/api/panel/restart',{method:'POST'}); }
+  catch(e){ /* Verbindung reisst beim Neustart ab - das ist normal */ }
+  const o=document.getElementById('out');
+  if(o) o.textContent=(L['self.restarting']||'Panel startet neu …');
+  const start=Date.now();
+  const fertig=async function(){
+    if(Date.now()-start>90000){ location.reload(); return; }
+    try{
+      const r=await fetch('/api/host?token='+encodeURIComponent(T),{cache:'no-store'});
+      if(r.ok){ location.reload(); return; }
+    }catch(e){}
+    setTimeout(fertig,1500);
+  };
+  setTimeout(fertig,2500);
+}
+
 async function polyPanelUpdate(){
   if(!_polyPanelInfo){ await checkPolyPanel(); }
   if(!_polyPanelInfo || !_polyPanelInfo.ok) return;
@@ -2620,6 +2642,15 @@ class Handler(BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         # keep_blank_values: ein geleertes Feld (z. B. Uhrzeiten) muss auch geleert ankommen
         path, q = u.path, urllib.parse.parse_qs(u.query, keep_blank_values=True)
+
+        if path == "/api/panel/restart":
+            from . import selfupdate
+
+            # Auftrag an systemd, nicht selbst neu starten: der Timer-Thread gehoert zu diesem
+            # Prozess und wuerde mit ihm beendet - systemd fuehrt den Job trotzdem aus.
+            threading.Timer(1.0, lambda: selfupdate.restart_service(no_block=True)).start()
+            self._json({"ok": True, "info": "Neustart ausgeloest"})
+            return
 
         if path == "/api/selfupdate":
             from . import selfupdate
