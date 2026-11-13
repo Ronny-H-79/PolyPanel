@@ -1620,7 +1620,7 @@ async function loadSettings(){
 }
 async function saveSettings(){
   const payload=[];
-  document.querySelectorAll('#settings input, #settings textarea').forEach(el=>{
+  document.querySelectorAll('#settings input, #settings textarea, #settings select').forEach(el=>{
     const v=SETTINGS[Number(el.dataset.i)];
     let value;
     if(el.type==='checkbox') value=el.checked?'True':'False';

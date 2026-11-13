@@ -315,8 +315,9 @@ class SevenDaysProfile(GameProfile):
     # Eigenschaften mit festen Werten bekommen eine Auswahlliste statt eines Textfelds.
     # 7D2D kennt fuer Region genau diese Bezeichner (serverconfig.xml, <property name="Region">).
     CHOICES = {
-        "Region": ["None", "NorthAmericaEast", "NorthAmericaWest", "NorthAmericaCentral",
-                   "SouthAmerica", "Europe", "MiddleEast", "Asia", "Africa", "Oceania"],
+        # Werte laut Kommentar in der serverconfig.xml des Spiels
+        "Region": ["NorthAmericaEast", "NorthAmericaWest", "CentralAmerica", "SouthAmerica",
+                   "Europe", "Russia", "Asia", "MiddleEast", "Africa", "Oceania"],
     }
 
     def settings(self, inst) -> list[dict]:
