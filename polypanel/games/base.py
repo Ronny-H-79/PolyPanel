@@ -60,6 +60,9 @@ class GameProfile:
     supports_cluster: bool = False
     install_note: str = ""
     maps: tuple = ()              # ((Wert, Anzeigename), ...) - leer = keine Kartenauswahl
+    # Befehl fuer die Spielerliste (ARK: ListPlayers, 7D2D: lp)
+    players_command = "ListPlayers"
+
     # Spieleigene Steuerbefehle (leer = Standardbefehle des Panels)
     give_command = ""
     player_commands: dict = {}

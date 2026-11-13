@@ -69,7 +69,7 @@ def players_cached(inst: Instance) -> tuple[int, list[str]]:
         import re
         from .rcon import RconClient
         with inst.control(timeout=8) as rc:
-            out = rc.command("ListPlayers", timeout=10)
+            out = rc.command(getattr(inst.profile, "players_command", "ListPlayers"), timeout=10)
         from .playerparse import parse
         names = [p["name"] for p in parse(out)]
     except Exception:  # noqa: BLE001

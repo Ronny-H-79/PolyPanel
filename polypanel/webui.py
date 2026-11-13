@@ -86,7 +86,7 @@ def rcon_cmd(inst: Instance, cmd: str, timeout: float = 12.0) -> str:
 
 def players(inst: Instance) -> list[dict[str, str]]:
     try:
-        out = rcon_cmd(inst, "ListPlayers", timeout=10)
+        out = rcon_cmd(inst, getattr(inst.profile, "players_command", "ListPlayers"), timeout=10)
     except Exception:  # noqa: BLE001
         return []
     from .playerparse import parse

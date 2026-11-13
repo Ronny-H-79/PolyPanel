@@ -53,6 +53,8 @@ class SevenDaysProfile(GameProfile):
     }
     # true: die Aktion nimmt den Spielernamen, nicht die Steam-ID
     player_action_by_name = True
+    # Telnet kennt kein `ListPlayers` - die Spielerliste holt `lp` (Alias: listplayers)
+    players_command = "lp"
     # `give <Spieler> <Itemname> <Anzahl>` - 7D2D kennt weder Blueprints noch Whitelist-Befehle
     give_command = "give %s %s %s"
     supports_whitelist = False

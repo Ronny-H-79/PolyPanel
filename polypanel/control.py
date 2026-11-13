@@ -76,7 +76,13 @@ class TelnetClient:
             self._sock.sendall((cmd + "\r\n").encode())
         except OSError as exc:
             raise ControlError("Telnet-Senden fehlgeschlagen: %s" % exc) from exc
-        return self._read_until(("\r\n",), time.time() + wait).strip()
+        antwort = self._read_until(("\r\n",), time.time() + wait).strip()
+        # Der Server stellt jeder Antwort eine Log-Zeile voran ("... Executing command 'lp' ...").
+        # Die gehoert nicht zur Antwort und wuerde jede Auswertung stoeren.
+        zeilen = [z for z in antwort.splitlines()
+                  if " Executing command " not in z and " Telnet connection " not in z
+                  and " Started thread " not in z and " Exited thread " not in z]
+        return "\n".join(zeilen).strip()
 
     def close(self) -> None:
         if self._sock is not None:
