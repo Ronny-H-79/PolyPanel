@@ -206,6 +206,8 @@ t() {
     de:as_user)            echo "Als root gestartet - Installation und Server laufen als Dienst-Benutzer $SERVICE_USER" ;;
     en:svc_busy)           echo "An installation or a running game server was found - web service not restarted (that would abort it). Update takes effect after the next restart." ;;
     de:svc_busy)           echo "Eine Installation oder ein laufender Spielserver gefunden - Web-Dienst nicht neu gestartet (das wuerde ihn beenden). Der neue Stand greift nach dem naechsten Neustart." ;;
+    en:step_hint)          echo "installing: $* - this can take 1-2 minutes ..." ;;
+    de:step_hint)          echo "installiere: $* - das dauert 1-2 Minuten ..." ;;
     en:language_saved)     echo "Language: English" ;;
     de:language_saved)     echo "Sprache: Deutsch" ;;
     *) return 1 ;;
@@ -412,15 +414,23 @@ fi
 winetricks_install() {
   command -v winetricks >/dev/null 2>&1 && command -v cabextract >/dev/null 2>&1 && return 0
   _root() { if [ "$(id -u)" = "0" ]; then "$@"; else sudo "$@"; fi; }
+  # Fortschritt zeigen statt stumm zu installieren: apt/dnf brauchen hier 1-2 Minuten,
+  # ohne Ausgabe wirkt das wie ein Haenger. Die Ausgabe wird eingerueckt durchgereicht.
+  say "$(t step_hint "winetricks, cabextract, wine32 (i386)")"
+  _zeige() { while IFS= read -r _z; do printf '    %s\n' "$_z"; done; }
   case "$PKG_MGR" in
     apt)
       _root dpkg --add-architecture i386 >/dev/null 2>&1 || true
       _root apt-get update -qq >/dev/null 2>&1 || true
-      _root apt-get install -y winetricks cabextract wine32:i386 >/dev/null 2>&1         || _root apt-get install -y winetricks cabextract >/dev/null 2>&1 || true
+      _root apt-get install -y winetricks cabextract wine32:i386 2>&1 | _zeige || true
+      # Rueckfall ohne i386, falls wine32 nicht verfuegbar ist (Ergebnis pruefen, nicht den Pipe-Status)
+      if ! command -v winetricks >/dev/null 2>&1 || ! command -v cabextract >/dev/null 2>&1; then
+        _root apt-get install -y winetricks cabextract 2>&1 | _zeige || true
+      fi
       ;;
-    dnf)    _root dnf install -y winetricks cabextract >/dev/null 2>&1 || true ;;
-    zypper) _root zypper --non-interactive install winetricks cabextract >/dev/null 2>&1 || true ;;
-    pacman) _root pacman -S --needed --noconfirm winetricks cabextract >/dev/null 2>&1 || true ;;
+    dnf)    _root dnf install -y winetricks cabextract 2>&1 | _zeige || true ;;
+    zypper) _root zypper --non-interactive install winetricks cabextract 2>&1 | _zeige || true ;;
+    pacman) _root pacman -S --needed --noconfirm winetricks cabextract 2>&1 | _zeige || true ;;
   esac
   # winetricks sucht wineserver im PATH, Debian/Ubuntu legt es nur in den lib-Ordner
   if ! command -v wineserver >/dev/null 2>&1; then
