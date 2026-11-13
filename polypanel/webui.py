@@ -260,6 +260,10 @@ max-height:80vh;overflow:auto;padding:18px 20px;position:relative}
 .stats small{display:block;color:var(--dim);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase}
 .spark{width:100%;height:38px;display:block}
 .hostbar{display:flex;gap:10px;align-items:center;font-size:11px;color:var(--dim)}
+#toast{position:fixed;top:14px;right:16px;z-index:99;max-width:60vw;padding:9px 13px;border-radius:7px;
+background:#0d1b17;border:1px solid var(--acc);color:var(--fg);font-size:12px;line-height:1.4;
+box-shadow:0 8px 24px rgba(0,0,0,.45);opacity:0;transform:translateY(-6px);transition:opacity .25s,transform .25s;pointer-events:none}
+#toast.on{opacity:1;transform:none}
 #setupfill.indet{background:repeating-linear-gradient(45deg,#2f81f7 0 12px,#56d364 12px 24px);
 animation:instbarpulse 1s linear infinite;background-size:34px 34px}
 #instbarfill.indet{background:repeating-linear-gradient(45deg,#2f81f7 0 12px,#56d364 12px 24px);
@@ -1673,6 +1677,14 @@ async function loadSettings(){
   if(!byGroup[g]) g=present[0]||'play';
   showSetGroup(g);
 }
+function toast(text){
+  let t=document.getElementById('toast');
+  if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); }
+  t.textContent=String(text||'');
+  t.classList.add('on');
+  clearTimeout(window._toastTimer);
+  window._toastTimer=setTimeout(function(){ t.classList.remove('on'); }, 4000);
+}
 async function saveSettings(){
   const payload=[];
   document.querySelectorAll('#settings input, #settings textarea, #settings select').forEach(el=>{
@@ -1685,10 +1697,14 @@ async function saveSettings(){
       payload.push({file:v.file,section:v.section,key:v.key,value:value});
     }
   });
-  if(!payload.length){document.getElementById('setmsg').textContent=L['set.no_changes'];return;}
+  if(!payload.length){const m=L['set.no_changes'];document.getElementById('setmsg').textContent=m;toast(m);return;}
   const r=await fetch('/api/settings?name='+NAME+'&token='+encodeURIComponent(T),
     {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-  document.getElementById('setmsg').textContent=await r.text();
+  const meldung=await r.text();
+  document.getElementById('setmsg').textContent=meldung;
+  // Rueckmeldung auch oben einblenden: bei 250 Einstellungen steht die Zeile sonst
+  // ausserhalb des sichtbaren Bereichs und es wirkt, als sei nichts gespeichert worden.
+  toast(meldung);
   loadSettings(); loadCfg();
 }
 async function loadWl(){
