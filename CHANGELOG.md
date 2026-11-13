@@ -1,3 +1,11 @@
+## [0.7.43] — 2026-11-13
+
+### Geändert
+- **Doppelte Ban-Liste in „Verwaltung" entfernt.** Dort stand noch eine zweite Liste
+  („Gebannt (über …)"), die aus dem alten Instanz-Register kam — ohne Namen und ohne
+  Zeitpunkt. Die Liste gibt es jetzt nur einmal, im Fenster „Gesperrte Spieler". Bannen über
+  die ID im Verwaltungs-Tab trägt sich weiterhin ein und erscheint dort mit Namen.
+
 ## [0.7.42] — 2026-11-13
 
 ### Geändert

@@ -907,8 +907,6 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
     </div>
     <div class="meta" style="margin:10px 0 2px">Whitelist</div>
     <div id="wllist">…</div>
-    <div class="meta" style="margin:10px 0 2px" data-t="wl.banned_list">Gebannt (über PolyPanel)</div>
-    <div id="banlist">…</div>
     <pre id="wlmsg">–</pre>
   </section>
 
@@ -1569,7 +1567,6 @@ async function saveSettings(){
 }
 async function loadWl(){
   const w=JSON.parse(await api('/api/whitelist'));
-  const b=JSON.parse(await api('/api/bans'));
   const btn=document.getElementById('wlbtn');
   btn.textContent='Whitelist '+(w.enabled?L['wl.on']:L['wl.off']);
   btn.className=w.enabled?'primary':'';
@@ -1578,10 +1575,6 @@ async function loadWl(){
     `<div class="p"><span><b>${p}</b></span>
       <span class="row"><button onclick="delWl('${p}')">${L['common.remove']}</button></span></div>`).join('')
     :'<span style="color:var(--dim)">– '+(L['common.empty'])+' –</span>';
-  document.getElementById('banlist').innerHTML=(b.bans||[]).length?b.bans.map(p=>
-    `<div class="p"><span><b>${p}</b></span>
-      <span class="row"><button onclick="unbanId('${p}')">Entbannen</button></span></div>`).join('')
-    :'<span style="color:var(--dim)">– '+L['bk.none_dash']+' –</span>';
 }
 async function toggleWl(){
   const w=JSON.parse(await api('/api/whitelist'));
@@ -1603,10 +1596,7 @@ async function banId(){
   document.getElementById('wlmsg').textContent=await api('/api/ban?id='+encodeURIComponent(id),{method:'POST'});
   document.getElementById('pid').value=''; loadWl();
 }
-async function unbanId(id){
-  document.getElementById('wlmsg').textContent=await api('/api/unban?id='+encodeURIComponent(id),{method:'POST'});
-  loadWl();
-}
+
 async function loadMods(){
   try{
     const d=JSON.parse(await api('/api/mods'));
@@ -2442,8 +2432,6 @@ class Handler(BaseHTTPRequestHandler):
             self._json(modlib.meta(q.get("id", [""])[0], force=q.get("force", [""])[0] == "1"))
         elif path == "/api/whitelist":
             self._json(wl.info(inst))
-        elif path == "/api/bans":
-            self._json({"bans": wl.bans(inst)})
         elif path == "/api/snapshots":
             self._json(snap.listing(inst))
         elif path == "/api/cluster":
@@ -2629,6 +2617,11 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 out = rcon_cmd(inst, "BanPlayer %s" % pid)
                 wl.record_ban(inst, pid)
+                try:
+                    name = next((p.get("name", "") for p in players(inst) if p.get("steamid") == pid), "")
+                    bans.merken(inst, pid, name)
+                except Exception:            # noqa: BLE001 - Liste ist Beiwerk
+                    pass
                 self._send(200, ("%s: %s" % (pid, out or "gebannt")).encode())
             except Exception as exc:  # noqa: BLE001
                 self._send(200, ("RCON-Fehler: %s" % exc).encode())

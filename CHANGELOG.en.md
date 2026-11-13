@@ -1,3 +1,11 @@
+## [0.7.43] — 2026-11-13
+
+### Changed
+- **Removed the duplicate ban list from the management tab.** It showed a second list
+  ("Banned (via …)") taken from the old instance registry — without names or timestamps. The
+  list now exists only once, in the "Banned players" window. Banning by ID in the management
+  tab still records the entry and shows up there with a name.
+
 ## [0.7.42] — 2026-11-13
 
 ### Changed
