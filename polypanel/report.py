@@ -145,7 +145,11 @@ def panel_log(inst=None, zeilen: int = MAX_LOG_LINES) -> str:
     brauchbar = [z for z in zusammen.splitlines()
                  if z.strip() and not _GEHEIM.search(z)
                  and "No entries" not in z and "Fehlermeldung:" not in z]
-    return _saeubern(_nur_aktuell(brauchbar))[-MAX_LOG_CHARS:]
+    auszug = _nur_aktuell(brauchbar)
+    if not auszug:
+        # nichts im Zeitfenster: letzte echte Zeilen ohne fruehere Meldungen
+        auszug = "\n".join(brauchbar[-MAX_ZEILEN:])
+    return _saeubern(auszug)[-MAX_LOG_CHARS:]
 
 
 def _nur_aktuell(zeilen: list[str], fenster: int = FENSTER_SEK) -> str:
@@ -179,6 +183,25 @@ def _felder(inst=None) -> list[dict]:
     return felder
 
 
+def _instanzfelder() -> list[dict]:
+    """Kurzüberblick über die Instanzen (Name: Zustand) - hilft beim Einordnen."""
+    try:
+        from . import registry, runner
+    except ImportError:
+        return []
+    zeilen = []
+    try:
+        for name in registry.names()[:12]:
+            obj = registry.load(name)
+            if obj:
+                zeilen.append("%s: %s" % (name, "läuft" if runner.is_running(obj) else "aus"))
+    except Exception:                              # noqa: BLE001
+        return []
+    if not zeilen:
+        return []
+    return [{"name": "Instanzen", "value": ", ".join(zeilen)[:900], "inline": False}]
+
+
 def senden(inst=None, text: str = "", schritte: str = "") -> dict:
     """Meldung abschicken. Gibt {"ok": bool, "fehler": str} zurueck."""
     text = (text or "").strip()
@@ -192,6 +215,7 @@ def senden(inst=None, text: str = "", schritte: str = "") -> dict:
     felder = _felder(inst)
     if schritte.strip():
         felder.append({"name": "Schritte", "value": _saeubern(schritte.strip())[:900], "inline": False})
+    felder.extend(_instanzfelder())
     auszug = panel_log(inst)
     if auszug:
         felder.append({"name": "Log (Ende)", "value": "```\n%s\n```" % auszug[:990], "inline": False})
