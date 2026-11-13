@@ -35,3 +35,7 @@ Grobe Zusammenfassung dessen, was in den Panels steckt.
   im Weg — es legte sich über die ganze Seite und schluckte Klicks. Beides ist raus, samt
   `/api/experimental` und den zugehörigen Sprachschlüsseln; am Feld `ExperimentalMode` steht weiter
   „wirksam: AN/aus" aus dem Serverlog, falls SE doch einmal selbst umschaltet.
+- **„Installieren" öffnet wieder den Fortschritt.** Lag der zuletzt gemerkte Reiter auf
+  „Einstellungen", verdeckte er das Installationsfenster — der Klick wirkte, als lande man in den
+  Einstellungen, während im Hintergrund korrekt installiert wurde. Während einer laufenden
+  Installation schaltet die Instanzseite jetzt selbst auf „Übersicht" mit Balken und Log.

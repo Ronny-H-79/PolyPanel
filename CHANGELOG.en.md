@@ -35,3 +35,7 @@ Rough summary of what the panels contain.
   it covered the whole page and swallowed clicks. Both are gone, together with `/api/experimental` and
   the related language keys; the `ExperimentalMode` field still shows "effective: on/off" from the
   server log in case SE flips it by itself.
+- **"Install" shows the progress again.** If the remembered tab was "Settings", it covered the install
+  panel — the click looked like it landed in the settings while the install ran correctly in the
+  background. During a running install the instance page now switches to "Overview" by itself, with
+  progress bar and log.

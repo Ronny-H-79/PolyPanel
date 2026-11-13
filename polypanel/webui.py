@@ -1163,6 +1163,14 @@ async function setupPoll(){
   if(!p.running && !p.percent) return;
   box.style.display='';
   window._setupSichtbar=1;
+  // Installationsfenster nach vorn holen: sonst verdeckt der zuletzt gemerkte Reiter
+  // (z. B. "Einstellungen" aus localStorage) den Fortschritt - der Klick auf "Installieren"
+  // landet dann scheinbar in den Einstellungen, waehrend im Hintergrund installiert wird.
+  const aktiv=document.querySelector('.tabs button.on');
+  if(!aktiv || aktiv.dataset.tab!=='overview'){
+    const uebersicht=document.querySelector('.tabs button[data-tab="overview"]');
+    if(uebersicht) showTab('overview', uebersicht);
+  }
   const fill=document.getElementById('setupfill'), hint=document.getElementById('setuphint');
   const ph=p.phase||'';
   let text='';
