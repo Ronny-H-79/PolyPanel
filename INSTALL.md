@@ -57,6 +57,12 @@ Starting `install.sh` as **root** is handled automatically: it creates the servi
 installs there (`/home/polypanel`), so neither the panel nor the servers run as root. A different name
 via `--user <name>`.
 
+Exactly this call, without questions:
+
+```bash
+git clone https://github.com/Ronny-H-79/PolyPanel.git polypanel && cd polypanel && ./install.sh --auto --lang de --web
+```
+
 On a **server**, use a dedicated service user so nothing runs as root:
 
 ```bash

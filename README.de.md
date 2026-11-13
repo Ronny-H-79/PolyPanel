@@ -94,6 +94,14 @@ polypanel url           # Adresse mit Token - der Web-Dienst laeuft bereits
 Ohne `sudo` installieren: Panel, Instanzen und Server laufen dann unter deinem Benutzer. Für
 **Satisfactory** ist das Pflicht — der Server startet nicht als root.
 
+Als **root** auf einem Server (eine Zeile, ohne Rückfragen - legt den Dienst-Benutzer mit an):
+
+```bash
+git clone https://github.com/Ronny-H-79/PolyPanel.git polypanel && cd polypanel && ./install.sh --auto --lang de --web
+```
+
+Landet unter `/home/polypanel`, Web-Dienst als Benutzer `polypanel`, Port 8790.
+
 **Token vergessen oder Adresse verloren?**
 
 ```bash
