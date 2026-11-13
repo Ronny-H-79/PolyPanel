@@ -260,6 +260,8 @@ max-height:80vh;overflow:auto;padding:18px 20px;position:relative}
 .stats small{display:block;color:var(--dim);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase}
 .spark{width:100%;height:38px;display:block}
 .hostbar{display:flex;gap:10px;align-items:center;font-size:11px;color:var(--dim)}
+#setupfill.indet{background:repeating-linear-gradient(45deg,#2f81f7 0 12px,#56d364 12px 24px);
+animation:instbarpulse 1s linear infinite;background-size:34px 34px}
 #instbarfill.indet{background:repeating-linear-gradient(45deg,#2f81f7 0 12px,#56d364 12px 24px);
 animation:instbarpulse 1s linear infinite;background-size:34px 34px}
 @keyframes instbarpulse{from{background-position:0 0}to{background-position:34px 0}}
@@ -979,6 +981,18 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
   <button data-tab="server" onclick="showTab('server',this)" data-t="tabs.manage">Verwaltung</button>
 </div>
 <main>
+  <section class="tab tab-overview on wide" id="setupsec" style="display:none">
+    <h2 data-t="inst.setup">Installation</h2>
+    <div id="setupbar" style="height:12px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden;margin-bottom:6px">
+      <div id="setupfill" style="height:100%;width:0%;background:linear-gradient(90deg,#2f81f7,#56d364);transition:width .6s"></div>
+    </div>
+    <div id="setuphint" style="color:var(--dim);font-size:12px;margin-bottom:8px">…</div>
+    <pre id="setuplog" style="max-height:240px;overflow:auto">…</pre>
+    <div class="row" style="margin-top:8px">
+      <button class="danger" onclick="cancelInstall()" data-t="inst.cancel">Installation abbrechen</button>
+    </div>
+  </section>
+
   <section class="tab tab-overview on wide" id="logsec"><h2 data-t="inst.log">Server-Log</h2><pre id="log">…</pre></section>
 
   <section class="tab tab-overview on"><h2 data-t="inst.commands">Befehle</h2>
@@ -1168,6 +1182,56 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
 </main>
 <script>""" + BG_JS + """
 const NAME='__NAME__';
+// ---- Installationsfenster: Fortschritt, Hinweis und Log-Auszug
+const SETUP_HINTS={downloading:'setup.download',verifying:'setup.verify',committing:'setup.commit',preallocating:'setup.prealloc'};
+async function cancelInstall(){
+  if(!confirm(L['inst.cancel_ask']||'Installation wirklich abbrechen?')) return;
+  try{ await api('/api/install/cancel?name='+encodeURIComponent(NAME),{method:'POST'}); }catch(e){}
+  setTimeout(function(){ location.reload(); },900);
+}
+async function setupPoll(){
+  const box=document.getElementById('setupsec');
+  if(!box) return;
+  let p=null;
+  try{ p=JSON.parse(await api('/api/install/progress?name='+encodeURIComponent(NAME))); }catch(e){ return; }
+  if(!p) return;
+  if(p.done && !p.running){
+    if(window._setupSichtbar){
+      document.getElementById('setupfill').style.width='100%';
+      document.getElementById('setupfill').classList.remove('indet');
+      document.getElementById('setuphint').textContent=L['setup.done']||'Installation abgeschlossen.';
+      window._setupSichtbar=0;
+      setTimeout(function(){ location.reload(); },2200);
+    }
+    return;
+  }
+  if(!p.running && !p.percent) return;
+  box.style.display='';
+  window._setupSichtbar=1;
+  const fill=document.getElementById('setupfill'), hint=document.getElementById('setuphint');
+  const ph=p.phase||'';
+  let text='';
+  if(p.percent!==null && p.percent!==undefined){
+    fill.classList.remove('indet');
+    fill.style.width=Math.max(2,Math.min(100,p.percent))+'%';
+    text=(L[SETUP_HINTS[ph]]||L['setup.download']||'Serverdateien werden geladen')+' — '+Number(p.percent).toFixed(1)+' %';
+  }else{
+    fill.classList.add('indet'); fill.style.width='100%';
+    const sek=(p.elapsed===null||p.elapsed===undefined)?null:Number(p.elapsed);
+    const dauer=sek===null?'':(sek<60?(' — '+sek+' s'):(' — '+Math.floor(sek/60)+' min '+(sek%60)+' s'));
+    const basis=(ph.indexOf('SE:')===0)?(L['setup.runtime']||'Laufzeit wird eingerichtet (Wine/.NET), 10-20 Minuten'):ph;
+    text=basis+dauer;
+  }
+  hint.textContent=text;
+  try{
+    const lg=await api('/api/install/log?name='+encodeURIComponent(NAME));
+    const nl=String.fromCharCode(10);
+    const zeilen=String(lg).split(nl).filter(function(z){return z.trim();}).slice(-30);
+    document.getElementById('setuplog').textContent=zeilen.join(nl);
+  }catch(e){}
+}
+setTimeout(function(){ setupPoll(); setInterval(setupPoll, 2000); }, 300);
+
 const L=__LANGJSON__;
 async function toggleLang(){
   const next = (L.lang === 'de') ? 'en' : 'de';
