@@ -93,36 +93,62 @@ class SpaceEngineersProfile(GameProfile):
 
     def runtime_ready(self, inst) -> bool:
         pref = self.wine_prefix(inst)
-        return (os.path.exists(os.path.join(pref, ".dotnet48-ok"))
-                and os.path.exists(os.path.join(pref, "drive_c", "windows", "system32", "msvcp140.dll")))
+        # Fertig-Marker nach dem AMP-Rezept, oder: Wein-Mono + VC++ liegen im Prefix
+        if os.path.exists(os.path.join(pref, ".se-runtime-ok")):
+            return True
+        mono = os.path.isdir(os.path.join(pref, "drive_c", "windows", "mono"))
+        vc = os.path.exists(os.path.join(pref, "drive_c", "windows", "system32", "msvcp140.dll"))
+        return bool(mono and vc)
 
     def post_install(self, inst, log=print) -> None:
         self.ensure_runtime(inst, log)
 
     def ensure_runtime(self, inst, log=print) -> bool:
-        """dotnet48 einmalig in das gemeinsame Prefix installieren (SE braucht .NET)."""
+        """Laufzeit wie im AMP-Template einrichten.
+
+        AMP startet Space Engineers unter Wine mit: wine-mono (statt dotnet48), `win11`,
+        `vcrun2022` und `corefonts`, alles unter Xvfb. Genau diese Kombination funktioniert;
+        dotnet48 im 64-Bit-Prefix hinterlaesst dagegen eine kaputte machine.config
+        („Section names beginning with config are reserved").
+        """
         pref = self.wine_prefix(inst)
         if self.runtime_ready(inst):
-            log("SE: Laufzeit .NET 4.8 bereits vorhanden (%s)" % pref)
+            log("SE: Laufzeit bereits vorhanden (%s)" % pref)
             return True
         tricks = shutil.which("winetricks")
         if not tricks:
             log("SE: winetricks fehlt - bitte 'winetricks' installieren (Paket winetricks)")
             return False
         os.makedirs(pref, exist_ok=True)
-        env = {**os.environ, "WINEPREFIX": pref, "WINEDEBUG": "-all"}
-        # winetricks startet Windows-Installer: ohne Display bricht das mit Status 126 ab
-        # ("XDG_RUNTIME_DIR is invalid or not set"). Deshalb unter Xvfb, wenn keins da ist.
+        env = {**os.environ, "WINEPREFIX": pref, "WINEARCH": "win64", "WINEDEBUG": "-all"}
+        # winetricks und msiexec starten Windows-Installer: ohne Display bricht das mit
+        # Status 126 ab ("XDG_RUNTIME_DIR is invalid or not set"). Deshalb unter Xvfb.
         xvfb = shutil.which("xvfb-run")
         vorlauf = [xvfb, "-a"] if (xvfb and not os.environ.get("DISPLAY")) else []
-        # dotnet48: .NET 4.8; vcrun2019: x64-Runtime, ohne die SE mit "Please install latest
-        # C++ redistributable package" abbricht; win10: Prefix stand sonst auf Windows XP.
-        for paket, marker, dauer in (("dotnet48", ".dotnet48-ok", "10-20 min"),
-                                     ("vcrun2019", ".vcrun2019-ok", "2 min"),
-                                     ("win10", None, "Sekunden")):
-            if marker and os.path.exists(os.path.join(pref, marker)):
+
+        # 1) wine-mono: liefert .NET Framework fuer den Server
+        if not os.path.isdir(os.path.join(pref, "drive_c", "windows", "mono")):
+            msi = os.path.join(pref, "mono.msi")
+            quelle = "https://dl.winehq.org/wine/wine-mono/9.1.0/wine-mono-9.1.0-x86.msi"
+            log("SE: lade wine-mono (%s)" % quelle)
+            try:
+                import urllib.request
+                urllib.request.urlretrieve(quelle, msi)
+                log("SE: installiere wine-mono (2-3 min)")
+                subprocess.run(vorlauf + ["wine", "msiexec", "/i", msi, "/qn", "/norestart"],
+                               env=env, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
+                               timeout=900)
+            except (OSError, subprocess.SubprocessError) as exc:
+                log("SE: wine-mono fehlgeschlagen: %s" % exc)
+                return False
+
+        # 2) Prefix auf Windows 11, VC++ 2022 (x64) und Schriften
+        for paket, marker, dauer in (("win11", ".win11-ok", "Sekunden"),
+                                     ("vcrun2022", ".vcrun2022-ok", "2-3 min"),
+                                     ("corefonts", ".corefonts-ok", "1 min")):
+            if os.path.exists(os.path.join(pref, marker)):
                 continue
-            log("SE: installiere %s in %s (einmalig, %s)" % (paket, pref, dauer))
+            log("SE: winetricks %s (%s)" % (paket, dauer))
             try:
                 rc = subprocess.run(vorlauf + [tricks, "-q", paket], env=env,
                                     stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
@@ -133,10 +159,13 @@ class SpaceEngineersProfile(GameProfile):
             if rc != 0:
                 log("SE: winetricks %s endete mit %s" % (paket, rc))
                 return False
-            if marker:
-                open(os.path.join(pref, marker), "w").write("ok\n")
-            log("SE: %s fertig" % paket)
-        return self.runtime_ready(inst)
+            open(os.path.join(pref, marker), "w").write("ok\n")
+
+        ok = self.runtime_ready(inst)
+        if ok:
+            open(os.path.join(pref, ".se-runtime-ok"), "w").write("ok\n")
+        log("SE: Laufzeit %s" % ("fertig" if ok else "unvollstaendig"))
+        return ok
 
     def exe(self, inst) -> str:
         # Installation liefert nur die Windows-Variante (DedicatedServer64), daher Wine.
