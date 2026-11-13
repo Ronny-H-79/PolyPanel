@@ -2337,7 +2337,17 @@ def _start_install(inst: Instance) -> None:
             # Dienst gleich mit anlegen: Ueberwachung und Autostart ohne Handarbeit
             if result.get("ok"):
                 from . import units
+                # ABER: nach der Installation bleibt der Server AUS. Ein frisch installierter
+                # Server hat nie gelaufen - der Supervisor deutet "Prozess weg" als Absturz und
+                # faehrt ihn sofort hoch. Deshalb vor dem Dienststart als "gestoppt" markieren;
+                # ein Start ueber das Panel loescht den Marker (runner.start -> clear_stopped).
+                runner.mark_stopped(inst)
                 u = units.install(inst)
+                try:
+                    with open(os.path.join(inst.directory, ".install.log"), "a") as fh:
+                        fh.write("Server bleibt gestoppt - Start nur ueber 'Start' im Panel\n")
+                except OSError:
+                    pass
                 try:
                     with open(os.path.join(inst.directory, ".install.log"), "a") as fh:
                         if u.get("ok"):

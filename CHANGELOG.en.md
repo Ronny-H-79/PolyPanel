@@ -1,4 +1,15 @@
+## [0.12] — 2026-11-13
+
+### Fixed
+- **Instances no longer start by themselves after installation.** The supervisor was enabled right
+  after the install; as a freshly installed server never ran, it read "process gone" as a crash and
+  started it immediately. The instance is now marked as "stopped" (`runner.mark_stopped`) before the
+  service starts — starting only happens via "Start" in the panel. The marker is cleared on start, so
+  crash detection works as before, and an instance that was never started also stays off after a
+  system boot.
+
 ## [0.11] — 2026-11-13
+
 
 ### Overview
 Rough summary of what the panels contain.

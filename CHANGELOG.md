@@ -1,4 +1,15 @@
+## [0.12] — 2026-11-13
+
+### Behoben
+- **Instanzen starten nach der Installation nicht mehr von selbst.** Der Supervisor wurde direkt
+  nach der Installation aktiviert; weil ein frisch installierter Server noch nie lief, deutete er
+  „Prozess weg" als Absturz und fuhr den Server sofort hoch. Jetzt wird die Instanz vor dem
+  Dienststart als „gestoppt" markiert (`runner.mark_stopped`) — Start nur noch über „Start" im
+  Panel. Der Marker verschwindet beim Start, die Absturz-Erkennung arbeitet danach wie gewohnt;
+  auch nach einem Systemstart bleibt eine nie gestartete Instanz aus.
+
 ## [0.11] — 2026-11-13
+
 
 ### Überblick
 Grobe Zusammenfassung dessen, was in den Panels steckt.
