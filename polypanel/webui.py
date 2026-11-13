@@ -1193,7 +1193,8 @@ async function setupPoll(){
     fill.classList.remove('indet');
     fill.style.width=Math.max(2,Math.min(100,p.percent))+'%';
     const schritt=(p.step&&p.steps)?('Schritt '+p.step+'/'+p.steps+' · '):'';
-    text=schritt+(L[SETUP_HINTS[ph]]||L['setup.download']||'Serverdateien werden geladen')+' — '+Number(p.percent).toFixed(1)+' %';
+    const tempo=(p.speed&&p.speed>0.1)?(' · '+Number(p.speed).toFixed(1)+' MB/s'):'';
+    text=schritt+(L[SETUP_HINTS[ph]]||L['setup.download']||'Serverdateien werden geladen')+' — '+Number(p.percent).toFixed(1)+' %'+tempo;
   }else{
     fill.classList.add('indet'); fill.style.width='100%';
     const sek=(p.elapsed===null||p.elapsed===undefined)?null:Number(p.elapsed);
@@ -2250,6 +2251,7 @@ _PROGRESS_RE = re.compile(r"progress:\s*([0-9]+(?:\.[0-9]+)?)")
 _PHASE_STEP = {"preallocating": 1, "downloading": 1, "verifying install": 2, "verifying": 2,
                "committing": 3}
 _STATE_RE = re.compile(r"Update state \(0x[0-9a-f]+\)\s*([a-z ]+?)(?:,|$)")
+_BYTES_RE = re.compile(r"progress: [0-9.]+ \(([0-9]+) / ([0-9]+)\)")
 
 
 def install_progress(inst) -> dict[str, object]:
@@ -2315,6 +2317,18 @@ def install_progress(inst) -> dict[str, object]:
                 gesamt = max(gesamt, float(eintrag.get("max_percent", 0.0)))   # nie rueckwaerts
                 eintrag["max_percent"] = gesamt
             daten["percent"] = round(min(gesamt, 99.0), 1)
+            # Download-Geschwindigkeit aus den Byte-Zahlen der steamcmd-Zeile ableiten
+            mb = _BYTES_RE.search(zeile)
+            if mb and eintrag is not None:
+                jetzt, geladen = time.time(), float(mb.group(1))
+                vorher, vbytes = eintrag.get("sp_ts"), eintrag.get("sp_bytes")
+                if vorher and jetzt > vorher and geladen >= float(vbytes or 0):
+                    aktuell = (geladen - float(vbytes or 0)) / (jetzt - vorher) / 1048576.0
+                    alt = float(eintrag.get("speed") or 0.0)
+                    # glaetten, damit die Anzeige nicht springt; Ausreisser nach oben kappen
+                    eintrag["speed"] = min(aktuell if not alt else alt * 0.6 + aktuell * 0.4, 5000.0)
+                eintrag["sp_ts"], eintrag["sp_bytes"] = jetzt, geladen
+                daten["speed"] = round(float(eintrag.get("speed") or 0.0), 1)
             daten["phase"] = phase
             daten["step"] = schritt
             daten["steps"] = 3

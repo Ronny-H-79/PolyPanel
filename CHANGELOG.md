@@ -1,3 +1,10 @@
+## [0.13] — 2026-11-13
+
+### Neu
+- **Download-Geschwindigkeit im Installationsfenster.** Neben Schritt und Prozent steht jetzt die
+  aktuelle Rate in MB/s — berechnet aus den Byte-Zahlen der steamcmd-Zeilen und geglättet, damit
+  die Anzeige nicht springt.
+
 ## [0.12] — 2026-11-13
 
 ### Behoben
