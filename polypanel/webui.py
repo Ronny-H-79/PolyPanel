@@ -1651,6 +1651,24 @@ function filterSettings(q){
 }
 async function loadSettings(){
   SETTINGS=JSON.parse(await api('/api/settings'));
+  // Warnung, wenn der Server trotz "Experimental=false" experimentell laeuft
+  try{
+    const ex=JSON.parse(await api('/api/experimental'));
+    const box=document.getElementById('settings');
+    if(ex && ex.yes && box){
+      let w=document.getElementById('expWarn');
+      if(!w){ w=document.createElement('div'); w.id='expWarn';
+        w.style.cssText='margin:0 0 10px;padding:8px 10px;border:1px solid var(--warn);border-radius:6px;'
+                       +'color:var(--warn);font-size:12px;line-height:1.45';
+        box.insertBefore(w, box.firstChild); }
+      w.textContent=(L['se.experimental_warn']||'Server laeuft im Experimental-Modus')
+                    +(ex.reasons?(' ('+ex.reasons+')'):'')
+                    +(L['se.experimental_hint']||' - im Client muss Experimental in den Spieloptionen aktiv sein.');
+    }else{
+      const w=document.getElementById('expWarn'); if(w) w.remove();
+    }
+  }catch(e){}
+
   const byGroup={};
   SETTINGS.forEach(v=>{ const g=v.group||'play'; (byGroup[g]=byGroup[g]||[]).push(v); });
   const present=SETGROUP_ORDER.filter(g=>byGroup[g]);
@@ -2708,6 +2726,23 @@ class Handler(BaseHTTPRequestHandler):
                 "cluster_dir_custom": bool(inst.cluster_dir),
                 "transfer_filtering": bool(inst.cluster_transfer_filtering),
             })
+        elif path == "/api/experimental":
+            # SE entscheidet selbst ueber Experimental (Werte ueber Vanilla oder schwache Hardware
+            # laut VM-CPU). Der Config-Wert sagt nur, was gewuenscht ist - also im Serverlog nachsehen.
+            antwort = {"yes": False, "reasons": ""}
+            try:
+                import glob as _glob
+                treffer = sorted(_glob.glob(os.path.join(inst.directory, "SpaceEngineersDedicated_*.log")))
+                if treffer:
+                    with open(treffer[-1], encoding="utf-8", errors="replace") as fh:
+                        for zeile in fh:
+                            if "Experimental mode: Yes" in zeile:
+                                antwort["yes"] = True
+                            elif "Experimental mode reason:" in zeile:
+                                antwort["reasons"] = zeile.split("reason:", 1)[1].strip()
+            except OSError:
+                pass
+            self._json(antwort)
         elif path == "/api/settings":
             if inst.game != "ark":
                 self._json(_uebersetzte_settings(inst))     # nur die Felder dieses Spiels

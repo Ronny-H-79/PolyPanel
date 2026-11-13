@@ -33,6 +33,11 @@ LABELS = {
     "AutoSaveInMinutes": ("Autosave (Minuten)", "0 = aus"),
     "Scenario": ("Szenario", "z. B. StarSystem"),
     "Mods": ("Mods", "Workshop-IDs, kommagetrennt"),
+    "ExperimentalMode": ("Experimental", "Nur ein Wunsch: SE schaltet selbst auf Experimental, sobald "
+                                        "Einstellungen ueber den Vanilla-Werten liegen (MaxPlayers, "
+                                        "MaxFloatingObjects, PhysicsIterations, Ingame-Scripts) oder die "
+                                        "Hardware zu schwach gemeldet wird (z. B. VM-CPU). Der Client muss "
+                                        "Experimental dann in den Spieloptionen aktivieren."),
     "ServerDescription": ("Beschreibung", "Text in der Serverliste"),
     "ServerPasswordHash": ("Passwort-Hash", "intern, nicht aendern"),
 }
