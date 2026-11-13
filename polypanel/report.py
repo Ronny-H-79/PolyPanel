@@ -26,7 +26,9 @@ PANEL = "PolyPanel"
 TIMEOUT = 12
 MAX_TEXT = 1500
 MAX_LOG_LINES = 30
-MAX_LOG_CHARS = 900          # Discord erlaubt 1024 Zeichen je Feldwert
+MAX_LOG_CHARS = 600          # Discord erlaubt 1024 Zeichen je Feldwert
+FENSTER_SEK = 900            # nur Meldungen der letzten 15 Minuten
+MAX_ZEILEN = 12
 
 # Zeilen und Fragmente, die nie mitgeschickt werden
 _GEHEIM = re.compile(
@@ -128,14 +130,37 @@ def panel_log(inst=None, zeilen: int = MAX_LOG_LINES) -> str:
     if inst is not None:
         for name in (".ascendedpanel-supervisor.log", ".update.log", ".install.log"):
             pfad = os.path.join(getattr(inst, "directory", ""), name)
-            rest = _datei_ende(pfad, 8)
+            try:
+                # nur Logs, die in den letzten zwei Stunden geschrieben wurden
+                if time.time() - os.path.getmtime(pfad) > 7200:
+                    continue
+            except OSError:
+                continue
+            rest = _datei_ende(pfad, 6)
             if rest:
                 teile.append("--- %s ---\n%s" % (name, rest))
 
     zusammen = "\n".join(t for t in teile if t)
     brauchbar = [z for z in zusammen.splitlines()
                  if z.strip() and not _GEHEIM.search(z) and "No entries" not in z]
-    return _saeubern("\n".join(brauchbar))[-MAX_LOG_CHARS:]
+    return _saeubern(_nur_aktuell(brauchbar))[-MAX_LOG_CHARS:]
+
+
+def _nur_aktuell(zeilen: list[str], fenster: int = FENSTER_SEK) -> str:
+    """Nur Zeilen mit Zeitstempel aus dem Zeitfenster - alte Eintraege interessieren nicht."""
+    grenze = time.time() - fenster
+    frisch = []
+    for z in zeilen:
+        treffer = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", z)
+        if not treffer:
+            continue
+        try:
+            stamp = time.mktime(time.strptime(treffer.group(1), "%Y-%m-%d %H:%M:%S"))
+        except ValueError:
+            continue
+        if stamp >= grenze:
+            frisch.append(z)
+    return "\n".join(frisch[-MAX_ZEILEN:])
 
 
 # ------------------------------------------------------------------ Senden
