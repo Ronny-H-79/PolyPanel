@@ -3065,6 +3065,11 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception:                 # noqa: BLE001
                     drin = []
                 namen = {str(p.get("name", "")).lower() for p in drin} | {str(p.get("id", "")) for p in drin}
+                # 7D2D adressiert Spieler am zuverlaessigsten per Entity-ID aus `lp`
+                for eintrag in drin:
+                    if pname and str(eintrag.get("name", "")).lower() == pname.lower():
+                        steamid = str(eintrag.get("id") or steamid)
+                        break
                 if pname and pname.lower() not in namen and steamid not in namen:
                     self._send(200, ("%s ist gerade nicht in der Welt - Gegenstand nicht geschickt "
                                      "(erst geben, wenn der Spieler gespawnt ist)." % pname).encode())
