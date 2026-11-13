@@ -722,73 +722,24 @@ async function createInst(){
   const q=new URLSearchParams({name:name,game:document.getElementById('ngame').value,
     map:document.getElementById('nmap').value,
     port:document.getElementById('nport').value,session:document.getElementById('nsession').value}).toString();
-  document.getElementById('out').textContent=await api('/api/instances?'+q,{method:'POST'});
-  setTimeout(load,800);
+  const antwort=await api('/api/instances?'+q,{method:'POST'});
+  document.getElementById('out').textContent=antwort;
+  // Neue Instanz: Installation laeuft an - gleich die Instanzseite mit dem Fortschritt oeffnen
+  const ziel='/i/'+encodeURIComponent(name)+'?token='+encodeURIComponent(T);
+  const w=window.open(ziel,'pp_setup_'+name);
+  if(!w){ setTimeout(load,800); } else { setTimeout(load,1200); }
 }
 async function install(name){
-  document.getElementById('out').textContent=await api('/api/install?name='+name,{method:'POST'});
-  // Fortschrittsbalken ueber der Ausgabe: SteamCMD meldet Prozentwerte, die hier live einlaufen
-  let bar=document.getElementById('instbar'), label=document.getElementById('instbarlabel');
-  if(!bar){
-    const out=document.getElementById('out');
-    label=document.createElement('div'); label.id='instbarlabel';
-    label.style.cssText='font-size:12px;color:var(--dim);margin:8px 0 4px;display:none';
-    bar=document.createElement('div'); bar.id='instbar';
-    bar.style.cssText='height:14px;border-radius:7px;background:rgba(255,255,255,.08);overflow:hidden;display:none;margin-bottom:10px';
-    bar.innerHTML='<div id="instbarfill" style="height:100%;width:0%;background:linear-gradient(90deg,#2f81f7,#56d364);transition:width .6s"></div>';
-    out.parentNode.insertBefore(label,out); out.parentNode.insertBefore(bar,out);
-  }
-  const fill=bar.querySelector('#instbarfill');
-  let stopBtn=document.getElementById('instcancel');
-  if(!stopBtn){
-    stopBtn=document.createElement('button'); stopBtn.id='instcancel';
-    stopBtn.textContent=L['inst.cancel']||'Installation abbrechen';
-    stopBtn.style.cssText='margin:0 0 10px;padding:4px 10px;font-size:12px';
-    stopBtn.onclick=async()=>{
-      if(!confirm(L['inst.cancel_ask']||'Installation wirklich abbrechen?')) return;
-      try{ await api('/api/install/cancel?name='+encodeURIComponent(name),{method:'POST'}); }
-      catch(e){ alert((L['inst.action_failed']||'Aktion fehlgeschlagen:')+' '+e); }
-      stopBtn.remove(); setTimeout(load,800);
-    };
-    out.parentNode.insertBefore(stopBtn,out);
-  }
-  const t=setInterval(async()=>{
-    const l=await api('/api/install/log?name='+name);
-    document.getElementById('out').textContent=l;
-    try{
-      const p=JSON.parse(await api('/api/install/progress?name='+name));
-      if(p && (p.percent===null || p.percent===undefined) && p.phase && !p.done){
-        // Laufzeit wird eingerichtet (Wine/.NET): kein Prozentwert, aber sichtbarer Fortgang
-        bar.style.display='block'; label.style.display='block';
-        fill.classList.add('indet');
-        fill.style.width='100%';
-        const sek=(p.elapsed===null||p.elapsed===undefined)?null:Number(p.elapsed);
-        const dauer=sek===null?'':(sek<60?(' — '+sek+' s'):(' — '+Math.floor(sek/60)+' min '+(sek%60)+' s'));
-        label.textContent='Laufzeit: '+p.phase+dauer;
-        return;
-      }
-      fill.classList.remove('indet');
-      if(p && p.percent!==null && p.percent!==undefined && p.percent>0){
-        bar.style.display='block'; label.style.display='block';
-        fill.style.width=Math.max(2,Math.min(100,p.percent))+'%';
-        const ph=p.phase?(L['inst.phase_'+p.phase]||''):'';
-        label.textContent=(ph?ph+' — ':'')+Number(p.percent).toFixed(1)+' %';
-      }
-    }catch(e){}
-    if(l.startsWith('[fertig]') || l.startsWith('[abgebrochen]')){
-      clearInterval(t);
-      if(stopBtn && stopBtn.parentNode) stopBtn.remove();   // Knopf verschwindet mit dem Ende der Installation
-      if(bar && bar.style.display==='block'){
-        fill.style.width='100%';
-        label.textContent=(L['inst.phase_done']||'fertig')+' — 100 %';
-        setTimeout(()=>{bar.style.display='none';label.style.display='none';},6000);
-      }
-      setTimeout(load,800);                                 // Karte zeigt danach "Starten"
-    }
-  },2000);
+  // Installation anstossen und die Instanzseite oeffnen: dort laeuft der Fortschritt
+  // in einem eigenen Fenster (Balken, Hinweistext, Log-Auszug, Abbrechen).
+  const antwort = await api('/api/install?name='+encodeURIComponent(name),{method:'POST'});
+  const o=document.getElementById('out'); if(o) o.textContent=antwort;
+  const ziel='/i/'+encodeURIComponent(name)+'?token='+encodeURIComponent(T);
+  const w=window.open(ziel,'pp_setup_'+name);
+  if(!w){ location.href=ziel; return; }   // Popup blockiert: im selben Tab weiter
+  setTimeout(load,1200);
 }
 
-let _polyPanelInfo=null;
 async function checkPolyPanel(){
   try{ _polyPanelInfo=JSON.parse(await api('/api/selfupdate')); }catch(e){ return; }
   const b=document.getElementById('verbtn');
