@@ -1,32 +1,3 @@
-## [0.13] — 2026-11-13
-
-### Fixed
-- **The report button stayed hidden.** The UI fetches data as text (`api()`), but the check read the
-  result like an object — so `d.webhook` was always empty and the button stayed hidden even with a
-  webhook configured. The response is parsed now, also when sending a report (otherwise "ok" would
-  never have been detected).
-
-## [0.12] — 2026-11-13
-
-### Added
-- **Panel-owned log file** (`~/.config/ascendedpanel/panel.log`, rotated at 1 MB). The report could
-  not read the system journal because the service runs as root — so the panel now writes its own
-  events: every action (start, stop, restart, update) and every error in the web service.
-- Bug reports therefore contain real **panel logs**: the own log file plus the instance's
-  `.ascendedpanel-supervisor.log`, `.update.log` and `.install.log`; the game log stays out. Empty
-  journal answers (`-- No entries --`) are filtered out.
-
-## [0.11] — 2026-11-13
-
-### Changed
-- **Reporting moved to the start page** (button in the header, only shown when a report webhook is
-  configured) and is gone from the instance page.
-- **It reports the panel, not the game:** the report carries the panel version, the system and the
-  **panel logs** (service journal plus the instance's `.ascendedpanel-supervisor.log`, `.update.log`
-  and `.install.log`). The game's server log is **not** attached. Passwords and tokens are still
-  stripped before sending.
-- Window wording follows: "What can't the panel do?" instead of "What happened?".
-
 ## [0.10] — 2026-11-13
 
 ### Overview

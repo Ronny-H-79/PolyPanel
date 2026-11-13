@@ -1,33 +1,3 @@
-## [0.13] — 2026-11-13
-
-### Behoben
-- **Melde-Knopf blieb unsichtbar.** Die Oberfläche holt Daten als Text (`api()`), die Prüfung las das
-  Ergebnis aber wie ein Objekt — `d.webhook` war damit immer leer und der Knopf blieb versteckt,
-  obwohl ein Webhook gesetzt war. Jetzt wird die Antwort geparst, auch beim Absenden der Meldung
-  (sonst hätte „ok" nie gestimmt).
-
-## [0.12] — 2026-11-13
-
-### Neu
-- **Eigenes Panel-Log** (`~/.config/ascendedpanel/panel.log`, ab 1 MB gedreht). Die Meldung konnte
-  das System-Journal nicht lesen, weil der Dienst unter root läuft — darum schreibt das Panel seine
-  Ereignisse jetzt selbst mit: jede Aktion (Start, Stop, Restart, Update) und jeder Fehler im
-  Web-Dienst landet dort.
-- Fehlermeldungen enthalten damit wirklich **Panel-Logs**: eigene Logdatei, dazu
-  `.ascendedpanel-supervisor.log`, `.update.log` und `.install.log` der Instanz; das Spiel-Log
-  bleibt draußen. Leere Journal-Antworten (`-- No entries --`) werden herausgefiltert.
-
-## [0.11] — 2026-11-13
-
-### Geändert
-- **Fehler melden sitzt jetzt auf der Startseite** (Knopf in der Kopfzeile, erscheint nur, wenn ein
-  Melde-Webhook hinterlegt ist) und ist aus der Instanzseite verschwunden.
-- **Gemeldet wird das Panel, nicht das Spiel:** Die Meldung enthält Panel-Version, System und die
-  **Panel-Logs** (Journal des Dienstes, dazu `.ascendedpanel-supervisor.log`, `.update.log` und
-  `.install.log` der betroffenen Instanz). Das Server-Log des Spiels wird **nicht** mitgeschickt.
-  Passwörter und Token werden weiterhin vor dem Senden entfernt.
-- Wortlaut im Fenster entsprechend: „Was kann das Panel nicht?" statt „Was ist passiert?".
-
 ## [0.10] — 2026-11-13
 
 ### Überblick
