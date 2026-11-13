@@ -358,13 +358,26 @@ class SpaceEngineersProfile(GameProfile):
             eintrag = {"file": "instance", "section": "", "key": name, "label": label,
                        "hint": hint, "type": "text", "value": str(value),
                        "group": _group_of(name)}
-            if name in self.CHOICES:
+            if name in self._BOOL:
+                # Schalter als Auswahl statt Freitext - Anfaenger tippen sonst alles Moegliche
+                eintrag["type"] = "select"
+                eintrag["choices"] = ["true", "false"]
+                eintrag["labels"] = {"true": "an (true)", "false": "aus (false)"}
+                if str(value).lower() in ("true", "false"):
+                    eintrag["value"] = str(value).lower()
+            elif name in self.CHOICES:
                 eintrag["type"] = "select"
                 eintrag["choices"] = list(self.CHOICES[name])
                 if name in self.CHOICE_LABELS:
                     eintrag["labels"] = dict(self.CHOICE_LABELS[name])
                 if str(value) and str(value) not in eintrag["choices"]:
                     eintrag["choices"].insert(0, str(value))
+            elif str(value).lower() in ("true", "false"):
+                # Jedes Feld, das aktuell true/false enthaelt, wird zur Auswahl
+                eintrag["type"] = "select"
+                eintrag["choices"] = ["true", "false"]
+                eintrag["labels"] = {"true": "an (true)", "false": "aus (false)"}
+                eintrag["value"] = str(value).lower()
             out.append(eintrag)
         # Optionen, die (noch) nicht in der Datei stehen, trotzdem anbieten: leer = Standard
         vorhanden = {name for name, _ in props}

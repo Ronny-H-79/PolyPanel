@@ -121,6 +121,16 @@ def main(name: str) -> int:
         threading.Thread(target=_handle, args=(conn,), daemon=True).start()
 
     srv.close()
+    # Eigene Kinder einsammeln: ein nicht abgeholter Kindprozess bleibt als Zombie stehen,
+    # haelt die Server-Ports (UDP) weiter belegt und der naechste Start scheitert dann mit
+    # "Port ist schon belegt", obwohl kein Server mehr laeuft.
+    while True:
+        try:
+            kind, _ = os.waitpid(-1, os.WNOHANG)
+        except ChildProcessError:
+            break
+        if kind == 0:
+            break
     try:
         os.unlink(sock_path)
     except OSError:
