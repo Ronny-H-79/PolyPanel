@@ -765,7 +765,10 @@ fi
 # Der Token wird beim Lesen der Adresse als root angelegt - Rechte danach noch einmal setzen,
 # sonst kann der Dienst-Benutzer seine eigene Config nicht lesen (PermissionError beim Start).
 if [ -n "$SERVICE_USER" ]; then
-  chown -R "$SERVICE_USER":"$SERVICE_USER" "$HOME/.config/polypanel" "$DEST" "$BIN" 2>/dev/null || true
+  # Das ganze Home gehoert dem Dienst-Benutzer: sonst scheitern Spiele, die eigene
+  # Verzeichnisse anlegen wollen (7D2D bricht mit "Access to the path .local/share/7DaysToDie
+  # is denied" ab, wenn .local als root entstanden ist).
+  chown -R "$SERVICE_USER":"$SERVICE_USER" "$HOME" 2>/dev/null || true
 fi
 
 if [ "$RUN_WIZARD" = "1" ]; then
