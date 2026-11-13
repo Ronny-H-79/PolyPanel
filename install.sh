@@ -8,7 +8,6 @@
 #   ./install.sh --auto          fehlende Pakete ohne Rueckfrage installieren (sudo)
 #   ./install.sh --wizard        optional: danach den Konsolen-Assistenten starten
 #   ./install.sh --user polypanel     als eigener Dienst-Benutzer installieren (root, empfohlen)
-#   ./install.sh --report-hook <url>  Melde-Webhook fuer Fehlermeldungen ('-' = entfernen)
 #   ./install.sh --uninstall     wieder entfernen (Instanzen bleiben erhalten)
 #
 # Umgebungsvariablen: POLYPANEL_HOME (Zielordner), NOAH_BIN (Launcher-Ordner),
@@ -21,7 +20,6 @@ BIN="${NOAH_BIN:-$HOME/.local/bin}"
 PY="${PYTHON:-python3}"
 RUN_WIZARD=0
 UNINSTALL=0
-REP_HOOK=""
 CHECK_ONLY=0
 AUTO=0
 LANG_SEL="${NOAH_LANG:-}"
@@ -32,8 +30,6 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --wizard) RUN_WIZARD=1 ;;
     --uninstall) UNINSTALL=1 ;;
-    --report-hook=*) REP_HOOK="${1#*=}" ;;
-    --report-hook) shift; REP_HOOK="${1:-}" ;;
     --check) CHECK_ONLY=1 ;;
     --auto|-y|--yes) AUTO=1 ;;
     --web) WANT_WEB=1 ;;
@@ -193,22 +189,6 @@ t() {
     de:web_failed)         echo "Dienst konnte nicht aktiviert werden - manuell starten mit: polypanel web" ;;
     en:web_skipped)        echo "No service created - start the UI when needed with: polypanel web" ;;
     de:web_skipped)        echo "Kein Dienst angelegt - Oberflaeche bei Bedarf starten mit: polypanel web" ;;
-    en:hook_ask_default)   echo "Report webhook for error reports (Enter = project address, - = off, URL = your own)" ;;
-    de:hook_ask_default)   echo "Melde-Webhook fuer Fehlermeldungen (Enter = Projektadresse, - = aus, URL = eigene)" ;;
-    en:hook_ask_keep)      echo "Report webhook (Enter = keep, - = off, URL = replace):" ;;
-    de:hook_ask_keep)      echo "Melde-Webhook (Enter = behalten, - = aus, URL = ersetzen):" ;;
-    en:hook_ask_off)       echo "Report webhook is off ('standard' = project address, URL = your own, Enter = keep off):" ;;
-    de:hook_ask_off)       echo "Melde-Webhook ist aus ('standard' = Projektadresse, URL = eigene, Enter = aus lassen):" ;;
-    en:hook_set)           echo "Report webhook saved" ;;
-    de:hook_set)           echo "Melde-Webhook gespeichert" ;;
-    en:hook_removed)       echo "Report webhook off (report button stays hidden)" ;;
-    de:hook_removed)       echo "Melde-Webhook aus (Knopf 'Fehler melden' bleibt versteckt)" ;;
-    en:hook_invalid)       echo "Webhook must start with https://" ;;
-    de:hook_invalid)       echo "Webhook muss mit https:// beginnen" ;;
-    en:hook_now)           echo "Report webhook: set" ;;
-    de:hook_now)           echo "Melde-Webhook: gesetzt" ;;
-    en:hook_off)           echo "Report webhook: off (no reports are sent)" ;;
-    de:hook_off)           echo "Melde-Webhook: aus (es werden keine Meldungen gesendet)" ;;
     en:language_saved)     echo "Language: English" ;;
     de:language_saved)     echo "Sprache: Deutsch" ;;
     *) return 1 ;;
@@ -367,96 +347,6 @@ PYEOF
 
 save_lang
 say "$(t language_saved)"
-
-# ---------------------------------------------------------------- Melde-Webhook
-# Der Melde-Knopf gehoert zum oeffentlichen Panel: alle Installationen schicken Fehlermeldungen an
-# diese Projektadresse. Wer das nicht will, setzt mit `--report-hook -` eine eigene oder keine.
-DEFAULT_HOOK_B64="aHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkvd2ViaG9va3MvMTU3MDcxODY4MjA2MDAzODMxNS9YUDBIMUFrOXZ5NzJ3SEZ4M015dTQ0YUpha185OFZNeDk3eUdZcmxKNzVaaEtTdjlFazZZYVhTWnppc3RIUHFGb1RjSw=="
-DEFAULT_HOOK="$(printf %s "$DEFAULT_HOOK_B64" | base64 -d 2>/dev/null || true)"
-CONF_JSON="$HOME/.config/polypanel/settings.json"
-
-hook_status() {
-  "$PY" - "$CONF_JSON" <<'PYEOF'
-import json, sys
-try:
-    with open(sys.argv[1], encoding="utf-8") as fh:
-        daten = json.load(fh)
-    if not isinstance(daten, dict):
-        daten = {}
-except (OSError, ValueError):
-    daten = {}
-if "report_webhook" not in daten:
-    print("fehlt")
-else:
-    wert = str(daten.get("report_webhook") or "").strip()
-    print(("gesetzt " + wert) if wert else "aus")
-PYEOF
-}
-
-hook_schreiben() {
-  mkdir -p "$(dirname "$CONF_JSON")"
-  "$PY" - "$CONF_JSON" "$1" <<'PYEOF'
-import json, os, sys
-path, url = sys.argv[1], sys.argv[2].strip()
-try:
-    with open(path, encoding="utf-8") as fh:
-        daten = json.load(fh)
-    if not isinstance(daten, dict):
-        daten = {}
-except (OSError, ValueError):
-    daten = {}
-daten["report_webhook"] = url            # leerer Wert = bewusst aus (bleibt bei Neuinstallation aus)
-tmp = path + ".tmp"
-with open(tmp, "w", encoding="utf-8") as fh:
-    json.dump(daten, fh, indent=2, ensure_ascii=False)
-os.chmod(tmp, 0o600)
-os.replace(tmp, path)
-PYEOF
-}
-
-
-_stand="$(hook_status)"
-case "$_stand" in
-  gesetzt*) HOOK_ZUSTAND="gesetzt"; HOOK_URL="${_stand#gesetzt }" ;;
-  aus)      HOOK_ZUSTAND="aus";     HOOK_URL="" ;;
-  *)        HOOK_ZUSTAND="fehlt";   HOOK_URL="" ;;
-esac
-
-if [ -n "$REP_HOOK" ]; then
-  case "$REP_HOOK" in
-    -|aus|none) hook_schreiben ""; say "$(t hook_removed)" ;;
-    standard|default) hook_schreiben "$DEFAULT_HOOK"; say "$(t hook_set)" ;;
-    https://*)  hook_schreiben "$REP_HOOK"; say "$(t hook_set)" ;;
-    *) die "$(t hook_invalid)" ;;
-  esac
-elif [ "$CHECK_ONLY" = "1" ]; then
-  case "$HOOK_ZUSTAND" in
-    gesetzt) say "$(t hook_now)" ;;
-    aus)     warn "$(t hook_off)" ;;
-    *)       : ;;
-  esac
-elif [ -t 0 ] && [ "$AUTO" = "0" ]; then
-  case "$HOOK_ZUSTAND" in
-    gesetzt)
-      printf '  %s ' "$(t hook_ask_keep)" ;;
-    aus)
-      printf '  %s ' "$(t hook_ask_off)" ;;
-    *)
-      printf '  %s ' "$(t hook_ask_default)" ;;
-  esac
-  read -r _eingabe || _eingabe=""
-  case "$_eingabe" in
-    "") [ "$HOOK_ZUSTAND" = "fehlt" ] && { hook_schreiben "$DEFAULT_HOOK"; say "$(t hook_set)"; } ;;
-    -|aus|none) hook_schreiben ""; say "$(t hook_removed)" ;;
-    standard|default) hook_schreiben "$DEFAULT_HOOK"; say "$(t hook_set)" ;;
-    https://*)  hook_schreiben "$_eingabe"; say "$(t hook_set)" ;;
-    *) warn "$(t hook_invalid)" ;;
-  esac
-elif [ "$HOOK_ZUSTAND" = "fehlt" ]; then
-  # keine Rueckfrage moeglich (--auto, Pipe): Projektadresse eintragen
-  hook_schreiben "$DEFAULT_HOOK"
-  say "$(t hook_set)"
-fi
 
 MISSING=0
 

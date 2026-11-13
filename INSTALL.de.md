@@ -156,25 +156,6 @@ systemctl --user enable --now polypanel-<name>
 loginctl enable-linger $USER      # läuft auch ohne angemeldete Sitzung
 ```
 
-## Melde-Webhook (Fehler melden)
-
-Das Panel ist öffentlich: der Installer trägt deshalb die **Projektadresse** als Melde-Webhook ein,
-damit Fehlermeldungen beim Betreiber ankommen. Der Knopf **Fehler melden** erscheint nur, wenn eine
-Adresse hinterlegt ist. Beim Installieren fragt der Installer danach (Enter = Projektadresse
-übernehmen); ändern lässt sich das jederzeit auf der Konsole:
-
-```bash
-./install.sh --report-hook https://discord.com/api/webhooks/…   # eigene Adresse
-./install.sh --report-hook -                                    # aus (Knopf bleibt versteckt)
-./install.sh --report-hook standard                             # Projektadresse zurückholen
-polypanel report-webhook                                        # Stand anzeigen (Token maskiert)
-```
-
-Eine einmal getroffene Wahl bleibt bei jedem weiteren `install.sh` erhalten: der Eintrag steht in
-`~/.config/polypanel/settings.json` (`chmod 600`), „aus" wird als leerer Wert gespeichert und nicht
-überschrieben.
-
-
 ## Deinstallieren
 
 ```bash
