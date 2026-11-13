@@ -903,7 +903,6 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
     <input id="pid" data-tp="wl.id_ph" placeholder="ID" onkeydown="if(event.key==='Enter')addWl()">
     <div class="row">
       <button onclick="addWl()" data-t="wl.add">Auf Whitelist</button>
-      <button class="danger" onclick="banId()" data-t="wl.ban">Bannen</button>
     </div>
     <div class="meta" style="margin:10px 0 2px">Whitelist</div>
     <div id="wllist">…</div>
@@ -1589,12 +1588,6 @@ async function addWl(){
 async function delWl(id){
   document.getElementById('wlmsg').textContent=await api('/api/whitelist/remove?id='+encodeURIComponent(id),{method:'POST'});
   loadWl();
-}
-async function banId(){
-  const id=document.getElementById('pid').value.trim(); if(!id)return;
-  if(!confirm('Spieler '+id+' bannen?'))return;
-  document.getElementById('wlmsg').textContent=await api('/api/ban?id='+encodeURIComponent(id),{method:'POST'});
-  document.getElementById('pid').value=''; loadWl();
 }
 
 async function loadMods(){

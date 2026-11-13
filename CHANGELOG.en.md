@@ -1,3 +1,12 @@
+## [0.7.45] — 2026-11-13
+
+### Changed
+- **RAM hint without a map reference.** Instead of "about 10 GB for The Island without mods"
+  it now says "from about 10 GB (without mods), more with mods and players" — the 10 GB apply
+  in general, not to one specific map. `INSTALL.md` corrected too.
+- **Removed the ban button from the whitelist tab.** Banning happens in the player list or the
+  dashboard window; the whitelist tab only adds entries now.
+
 ## [0.7.44] — 2026-11-13
 
 ### Changed

@@ -1,3 +1,12 @@
+## [0.7.45] — 2026-11-13
+
+### Geändert
+- **RAM-Hinweis ohne Kartenbezug.** Statt „The Island ohne Mods ca. 10 GB" steht dort jetzt
+  „ab ca. 10 GB (ohne Mods), mit Mods und Spielern mehr" — die 10 GB gelten allgemein, nicht
+  für eine bestimmte Karte. Auch in `INSTALL.md` korrigiert.
+- **Bannen-Knopf aus dem Whitelist-Tab entfernt.** Gebannt wird in der Spielerliste bzw. im
+  Dashboard-Fenster; im Whitelist-Tab bleibt nur das Eintragen.
+
 ## [0.7.44] — 2026-11-13
 
 ### Geändert
