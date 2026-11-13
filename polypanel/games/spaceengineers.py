@@ -17,6 +17,65 @@ CFG_NAME = "SpaceEngineers-Dedicated.cfg"
 TEMPLATE = os.path.join(os.path.dirname(__file__), "spaceengineers_template.cfg")
 LOG_REL = os.path.join("Instance", "SpaceEngineersDedicated.log")
 
+# Space Engineers prueft beim Start (VRage.Dedicated.DedicatedServer::RunMain):
+#   Environment.ProcessorCount >= 3, MySandboxGame.CPUFrequency >= 3200 MHz, RAM >= 6 GB
+# CPUFrequency kommt per WMI (Win32_Processor.MaxClockSpeed), und Wine speist WMI aus
+# /proc/cpuinfo. VMs melden dort z. B. 2095 MHz - dann erzwingt SE den Experimental-Modus
+# ("Computer does not meet minimum requirements"), egal was in der Config steht.
+CPU_TAKT_MIN = 3200          # MHz, was SE verlangt
+CPU_TAKT_MELDEN = 3600       # MHz, was der Shim Wine vorluegt
+
+# LD_PRELOAD-Shim: biegt Lesezugriffe auf /proc/cpuinfo auf eine Kopie mit hoeherem Takt um.
+CPU_SHIM_C = r"""
+#define _GNU_SOURCE
+#include <dlfcn.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/types.h>
+
+static int is_cpuinfo(const char *p) { return p && (strcmp(p, "/proc/cpuinfo") == 0); }
+
+int open(const char *path, int flags, ...) {
+  static int (*real)(const char *, int, ...) = NULL;
+  if (!real) real = dlsym(RTLD_NEXT, "open");
+  if (is_cpuinfo(path)) path = CPUPROBE_FAKE;
+  va_list ap; va_start(ap, flags); mode_t mode = va_arg(ap, mode_t); va_end(ap);
+  return real(path, flags, mode);
+}
+
+int open64(const char *path, int flags, ...) {
+  static int (*real)(const char *, int, ...) = NULL;
+  if (!real) real = dlsym(RTLD_NEXT, "open64");
+  if (is_cpuinfo(path)) path = CPUPROBE_FAKE;
+  va_list ap; va_start(ap, flags); mode_t mode = va_arg(ap, mode_t); va_end(ap);
+  return real(path, flags, mode);
+}
+
+int openat(int dirfd, const char *path, int flags, ...) {
+  static int (*real)(int, const char *, int, ...) = NULL;
+  if (!real) real = dlsym(RTLD_NEXT, "openat");
+  if (is_cpuinfo(path)) { path = CPUPROBE_FAKE; dirfd = AT_FDCWD; }
+  va_list ap; va_start(ap, flags); mode_t mode = va_arg(ap, mode_t); va_end(ap);
+  return real(dirfd, path, flags, mode);
+}
+
+FILE *fopen(const char *path, const char *mode) {
+  static FILE *(*real)(const char *, const char *) = NULL;
+  if (!real) real = dlsym(RTLD_NEXT, "fopen");
+  if (is_cpuinfo(path)) path = CPUPROBE_FAKE;
+  return real(path, mode);
+}
+
+FILE *fopen64(const char *path, const char *mode) {
+  static FILE *(*real)(const char *, const char *) = NULL;
+  if (!real) real = dlsym(RTLD_NEXT, "fopen64");
+  if (is_cpuinfo(path)) path = CPUPROBE_FAKE;
+  return real(path, mode);
+}
+"""
+
 # Wichtige Felder mit deutschen Bezeichnungen (Rest kommt aus der XML)
 LABELS = {
     "ServerName": ("Servername", "Name in der Serverliste"),
@@ -36,8 +95,9 @@ LABELS = {
     "ExperimentalMode": ("Experimental", "Nur ein Wunsch: SE schaltet selbst auf Experimental, sobald "
                                         "Einstellungen ueber den Vanilla-Werten liegen (MaxPlayers, "
                                         "MaxFloatingObjects, PhysicsIterations, Ingame-Scripts) oder die "
-                                        "Hardware zu schwach gemeldet wird (z. B. VM-CPU). Der Client muss "
-                                        "Experimental dann in den Spieloptionen aktivieren."),
+                                        "Hardware zu schwach gemeldet wird. PolyPanel meldet Wine deshalb "
+                                        "mindestens 3.2 GHz (VM-CPUs melden sonst zu wenig, SE verlangt "
+                                        "3 Kerne, 3.2 GHz und 6 GB RAM)."),
     "ServerDescription": ("Beschreibung", "Text in der Serverliste"),
     "ServerPasswordHash": ("Passwort-Hash", "intern, nicht aendern"),
 }
@@ -105,8 +165,83 @@ class SpaceEngineersProfile(GameProfile):
         vc = os.path.exists(os.path.join(pref, "drive_c", "windows", "system32", "msvcp140.dll"))
         return bool(mono and vc)
 
+    # ------------------------------------------------------------------ CPU-Meldung
+    def _shim_dir(self) -> str:
+        return os.path.expanduser("~/.local/share/polypanel/se-cpufix")
+
+    def _cpu_takt(self) -> int:
+        """Hoechster gemeldeter CPU-Takt aus /proc/cpuinfo (MHz, 0 = unbekannt)."""
+        try:
+            with open("/proc/cpuinfo", encoding="utf-8", errors="replace") as fh:
+                werte = re.findall(r"^cpu MHz\s*:\s*([0-9.]+)", fh.read(), re.M)
+        except OSError:
+            return 0
+        return int(max(float(w) for w in werte)) if werte else 0
+
+    def ensure_cpu_shim(self, inst, log=print) -> str | None:
+        """LD_PRELOAD-Shim bauen, der Wine (und damit SE) >= 3.2 GHz meldet.
+
+        Rueckgabe: Pfad der .so, oder None wenn der Host schnell genug ist bzw. kein
+        Compiler vorhanden ist. Ohne Shim meldet Wine nur den echten VM-Takt und SE
+        schaltet wegen "InsufficientHardware" in den Experimental-Modus.
+        """
+        takt = self._cpu_takt()
+        if takt >= CPU_TAKT_MIN:
+            return None
+        ziel = self._shim_dir()
+        so = os.path.join(ziel, "fakecpu.so")
+        quelle = os.path.join(ziel, "fakecpu.c")
+        fake = os.path.join(ziel, "cpuinfo-fake")
+        try:
+            os.makedirs(ziel, exist_ok=True)
+            # 1) gefaelschte /proc/cpuinfo - alles ausser dem Takt bleibt wie beim Host
+            with open("/proc/cpuinfo", encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+            text = re.sub(r"^cpu MHz\s*:.*$", "cpu MHz\t\t: %d.000" % CPU_TAKT_MELDEN, text, flags=re.M)
+            with open(fake, "w", encoding="utf-8") as fh:
+                fh.write(text)
+            # 2) C-Quelle (Pfad der Kopie hineinschreiben)
+            c_text = CPU_SHIM_C.replace("CPUPROBE_FAKE", '"%s"' % fake)
+            alt = ""
+            if os.path.exists(quelle):
+                with open(quelle, encoding="utf-8") as fh:
+                    alt = fh.read()
+            if alt != c_text:
+                with open(quelle, "w", encoding="utf-8") as fh:
+                    fh.write(c_text)
+            # 3) bauen, wenn die .so fehlt oder aelter als die Quelle ist
+            if not os.path.exists(so) or os.path.getmtime(so) < os.path.getmtime(quelle):
+                cc = shutil.which("cc") or shutil.which("gcc")
+                if not cc:
+                    log("SE: kein C-Compiler gefunden (Paket build-essential) - Wine meldet weiter "
+                        "%d MHz, SE erzwingt dann eventuell Experimental" % takt)
+                    return None
+                bau = subprocess.run([cc, "-shared", "-fPIC", "-O2", "-o", so, quelle, "-ldl"],
+                                     capture_output=True, text=True)
+                if bau.returncode != 0:
+                    log("SE: CPU-Shim liess sich nicht bauen: %s" % (bau.stderr or "").strip()[:200])
+                    return None
+                log("SE: CPU-Shim gebaut (%s meldet %d MHz statt %d)"
+                    % (os.path.basename(so), CPU_TAKT_MELDEN, takt))
+            return so if os.path.exists(so) else None
+        except OSError as exc:
+            log("SE: CPU-Shim fehlgeschlagen: %s" % exc)
+            return None
+
+    def prepare_start(self, inst, log=print) -> None:
+        """Vor jedem Start: CPU-Shim sicherstellen (VM-CPUs melden sonst zu wenig Takt)."""
+        self.ensure_cpu_shim(inst, log)
+
+    def start_env(self, inst) -> dict[str, str]:
+        """LD_PRELOAD fuer den Wine-Start - nur wenn der Shim wirklich gebaut ist."""
+        if self._cpu_takt() >= CPU_TAKT_MIN:
+            return {}
+        so = os.path.join(self._shim_dir(), "fakecpu.so")
+        return {"LD_PRELOAD": so} if os.path.exists(so) else {}
+
     def post_install(self, inst, log=print) -> None:
         self.ensure_runtime(inst, log)
+        self.ensure_cpu_shim(inst, log)
 
     def ensure_runtime(self, inst, log=print) -> bool:
         """Laufzeit wie im AMP-Template einrichten.

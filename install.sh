@@ -465,6 +465,22 @@ winetricks_install() {
   command -v winetricks >/dev/null 2>&1
 }
 
+# --------------------------------------------------- C-Compiler (Space Engineers: CPU-Shim)
+# SE prueft den CPU-Takt per WMI; Wine speist das aus /proc/cpuinfo, und VMs melden dort oft
+# weniger als die von SE verlangten 3.2 GHz. PolyPanel baut deshalb einen winzigen
+# LD_PRELOAD-Shim - ohne Compiler bleibt der Server im Experimental-Modus.
+compiler_install() {
+  if command -v cc >/dev/null 2>&1 || command -v gcc >/dev/null 2>&1; then return 0; fi
+  _root() { if [ "$(id -u)" = "0" ]; then "$@"; else sudo "$@"; fi; }
+  case "$PKG_MGR" in
+    apt)    _root apt-get install -y gcc libc6-dev >/dev/null 2>&1 || true ;;
+    dnf)    _root dnf install -y gcc >/dev/null 2>&1 || true ;;
+    zypper) _root zypper --non-interactive install gcc >/dev/null 2>&1 || true ;;
+    pacman) _root pacman -S --needed --noconfirm gcc >/dev/null 2>&1 || true ;;
+  esac
+  command -v cc >/dev/null 2>&1 || command -v gcc >/dev/null 2>&1
+}
+
 if command -v winetricks >/dev/null 2>&1; then
   say "$(t present "winetricks")"
 else
@@ -473,6 +489,17 @@ else
   else
     say "$(t auto_install "winetricks")"
     winetricks_install && say "$(t installed "winetricks")" || warn "$(t still_missing "winetricks")"
+  fi
+fi
+
+if command -v cc >/dev/null 2>&1 || command -v gcc >/dev/null 2>&1; then
+  say "$(t present "gcc")"
+else
+  if [ "$CHECK_ONLY" = "1" ]; then
+    warn "$(t check_missing "gcc" "gcc libc6-dev")"
+  else
+    say "$(t auto_install "gcc")"
+    compiler_install && say "$(t installed "gcc")" || warn "$(t still_missing "gcc")"
   fi
 fi
 

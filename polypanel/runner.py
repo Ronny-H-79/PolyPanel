@@ -36,6 +36,20 @@ def _env(inst: Instance) -> dict[str, str]:
         env.pop("WINEDLLOVERRIDES", None)
     for schluessel, wert in (getattr(inst.profile, "extra_env", None) or {}).items():
         env[schluessel] = str(wert).replace("{dir}", inst.directory)
+    # Profile duerfen die Umgebung zur Laufzeit ergaenzen (Space Engineers: CPU-Shim)
+    zusatz = getattr(inst.profile, "start_env", None)
+    if callable(zusatz):
+        try:
+            ergebnis = zusatz(inst)
+            for schluessel, wert in (ergebnis.items() if isinstance(ergebnis, dict) else ()):
+                if not wert:
+                    continue
+                if schluessel == "LD_PRELOAD" and env.get("LD_PRELOAD"):
+                    env[schluessel] = "%s:%s" % (wert, env["LD_PRELOAD"])
+                else:
+                    env[schluessel] = str(wert)
+        except Exception:            # noqa: BLE001 - Umgebung darf den Start nicht verhindern
+            pass
     if getattr(inst, "headless", False) and not getattr(inst.profile, "needs_display", False):
         # Wine 11 verbindet sich sonst per libwayland (Default wayland-0) und oeffnet ein Fenster
         env.pop("DISPLAY", None)
@@ -171,6 +185,13 @@ def start(inst: Instance, wait: int = 0) -> int:
     if not inst.profile.runtime_ready(inst):
         raise RunnerError("Laufzeit fehlt - .NET/Wine-Prefix einrichten "
                           "(Profil %s, post_install)" % inst.profile.key)
+    # Profil-Vorbereitung vor dem Start (z. B. Space Engineers: CPU-Takt-Shim bauen)
+    vorbereiten = getattr(inst.profile, "prepare_start", None)
+    if callable(vorbereiten):
+        try:
+            vorbereiten(inst, log=lambda text: print("[%s] %s" % (inst.name, text), flush=True))
+        except Exception as exc:      # noqa: BLE001 - Start nicht an der Vorbereitung scheitern lassen
+            print("[%s] Vorbereitung fehlgeschlagen: %s" % (inst.name, exc), flush=True)
     inst.write_ini()
     try:
         os.makedirs(inst.cluster_path, exist_ok=True)

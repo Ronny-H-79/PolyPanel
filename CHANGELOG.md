@@ -1,4 +1,4 @@
-## [0.10] — 2026-11-13
+## [0.11] — 2026-11-13
 
 ### Überblick
 Grobe Zusammenfassung dessen, was in den Panels steckt.
@@ -20,3 +20,13 @@ Grobe Zusammenfassung dessen, was in den Panels steckt.
   Sprache Deutsch/Englisch jederzeit umschaltbar, mehrere Instanzen in einem Prozess.
 - **Fehlermeldungen:** Knopf im Panel, Meldung geht an den Betreiber (Webhook, nur auf der Konsole
   setzbar) — mit Version, Instanz, System und Logauszug, Passwörter entfernt.
+
+### Behoben
+- **Space Engineers startet nicht mehr im Experimental-Modus.** SE prüft beim Start Prozessorkerne,
+  Takt und RAM (`ProcessorCount >= 3`, `CPUFrequency >= 3.2 GHz`, mindestens 6 GB RAM) und erzwingt
+  sonst Experimental — Gäste werden dann abgewiesen, bis sie Experimental in ihren Spieloptionen
+  einschalten. Den Takt liest SE per WMI, das unter Wine aus `/proc/cpuinfo` gespeist wird, und VMs
+  melden dort z. B. 2095 MHz. PolyPanel baut beim Start jetzt einen kleinen LD_PRELOAD-Shim
+  (`~/.local/share/polypanel/se-cpufix/fakecpu.so`), der Wine 3.6 GHz meldet; im Serverlog steht
+  danach `Experimental mode: No`. Voraussetzung ist ein C-Compiler (`build-essential`/`gcc`) —
+  fehlt er, bleibt alles wie bisher und das Startlog sagt es.
