@@ -103,6 +103,30 @@ def cmd_update(args: argparse.Namespace) -> None:
     sys.exit(0 if result["ok"] else 1)
 
 
+def cmd_asaapi(args: argparse.Namespace) -> None:
+    """AsaApi (Plugins im Spiel) installieren und den Start umstellen - nur ARK."""
+    from . import installer
+
+    inst = load(args.name)
+    if inst.game != "ark":
+        print("AsaApi gibt es nur fuer ARK: Survival Ascended (Instanz ist %s)" % inst.game)
+        sys.exit(2)
+    print("AsaApi wird installiert (Quelle: GitHub-Release ArkServerApi/AsaApi)")
+    result = installer.install_asaapi(inst, log=lambda line: print("  " + line))
+    if result.get("ok"):
+        print("AsaApi %s installiert" % result.get("tag", "?"))
+        if args.no_enable:
+            print("Start bleibt bei ArkAscendedServer.exe (--no-enable)")
+        else:
+            inst.asaapi = True
+            inst.save(conf_path(inst.name))
+            print("Start ueber AsaApiLoader.exe aktiviert - Neustart noetig")
+    else:
+        print("Fehlgeschlagen: %s" % result.get("error", "unbekannt"))
+    print("Log: %s" % result.get("log", ""))
+    sys.exit(0 if result.get("ok") else 1)
+
+
 def cmd_supervise(args: argparse.Namespace) -> None:
     import threading
     import time as _time
@@ -482,6 +506,12 @@ def main(argv: list[str] | None = None) -> None:
     pu.add_argument("--check", action="store_true", help="nur pruefen, nichts installieren")
     pu.add_argument("--no-restart", action="store_true", help="nach dem Update nicht starten")
     pu.set_defaults(func=cmd_update)
+
+    paa = sub.add_parser("asaapi", parents=[common],
+                         help="AsaApi + Plugins installieren, Start umstellen (nur ARK)")
+    paa.add_argument("--no-enable", action="store_true",
+                     help="asaapi-Flag nicht setzen (Start bleibt bei ArkAscendedServer.exe)")
+    paa.set_defaults(func=cmd_asaapi)
 
     pv = sub.add_parser("supervise", parents=[common], help="Supervisor im Vordergrund")
     pv.add_argument("--interval", type=int, default=30)

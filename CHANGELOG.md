@@ -1,3 +1,37 @@
+## [0.16] — 2026-11-14
+
+### Neu
+- **AsaApi gehört bei ARK-Instanzen zur Installation.** Nach dem SteamCMD-Lauf richtet das Panel
+  AsaApi automatisch ein (komplettes Release inklusive `config.json` und der mitgelieferten DLLs) und
+  startet die Instanz danach über `AsaApiLoader.exe`. Der Knopf **„API"** auf der Instanzkarte
+  installiert oder aktualisiert die API jederzeit von Hand; er erscheint nur, wenn er etwas zu tun
+  hat, und trägt bei einem neueren Release ein Badge mit der Version. Im Reiter „Mods" schaltet eine
+  Checkbox die API samt Plugins wieder aus. Andere Spiele bleiben unberührt — dort taucht weder der
+  Knopf noch die Checkbox auf.
+- **Firewall wird mitgemacht.** Beim Start trägt das Panel Spiel- und Port der Instanz (UDP) in `ufw`
+  ein, beim Löschen der Instanz werden die Regeln wieder entfernt. Ohne diese Freigaben läuft der
+  Server, ist aber von aussen nicht erreichbar. Für `ufw` legt der Installer eine eng begrenzte
+  `sudo`-Regel an (nur `/usr/sbin/ufw`); fehlt sie, startet der Server trotzdem und das Panel-Log
+  nennt den Grund.
+- **Mod-IDs direkt eintragen** (ARK). Im Reiter „Mods" gibt es ein Feld für die Mod-IDs (Komma,
+  Semikolon oder Leerzeichen als Trenner). Es zeigt die aktive Liste und ersetzt sie beim Speichern.
+
+### Geändert
+- **Metriken zählen alle Prozesse der Instanz.** Bisher wurden nur die Starter-PID und ihre direkten
+  Kinder gemessen; unter Wine/Proton und mit API-Loader hängt der eigentliche Serverprozess aber nicht
+  daran, sodass CPU und RAM als 0 erschienen. Jetzt werden alle Prozesse der Instanz über ihre
+  Kommandozeile gefunden und summiert.
+- **SessionName und MaxPlayers bleiben erhalten** (ARK): Werte, die in der `GameUserSettings.ini`
+  geändert werden, wandern zurück in die Instanz statt beim nächsten Start überschrieben zu werden.
+- Die Sektion in der `Game.ini` wird unabhängig von der Schreibweise erkannt, damit keine zweite
+  `ActiveMods`-Zeile entsteht.
+
+### Behoben
+- Start über `AsaApiLoader.exe` brach mit „LoaderFailed, Reason: UnknownLoaderResult" ab, wenn im
+  Win64-Ordner die `config.json` des API-Releases fehlte.
+- Eine doppelte `ActiveMods`-Zeile konnte dafür sorgen, dass eingetragene Mods beim Start
+  stillschweigend ignoriert wurden.
+
 ## [0.15] — 2026-11-14
 
 ### Neu

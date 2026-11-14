@@ -141,6 +141,31 @@ def _sync_admin_pw(inst: Instance, which: str) -> None:
     registry.save(inst)
 
 
+def _sync_gus_values(inst: Instance, which: str) -> None:
+    """SessionName und MaxPlayers aus der GameUserSettings.ini in die Instanz uebernehmen.
+
+    `Instance.write_ini()` schreibt beim Start SessionName, Ports und MaxPlayers aus der
+    Instanz-Config in die INI - eine Aenderung, die nur in der INI steht (Datei-Editor oder
+    Einstellungsseite), waere beim naechsten Start wieder weg. Deshalb wandern diese Werte
+    hier in die Instanz, damit INI, Startzeile und Oberflaeche denselben Stand zeigen.
+    """
+    if which != "gus":
+        return
+    werte = _parse_ini(read(inst, "gus"))
+    geaendert = False
+    name = werte.get(("sessionsettings", "sessionname"), "").strip()
+    if name and name != inst.session_name:
+        inst.session_name = name
+        geaendert = True
+    zahl = werte.get(("serversettings", "maxplayers"), "").strip()
+    if zahl.isdigit() and int(zahl) != inst.max_players:
+        inst.max_players = int(zahl)
+        geaendert = True
+    if geaendert:
+        from . import registry
+        registry.save(inst)
+
+
 def write(inst: Instance, which: str, text: str) -> str:
     if len(text) > MAX_BYTES:
         raise ValueError("Datei zu gross (max %d Bytes)" % MAX_BYTES)
@@ -153,6 +178,7 @@ def write(inst: Instance, which: str, text: str) -> str:
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
     _sync_admin_pw(inst, which)
+    _sync_gus_values(inst, which)
     return backup
 
 
@@ -282,3 +308,4 @@ def set_value(inst: Instance, which: str, section: str, key: str, value: str) ->
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
     _sync_admin_pw(inst, which)
+    _sync_gus_values(inst, which)

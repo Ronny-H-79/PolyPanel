@@ -1,6 +1,8 @@
 """ARK: Survival Ascended - bisheriges Verhalten, jetzt als Spielprofil."""
 from __future__ import annotations
 
+import os
+
 from .base import GameProfile
 
 
@@ -33,6 +35,9 @@ class ArkProfile(GameProfile):
     # Die ARK-Logik liegt unveraendert in Instance (Bestandscode) - das Profil
     # reicht sie nur durch, damit der Kern spielunabhaengig aufrufen kann.
     def exe(self, inst) -> str:
+        # Mit AsaApi startet der Lader; der reicht die Argumente an den Server weiter.
+        if getattr(inst, "asaapi", False) and os.path.exists(inst.loader_exe):
+            return inst.loader_exe
         return inst.ark_exe
 
     def launch_argv(self, inst) -> list[str]:

@@ -57,6 +57,12 @@ def forget(name: str, delete_files: bool = False) -> dict:
     stamp = _time.strftime("%Y%m%d-%H%M%S")
     moved = os.path.join(trash, "%s_%s.json" % (name, stamp))
     shutil.move(conf_path(name), moved)
+    # Firewall-Regeln der Instanz mitnehmen, sonst bleiben offene Ports zurueck
+    try:
+        from . import firewall
+        firewall.close_ports(inst)
+    except Exception:  # noqa: BLE001
+        pass
     removed_dir = ""
     freed_gb = 0.0
     hinweis = ""

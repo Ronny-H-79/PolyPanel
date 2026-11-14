@@ -10,6 +10,7 @@ from . import games
 
 SERVER_APP_ID = "2430930"
 EXE_REL = os.path.join("ShooterGame", "Binaries", "Win64", "ArkAscendedServer.exe")
+LOADER_REL = os.path.join("ShooterGame", "Binaries", "Win64", "ArkApi", "AsaApiLoader.exe")
 CONFIG_REL = os.path.join("ShooterGame", "Saved", "Config", "WindowsServer")
 LOG_REL = os.path.join("ShooterGame", "Saved", "Logs", "ShooterGame.log")
 
@@ -45,6 +46,7 @@ class Instance:
     max_restarts_per_hour: int = 4
     webhook_url: str = ""
     headless: bool = True
+    asaapi: bool = False                 # ARK: Start ueber ArkApi/AsaApiLoader.exe (Plugins im Spiel)
     cluster_id: str = ""                 # leer = Name der Instanz
     cluster_dir: str = ""                # leer = <instanz>/clusters (gemeinsam nutzbar)
     cluster_transfer_filtering: bool = True   # True = -NoTransferFromFiltering setzen
@@ -70,6 +72,13 @@ class Instance:
     @property
     def ark_exe(self) -> str:
         return os.path.join(self.directory, EXE_REL)
+
+    @property
+    def loader_exe(self) -> str:
+        """ARK: AsaApi-Lader (Plugins im Spiel); andere Spiele haben keinen."""
+        if self.game != "ark":
+            return ""
+        return os.path.join(self.directory, LOADER_REL)
 
     @property
     def config_dir(self) -> str:
@@ -159,10 +168,18 @@ class Instance:
         cp2.optionxform = str
         if os.path.exists(self.game_ini):
             cp2.read(self.game_ini, encoding="utf-8-sig")
-        if not cp2.has_section("/script/shootergame.shootergamemode"):
-            cp2.add_section("/script/shootergame.shootergamemode")
+        # Sektion unabhaengig von der Schreibweise finden: ARK normalisiert beim Start auf
+        # "[/Script/ShooterGame.ShooterGameMode]". Wer stur die Kleinschreibung anlegt,
+        # erzeugt eine zweite Sektion - und ARK liest dann die erste (falsche) ActiveMods-Zeile.
+        ziel = "/script/shootergame.shootergamemode"
+        for vorhanden in cp2.sections():
+            if vorhanden.strip().lower() == ziel:
+                ziel = vorhanden
+                break
+        if not cp2.has_section(ziel):
+            cp2.add_section(ziel)
         cp2.set(
-            "/script/shootergame.shootergamemode",
+            ziel,
             "ActiveMods",
             ",".join(str(m) for m in self.mods),
         )

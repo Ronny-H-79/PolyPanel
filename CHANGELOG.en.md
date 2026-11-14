@@ -1,3 +1,34 @@
+## [0.16] — 2026-11-14
+
+### Added
+- **AsaApi is part of the installation for ARK instances.** After the SteamCMD run the panel sets up
+  AsaApi automatically (the complete release including `config.json` and the bundled DLLs) and starts
+  the instance through `AsaApiLoader.exe` from then on. The **"API"** button on the instance card
+  installs or updates the API by hand at any time; it only appears when there is something to do and
+  shows a version badge for a newer release. A checkbox in the "Mods" tab turns the API and its
+  plugins off again. Other games are unaffected — neither the button nor the checkbox appears there.
+- **Firewall comes along.** On start the panel adds the instance's game port (UDP) to `ufw`, and
+  removes those rules when the instance is deleted. Without them the server runs but cannot be
+  reached from outside. For `ufw` the installer creates a tightly scoped `sudo` rule (only
+  `/usr/sbin/ufw`); if it is missing, the server still starts and the panel log names the reason.
+- **Paste mod IDs directly** (ARK). The "Mods" tab has a field for mod IDs (comma, semicolon or space
+  as separator). It shows the active list and replaces it on save.
+
+### Changed
+- **Metrics count every process of the instance.** Previously only the starter PID and its direct
+  children were measured; under Wine/Proton and with the API loader the actual server process is not
+  attached to them, so CPU and RAM showed up as 0. All processes of the instance are now found via
+  their command line and summed up.
+- **SessionName and MaxPlayers survive** (ARK): values changed in `GameUserSettings.ini` are carried
+  back into the instance instead of being overwritten on the next start.
+- The section in `Game.ini` is recognised regardless of its capitalisation, so no second `ActiveMods`
+  line is created.
+
+### Fixed
+- Starting through `AsaApiLoader.exe` aborted with "LoaderFailed, Reason: UnknownLoaderResult" when
+  the API release's `config.json` was missing in the Win64 directory.
+- A duplicate `ActiveMods` line could make the server silently ignore configured mods on start.
+
 ## [0.15] — 2026-11-14
 
 ### Added

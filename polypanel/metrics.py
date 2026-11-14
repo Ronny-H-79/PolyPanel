@@ -11,8 +11,9 @@ from . import runner
 HZ = os.sysconf("SC_CLK_TCK")
 PAGE = os.sysconf("SC_PAGE_SIZE")
 HISTORY: dict[str, dict[str, deque]] = {}
-_PREV: dict[int, tuple[int, float]] = {}
+_PREV: dict[str, tuple[int, float]] = {}
 _PLAYERS: dict[str, tuple[float, list[str]]] = {}
+_HOST_PREV: list = [None]           # letzte Host-CPU-Messung (total, idle)
 PLAYER_TTL = 15.0
 CORES = os.cpu_count() or 1          # CPU-Werte sind Kern-Prozente (wie top)
 
@@ -59,6 +60,53 @@ def _children_ticks(pid: int) -> int:
     return total
 
 
+def _instance_pids(inst: Instance) -> list[int]:
+    """Alle Prozesse der Instanz (nicht nur PID + direkte Kinder).
+
+    Wine/Proton- und Loader-Ketten haengen nicht am Starter: der eigentliche
+    Serverprozess wird spaeter von PID 1 adoptiert. Deshalb ueber die Kommandozeile
+    suchen; Windows-Pfade (Backslashes) werden vorher normalisiert.
+    """
+    path = os.path.normpath(inst.directory).replace("\\", "/").lower()
+    if not path:
+        return []
+    pids: list[int] = []
+    try:
+        entries = os.listdir("/proc")
+    except OSError:
+        return []
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        try:
+            with open("/proc/%s/cmdline" % entry, "rb") as fh:
+                raw = fh.read().decode("utf-8", "replace").replace("\\", "/").lower()
+        except OSError:
+            continue
+        if path in raw:
+            pids.append(int(entry))
+    return pids
+
+
+def _child_pids(pid: int) -> list[int]:
+    try:
+        with open("/proc/%d/task/%d/children" % (pid, pid)) as fh:
+            return [int(k) for k in fh.read().split()]
+    except (OSError, ValueError):
+        return []
+
+
+def _peak_mb(pid: int) -> float:
+    try:
+        with open("/proc/%d/status" % pid) as fh:
+            for line in fh:
+                if line.startswith("VmHWM:"):
+                    return int(line.split()[1]) / 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return 0.0
+
+
 def players_cached(inst: Instance) -> tuple[int, list[str]]:
     now = time.time()
     cached = _PLAYERS.get(inst.name)
@@ -93,57 +141,44 @@ def _hist(pid: int, cpu: float, ram_gb: float) -> tuple[list, list]:
 
 def sample(inst: Instance) -> dict:
     """Momentaufnahme; CPU braucht zwei Messungen, daher beim ersten Aufruf 0."""
-    # Immer den groessten Prozess der Instanz messen, nicht blind die PID aus der Datei:
-    # bei 7D2D steht dort der Wrapper `/bin/sh startserver.sh` (2 MB), das Spiel selbst ist ein
-    # Kindprozess mit mehreren GB. Sonst zeigt das Panel "RAM 0".
-    kandidaten = set(runner.instance_pids(inst))
+    # Alle Prozesse der Instanz summieren, nicht nur die PID aus der Datei: Wine/Proton
+    # und ein API-Loader laufen als eigene Prozesse, bei 7D2D steht in der PID-Datei nur
+    # `/bin/sh startserver.sh` (2 MB) - sonst zeigt das Panel "RAM 0".
     pid_datei = runner.read_pid(inst)
+    pids = set(_instance_pids(inst))
+    pids.update(runner.instance_pids(inst))
     if pid_datei:
-        kandidaten.add(pid_datei)
-    pid, bester_rss = None, -1
-    for kandidat in kandidaten:
-        _info = _proc(kandidat)
-        if _info and _info["rss_pages"] > bester_rss:
-            pid, bester_rss = kandidat, _info["rss_pages"]
+        pids.add(pid_datei)
+        pids.update(_child_pids(pid_datei))
     out = {
         "cpu": 0.0, "ram_mb": 0, "ram_gb": 0.0, "ram_peak_gb": 0.0, "uptime": 0, "players": 0,
         "player_names": [],
     }
-    if not pid:
-        _PREV.pop(pid or 0, None)
-        out["cpu_hist"], out["ram_hist"] = [], []
-        return out
-
-    info = _proc(pid)
-    if not info:
+    infos = [info for info in (_proc(p) for p in pids) if info]
+    if not infos:
+        _PREV.pop(inst.name, None)
         out["cpu_hist"], out["ram_hist"] = [], []
         return out
 
     now = time.time()
-    ticks = info["ticks"] + _children_ticks(pid)
-    prev = _PREV.get(pid)
+    ticks = sum(info["ticks"] for info in infos)
+    prev = _PREV.get(inst.name)
     if prev:
         d_ticks = ticks - prev[0]
         d_time = now - prev[1]
         if d_time > 0:
             out["cpu"] = round(max(0.0, d_ticks / HZ / d_time * 100.0), 1)
-    _PREV[pid] = (ticks, now)
+    _PREV[inst.name] = (ticks, now)
 
-    peak_mb = 0
-    try:
-        with open("/proc/%d/status" % pid) as fh:
-            for line in fh:
-                if line.startswith("VmHWM:"):
-                    peak_mb = int(line.split()[1]) / 1024
-                    break
-    except OSError:
-        pass
+    peak_mb = sum(_peak_mb(p) for p in pids)
     out["ram_peak_gb"] = round(peak_mb / 1024, 2)
 
-    ram_mb = info["rss_pages"] * PAGE / (1024 * 1024)
+    ram_mb = sum(info["rss_pages"] for info in infos) * PAGE / (1024 * 1024)
     out["ram_mb"] = int(ram_mb)
     out["ram_gb"] = round(ram_mb / 1024, 2)
-    out["uptime"] = int(now - (_boot_time() + info["starttime"] / HZ)) if _boot_time() else 0
+    start = min(info["starttime"] for info in infos)
+    boot = _boot_time()
+    out["uptime"] = int(now - (boot + start / HZ)) if boot else 0
 
     count, names = players_cached(inst)
     out["players"] = count
@@ -177,15 +212,15 @@ def host() -> dict:
             parts = fh.readline().split()[1:]
         idle = float(parts[3]) + float(parts[4])
         total = sum(float(p) for p in parts)
-        prev = _PREV.get(-1)
+        prev = _HOST_PREV[0]
         if prev:
             d_total = total - prev[0]
             d_idle = idle - prev[1]
             if d_total > 0:
                 cpu = round((1 - d_idle / d_total) * 100.0, 1)
-            _PREV[-1] = (int(total), idle)
+            _HOST_PREV[0] = (int(total), idle)
         else:
-            _PREV[-1] = (int(total), idle)
+            _HOST_PREV[0] = (int(total), idle)
     except (OSError, IndexError, ValueError):
         pass
 

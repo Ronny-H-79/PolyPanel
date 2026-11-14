@@ -199,6 +199,17 @@ def start(inst: Instance, wait: int = 0) -> int:
         pass
     clear_stopped(inst)
 
+    # Firewall: Spiel- und Query-Port freigeben (best effort, blockiert den Start nie)
+    try:
+        from . import firewall, panellog
+        fw = firewall.open_ports(inst)
+        if not fw.get("ok"):
+            panellog.write("Firewall: Ports fuer %s nicht freigegeben (%s) - "
+                           "sudo-Regel fuer ufw pruefen"
+                           % (inst.name, "; ".join(fw.get("meldungen", []))[:160]))
+    except Exception:  # noqa: BLE001 - Firewall darf den Start nicht verhindern
+        pass
+
     # consoled starten: er haelt die stdin-Pipe und startet die Server-exe.
     # In einer eigenen systemd-Scope, damit Wine-Prozesse nicht in der Prozessgruppe
     # des Web-Dienstes haengen und dessen Neustart blockieren.
