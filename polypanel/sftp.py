@@ -124,6 +124,53 @@ def _panel_dir() -> str:
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def _laeuft_laut_pidfile() -> int:
+    """PID aus sftp.pid, wenn der Prozess noch lebt (0 sonst)."""
+    pfad = os.path.join(paths.CONF_DIR, "sftp.pid")
+    try:
+        with open(pfad, encoding="utf-8") as fh:
+            pid = int(fh.read().strip() or 0)
+    except (OSError, ValueError):
+        return 0
+    if pid <= 0:
+        return 0
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return 0
+    return pid
+
+
+def _ohne_systemd() -> tuple[bool, str]:
+    """Rueckfall, wenn kein systemd-Benutzerbus erreichbar ist (Panel per nohup gestartet).
+
+    Startet den Dienst abgekoppelt, merkt sich die PID und schreibt die Ausgabe daneben.
+    """
+    import subprocess
+    import sys
+
+    pid = _laeuft_laut_pidfile()
+    if pid:
+        return True, "SFTP-Dienst laeuft bereits (PID %d)" % pid
+    paket = (__package__ or "polypanel").split(".")[0]
+    logpfad = os.path.join(paths.CONF_DIR, "sftp.out")
+    os.makedirs(paths.CONF_DIR, exist_ok=True)
+    with open(logpfad, "ab") as log:
+        try:
+            prozess = subprocess.Popen(
+                [sys.executable, "-m", paket, "sftp"],
+                cwd=_panel_dir(),
+                env={**os.environ, "PYTHONPATH": _panel_dir()},
+                stdout=log, stderr=log, stdin=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except OSError as exc:
+            return False, "Start ohne systemd fehlgeschlagen (%s)" % exc
+    with open(os.path.join(paths.CONF_DIR, "sftp.pid"), "w", encoding="utf-8") as fh:
+        fh.write(str(prozess.pid))
+    return True, "SFTP-Dienst gestartet (ohne systemd, PID %d)" % prozess.pid
+
+
 def ensure_service() -> tuple[bool, str]:
     """Legt die systemd-Unit an (falls noetig) und startet sie.
 
@@ -162,7 +209,10 @@ def ensure_service() -> tuple[bool, str]:
         except (OSError, subprocess.SubprocessError) as exc:
             return False, "systemctl fehlgeschlagen (%s)" % exc
         if lauf.returncode != 0:
-            return False, (lauf.stderr or lauf.stdout or "").strip()[:200] or "systemctl-Fehler"
+            text = (lauf.stderr or lauf.stdout or "").strip()
+            if "bus" in text.lower() or "Failed to connect" in text:
+                return _ohne_systemd()
+            return False, text[:200] or "systemctl-Fehler"
     return True, "SFTP-Dienst laeuft"
 
 
