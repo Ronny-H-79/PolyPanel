@@ -1007,9 +1007,33 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
   <button class="on" data-tab="overview" onclick="showTab('overview',this)" data-t="tabs.overview">Übersicht</button>
   <button data-tab="settings" onclick="showTab('settings',this)" data-t="tabs.settings">Einstellungen</button>
   <button data-tab="mods" onclick="showTab('mods',this)" data-t="tabs.mods">Mods</button>
+  <button data-tab="files" onclick="showTab('files',this)" data-t="tabs.files">Dateien</button>
   <button data-tab="server" onclick="showTab('server',this)" data-t="tabs.manage">Verwaltung</button>
 </div>
 <main>
+
+  <section class="tab tab-files" id="filessec">
+    <h2 data-t="files.title">Dateien</h2>
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
+      <button onclick="dateien(DATEI_PFAD)" data-t="files.reload">Aktualisieren</button>
+      <button onclick="document.getElementById('dateiUpload').click()" data-t="files.upload">Hochladen</button>
+      <button onclick="dMkdir()" data-t="files.mkdir">Neuer Ordner</button>
+      <input type="file" id="dateiUpload" multiple style="display:none" onchange="dUpload(this)">
+      <span class="meta" id="dateiStatus"></span>
+    </div>
+    <div class="meta" id="dateiKrumen" style="margin:12px 0 6px"></div>
+    <div id="dateiListe"><div class="meta">…</div></div>
+
+    <h2 style="margin-top:26px" data-t="sftp.title">SFTP-Zugang</h2>
+    <div id="sftpbox"><div class="meta">…</div></div>
+    <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:8px">
+      <button id="sftpToggle" onclick="sftpAktion(NAME,'an')">SFTP einschalten</button>
+      <button id="sftpNew" onclick="sftpAktion(NAME,'neu')" style="display:none">Neues Passwort</button>
+      <button id="sftpCopy" onclick="sftpCopy()" style="display:none" data-t="sftp.copy">Adresse kopieren</button>
+    </div>
+    <div class="meta" id="sftphint" style="margin-top:10px"></div>
+  </section>
+
   <section class="tab tab-overview on wide" id="setupsec" style="display:none">
     <h2 data-t="inst.setup">Installation</h2>
     <div id="setupbar" style="height:12px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden;margin-bottom:6px">
@@ -1296,6 +1320,128 @@ document.addEventListener('pointerdown', () => { window.__pressed = 1; }, true);
 window.addEventListener('blur', () => { window.__pressed = 0; });
 
 const api=(p,o)=>fetch(p+(p.includes('?')?'&':'?')+'token='+encodeURIComponent(T)+'&name='+NAME,o).then(r=>r.text());
+
+let DATEI_PFAD='';
+
+function dGroesse(n){
+  if(n===undefined||n===null) return '';
+  const u=['B','KB','MB','GB','TB']; let i=0; let v=n;
+  while(v>=1024 && i<u.length-1){ v/=1024; i++; }
+  return (i? v.toFixed(1):v)+' '+u[i];
+}
+function dEsc(t){ return String(t).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function dateien(pfad){
+  DATEI_PFAD = (pfad||'').replace(/^\/+|\/+$/g,'');
+  let d={};
+  try{ d = JSON.parse(await api('/api/files?path='+encodeURIComponent(DATEI_PFAD))); }
+  catch(e){ const s=document.getElementById('dateiStatus'); if(s) s.textContent='Fehler: '+e; return; }
+  const teile = DATEI_PFAD ? DATEI_PFAD.split('/') : [];
+  let kr = '<a href="#" onclick="dateien(\'\');return false;">/</a>';
+  teile.forEach((t,i)=>{ kr += ' <span style="opacity:.5">›</span> <a href="#" onclick="dateien(\''+dEsc(teile.slice(0,i+1).join('/'))+'\');return false;">'+dEsc(t)+'</a>'; });
+  document.getElementById('dateiKrumen').innerHTML = kr;
+
+  const zeilen = (d.eintraege||[]).map(e=>{
+    const icon = e.ordner ? '📁' : '📄';
+    const name = e.ordner
+      ? `<a href="#" onclick="dateien('${dEsc(e.pfad)}');return false;">${icon} ${dEsc(e.name)}</a>`
+      : `<a href="/api/files/download?token=${encodeURIComponent(T)}&name=${encodeURIComponent(NAME)}&path=${encodeURIComponent(e.pfad)}">${icon} ${dEsc(e.name)}</a>`;
+    const datum = e.zeit ? new Date(e.zeit*1000).toLocaleString() : '';
+    return `<tr>
+      <td style="padding:4px 8px">${name}</td>
+      <td style="padding:4px 8px;text-align:right;white-space:nowrap">${e.ordner?'':dGroesse(e.groesse)}</td>
+      <td style="padding:4px 8px;white-space:nowrap;opacity:.7">${datum}</td>
+      <td style="padding:4px 8px;white-space:nowrap">
+        <a href="#" onclick="dRename('${dEsc(e.pfad)}','${dEsc(e.name)}');return false;" title="umbenennen">✎</a>
+        <a href="#" onclick="dDelete('${dEsc(e.pfad)}','${dEsc(e.name)}');return false;" title="loeschen" style="color:#f04040">✖</a>
+      </td></tr>`;
+  }).join('');
+  document.getElementById('dateiListe').innerHTML = (d.eintraege||[]).length
+    ? `<table style="width:100%;border-collapse:collapse;font-size:13px">${zeilen}</table>`
+    : '<div class="meta">Ordner ist leer.</div>';
+  const st=document.getElementById('dateiStatus'); if(st) st.textContent='';
+}
+
+async function dUpload(input){
+  const st=document.getElementById('dateiStatus');
+  for(const f of input.files){
+    if(st) st.textContent='lade '+f.name+' …';
+    try{
+      const r = await fetch('/api/files/upload?token='+encodeURIComponent(T)+'&name='+encodeURIComponent(NAME)
+        +'&path='+encodeURIComponent(DATEI_PFAD)+'&file='+encodeURIComponent(f.name),
+        {method:'POST', body:f});
+      if(!r.ok) throw new Error(await r.text());
+    }catch(e){ if(st) st.textContent='Fehler bei '+f.name+': '+e; }
+  }
+  input.value='';
+  dateien(DATEI_PFAD);
+}
+
+async function dMkdir(){
+  const n = prompt('Name des neuen Ordners:'); if(!n) return;
+  try{
+    const r = await api('/api/files/mkdir?path='+encodeURIComponent(DATEI_PFAD)+'&file='+encodeURIComponent(n), {method:'POST'});
+    const d = JSON.parse(r); if(!d.ok) toast(r);
+  }catch(e){ toast('Ordner: '+e); }
+  dateien(DATEI_PFAD);
+}
+
+async function dDelete(pfad, name){
+  if(!confirm(name+' wirklich loeschen?')) return;
+  try{
+    const r = await api('/api/files/delete?path='+encodeURIComponent(pfad), {method:'POST'});
+    const d = JSON.parse(r); if(d.ok) toast('geloescht: '+name); else toast(r);
+  }catch(e){ toast('Loeschen: '+e); }
+  dateien(DATEI_PFAD);
+}
+
+async function dRename(pfad, name){
+  const n = prompt('Neuer Name:', name); if(!n || n===name) return;
+  try{
+    const r = await api('/api/files/rename?path='+encodeURIComponent(pfad)+'&to='+encodeURIComponent(n), {method:'POST'});
+    const d = JSON.parse(r); if(!d.ok) toast(r);
+  }catch(e){ toast('Umbenennen: '+e); }
+  dateien(DATEI_PFAD);
+}
+
+async function renderSftp(){
+  const box=document.getElementById('sftpbox'); if(!box) return;
+  let s={};
+  try{ s=JSON.parse(await api('/api/sftp?action=status',{method:'POST'})); }catch(e){}
+  const an=!!s.enabled;
+  const tgl=document.getElementById('sftpToggle');
+  if(tgl){
+    tgl.textContent = an ? (L['sftp.disable']||'SFTP ausschalten') : (L['sftp.enable']||'SFTP einschalten');
+    tgl.setAttribute('onclick', "sftpAktion(NAME,'"+(an?'aus':'an')+"')");
+  }
+  const neu=document.getElementById('sftpNew');  if(neu)  neu.style.display  = an?'':'none';
+  const cp=document.getElementById('sftpCopy');   if(cp)   cp.style.display   = an?'':'none';
+  const hint=document.getElementById('sftphint');
+  if(hint) hint.textContent = an ? (L['sftp.hint']||'') : (s.verfuegbar===false ? (L['sftp.nolib']||'') : '');
+  const host=location.hostname;
+  window.SFTP_ADDR = an ? ('sftp://'+s.user+'@'+host+':'+s.port) : '';
+  box.innerHTML = an ? `
+    <div class="meta"><b>${L['sftp.user']||'Benutzer'}:</b> ${s.user} &middot; <b>${L['sftp.port']||'Port'}:</b> ${s.port}</div>
+    <div class="meta"><b>${L['sftp.pass']||'Passwort'}:</b> <code>${s.password||'—'}</code></div>
+    <div class="meta"><b>Adresse:</b> <code>${window.SFTP_ADDR}</code></div>`
+    : `<div class="meta">${L['sftp.off']||'SFTP ist aus.'}</div>`;
+}
+
+async function sftpAktion(name,action){
+  try{
+    const roh=await api('/api/sftp?name='+encodeURIComponent(name)+'&action='+encodeURIComponent(action),{method:'POST'});
+    let r={}; try{ r=JSON.parse(roh); }catch(e){}
+    if(r&&r.info) toast(r.info);
+    if(r&&r.password){ try{ await navigator.clipboard.writeText(r.password); }catch(e){} }
+    renderSftp();
+  }catch(e){ toast('SFTP: '+e); }
+}
+
+function sftpCopy(){
+  const a=window.SFTP_ADDR; if(!a) return;
+  navigator.clipboard.writeText(a).then(()=>toast('Adresse kopiert'),()=>toast(a));
+}
+
 async function refresh(){
   if(window.__pressed){ setTimeout(refresh, 400); return; }   // Klick laeuft noch
   try{
@@ -1445,6 +1591,7 @@ function showTab(name, btn){
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));
   if(btn) btn.classList.add('on');
   try{ localStorage.setItem('PolyPanel.tab', name); if(history.replaceState) history.replaceState(null,'','#'+name); }catch(e){}
+  if(name==='files'){ try{ dateien(DATEI_PFAD); renderSftp(); }catch(e){} }
   if(name==='mods'){
     if(!['ark','arkse'].includes(document.body.dataset.game)) loadInstalledMods();   // ARK hat seine Liste darunter
     if(document.body.dataset.game!=='ark'){
@@ -1461,14 +1608,14 @@ function showTab(name, btn){
 function restoreTab(){
   let t='';
   try{ t = (location.hash||'').replace('#','') || localStorage.getItem('PolyPanel.tab') || ''; }catch(e){}
-  const known=['overview','settings','mods','server'];
+  const known=['overview','settings','mods','files','server'];
   if(!known.includes(t)) t='overview';
   const b=document.querySelector('.tabs button[data-tab="'+t+'"]');
   if(b) showTab(t, b); else showTab('overview', document.querySelector('.tabs button'));
 }
 window.addEventListener('hashchange', ()=>{
   const t=(location.hash||'').replace('#','');
-  if(['overview','settings','mods','server'].includes(t)){
+  if(['overview','settings','mods','files','server'].includes(t)){
     const b=document.querySelector('.tabs button[data-tab="'+t+'"]');
     if(b) showTab(t, b);
   }
@@ -2675,6 +2822,29 @@ class Handler(BaseHTTPRequestHandler):
                          "script-src 'self' 'unsafe-inline'; connect-src 'self'")
         super().end_headers()
 
+    def _datei(self, pfad: str, name: str) -> None:
+        """Datei ausliefern, ohne sie komplett in den Speicher zu laden."""
+        import mimetypes
+
+        try:
+            groesse = os.path.getsize(pfad)
+        except OSError:
+            self._send(404, b"Datei fehlt")
+            return
+        typ = mimetypes.guess_type(name)[0] or "application/octet-stream"
+        self.send_response(200)
+        self.send_header("Content-Type", typ)
+        self.send_header("Content-Length", str(groesse))
+        self.send_header("Content-Disposition", 'attachment; filename="%s"' % name.replace('"', ""))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        with open(pfad, "rb") as fh:
+            while True:
+                block = fh.read(262144)
+                if not block:
+                    break
+                self.wfile.write(block)
+
     def _send(self, code: int, body: bytes, ctype: str = "text/plain; charset=utf-8") -> None:
         self.send_response(code)
         self.send_header("Content-Type", ctype)
@@ -2760,6 +2930,24 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "public, max-age=86400")
             self.end_headers()
             self.wfile.write(blob)
+            return
+        if path in ("/api/files", "/api/files/download"):
+            from . import files as filesmod
+
+            inst_f = self._inst(q)
+            if not inst_f:
+                self._send(404, b"keine Instanz")
+                return
+            rel = q.get("path", [""])[0]
+            try:
+                if path == "/api/files":
+                    self._json(filesmod.liste(inst_f, rel))
+                    return
+                ziel = filesmod.lesen(inst_f, rel)
+            except (filesmod.PfadFehler, FileNotFoundError, OSError) as exc:
+                self._send(400, str(exc).encode())
+                return
+            self._datei(ziel, os.path.basename(ziel))
             return
         if path == "/api/host":
             self._json(metrics.host())
@@ -3101,8 +3289,61 @@ class Handler(BaseHTTPRequestHandler):
                 "verfuegbar": sftpmod.verfuegbar(),
                 "user": inst.sftp_user or sftpmod.default_user(inst),
                 "port": inst.sftp_port or sftpmod.port_for(inst),
+                # Anzeige im Reiter "Dateien": die Oberflaeche ist ohnehin token-geschuetzt
+                "password": inst.sftp_password or "",
             })
             return
+
+        if path.startswith("/api/files/"):
+            from . import files as filesmod
+
+            aktion = path.rsplit("/", 1)[-1]
+            rel = q.get("path", [""])[0]
+            try:
+                if aktion == "upload":
+                    laenge = int(self.headers.get("Content-Length") or 0)
+                    if laenge <= 0:
+                        self._send(400, b"leerer Upload")
+                        return
+                    if laenge > 2 * 1024 * 1024 * 1024:
+                        self._send(413, b"Datei groesser als 2 GB")
+                        return
+                    name = os.path.basename(q.get("file", [""])[0] or "")
+                    if not name:
+                        self._send(400, b"Dateiname fehlt")
+                        return
+                    rest = laenge
+                    teile = []
+                    while rest > 0:
+                        block = self.rfile.read(min(262144, rest))
+                        if not block:
+                            break
+                        teile.append(block)
+                        rest -= len(block)
+                    ziel = filesmod.schreiben(inst, (rel.strip("/") + "/" + name).strip("/"),
+                                              b"".join(teile))
+                    self._json({"ok": True, "pfad": ziel, "groesse": laenge})
+                    return
+                if aktion == "mkdir":
+                    name = (q.get("file", [""])[0] or "").strip("/")
+                    if not name:
+                        self._send(400, b"Ordnername fehlt")
+                        return
+                    self._json({"ok": True,
+                                "pfad": filesmod.ordner(inst, (rel.strip("/") + "/" + name).strip("/"))})
+                    return
+                if aktion == "delete":
+                    self._json({"ok": True, "entfernt": filesmod.loeschen(inst, rel)})
+                    return
+                if aktion == "rename":
+                    self._json({"ok": True,
+                                "pfad": filesmod.umbenennen(inst, rel, q.get("to", [""])[0])})
+                    return
+                self._send(404, b"unbekannte Dateiaktion")
+                return
+            except (filesmod.PfadFehler, FileNotFoundError, FileExistsError, OSError) as exc:
+                self._send(400, str(exc).encode())
+                return
 
         if path == "/api/install":
             if inst.name in INSTALLS:
