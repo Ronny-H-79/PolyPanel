@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import glob
 import os
 import re
 import hmac
@@ -45,18 +46,60 @@ DELETES: dict[str, dict] = {}
 ACTIONS: dict[str, str] = {}
 
 
-def token() -> str:
-    if os.path.exists(TOKEN_PATH):
-        with open(TOKEN_PATH) as fh:
-            t = fh.read().strip()
-            if t:
-                return t
-    os.makedirs(os.path.dirname(TOKEN_PATH), exist_ok=True)
-    t = secrets.token_urlsafe(24)
-    with open(os.open(TOKEN_PATH, os.O_CREAT | os.O_WRONLY, 0o600), "w") as fh:
-        fh.write(t)
-    return t
+def _setze_token(pfad: str, wert: str) -> bool:
+    """Schreibt den Token, wenn der Pfad beschreibbar ist (sonst still ignorieren)."""
+    try:
+        os.makedirs(os.path.dirname(pfad), exist_ok=True)
+        with open(os.open(pfad, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600), "w") as fh:
+            fh.write(wert)
+        return True
+    except OSError:
+        return False
 
+
+def _token_pfade() -> list[str]:
+    """Alle Orte, an denen ein Token dieser Installation liegen kann.
+
+    Das Panel legt den Token im Home des laufenden Benutzers ab. Lief es einmal als root und
+    einmal als Dienstbenutzer, entstanden zwei verschiedene Token und alte Links waren tot.
+    Deshalb gilt: es gibt genau EINEN Token je Rechner - der aelteste vorhandene gewinnt
+    (das ist der, den der Nutzer schon in seinen Links hat).
+    """
+    pfade = [TOKEN_PATH]
+    for heim in (os.path.expanduser("~"), "/root", "/home/polypanel"):
+        pfade.append(os.path.join(heim, ".config", "polypanel", "token"))
+    pfade.extend(sorted(glob.glob("/home/*/.config/polypanel/token")))
+    return list(dict.fromkeys(pfade))
+
+
+def _lies_token(pfad: str) -> str:
+    try:
+        with open(pfad, encoding="utf-8") as fh:
+            return fh.read().strip()
+    except OSError:
+        return ""
+
+
+def token() -> str:
+    vorhanden = []
+    for pfad in _token_pfade():
+        wert = _lies_token(pfad)
+        if wert:
+            try:
+                vorhanden.append((os.path.getmtime(pfad), wert, pfad))
+            except OSError:
+                vorhanden.append((0.0, wert, pfad))
+    if vorhanden:
+        # aeltester Token gewinnt - das ist der, den vorhandene Links benutzen
+        vorhanden.sort()
+        wert = vorhanden[0][1]
+        for pfad in _token_pfade():
+            if _lies_token(pfad) != wert:
+                _setze_token(pfad, wert)
+        return wert
+    wert = secrets.token_urlsafe(24)
+    _setze_token(TOKEN_PATH, wert)
+    return wert
 
 def _render(template: str) -> str:
     """Sprachkatalog und Sprachcode einsetzen."""
