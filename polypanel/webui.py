@@ -828,20 +828,17 @@ async function createInst(){
     port:document.getElementById('nport').value,session:document.getElementById('nsession').value}).toString();
   const antwort=await api('/api/instances?'+q,{method:'POST'});
   document.getElementById('out').textContent=antwort;
-  // Neue Instanz: Installation laeuft an - gleich die Instanzseite mit dem Fortschritt oeffnen
-  const ziel='/i/'+encodeURIComponent(name)+'?token='+encodeURIComponent(T);
-  const w=window.open(ziel,'pp_setup_'+name);
-  if(!w){ setTimeout(load,800); } else { setTimeout(load,1200); }
+  // Kein Extra-Fenster: die neue Karte erscheint in der Uebersicht, den Start
+  // der Installation loest der Nutzer selbst ueber "Installieren" aus.
+  setTimeout(load,600);
 }
 async function install(name){
   // Installation anstossen und die Instanzseite oeffnen: dort laeuft der Fortschritt
   // in einem eigenen Fenster (Balken, Hinweistext, Log-Auszug, Abbrechen).
   const antwort = await api('/api/install?name='+encodeURIComponent(name),{method:'POST'});
   const o=document.getElementById('out'); if(o) o.textContent=antwort;
-  const ziel='/i/'+encodeURIComponent(name)+'?token='+encodeURIComponent(T);
-  const w=window.open(ziel,'pp_setup_'+name);
-  if(!w){ location.href=ziel; return; }   // Popup blockiert: im selben Tab weiter
-  setTimeout(load,1200);
+  // Fortschritt im selben Tab oeffnen, kein zusaetzliches Fenster.
+  setTimeout(()=>{ location.href='/i/'+encodeURIComponent(name)+'?token='+encodeURIComponent(T); }, 800);
 }
 
 async function checkPolyPanel(){

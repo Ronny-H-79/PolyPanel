@@ -1,3 +1,10 @@
+## [0.17] — 2026-11-14
+
+### Changed
+- **No extra window when creating or installing.** The panel used to open a separate window with the
+  setup page for the new instance. Creating now stays on the overview (the new card appears there),
+  and the installation shows its progress in the same tab.
+
 ## [0.16] — 2026-11-14
 
 ### Added
