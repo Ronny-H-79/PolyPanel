@@ -5,6 +5,8 @@
   Browser: Ordner öffnen, Dateien hochladen (mehrere gleichzeitig), herunterladen, umbenennen,
   löschen und neue Ordner anlegen. Alles bleibt im Instanzordner — Pfade mit `..` werden abgewiesen
   (`Pfad liegt ausserhalb der Instanz`), Downloads laufen als Stream auch bei großen Dateien.
+  **Dateien lesen und ändern:** Klick auf den Namen öffnet den Inhalt im Browser (Text bis 2 MB,
+  Binärdateien werden abgewiesen), „Speichern" schreibt zurück und legt vorher eine `.bak`-Sicherung an.
 - **SFTP-Zugang pro Instanz.** Auf der Instanzkarte läßt sich SFTP ein- und ausschalten; der
   Zugang ist auf den Instanzordner beschränkt (Chroot), Benutzer und Passwort werden je Instanz
   erzeugt, der Port kommt aus `sftp_base_port + laufender Nummer` (Standard 2225). „Neues Passwort"

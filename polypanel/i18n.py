@@ -130,6 +130,8 @@ T: dict[str, dict[str, str]] = {
     "files.reload": {"de": "Aktualisieren", "en": "Refresh"},
     "files.upload": {"de": "Hochladen", "en": "Upload"},
     "files.mkdir": {"de": "Neuer Ordner", "en": "New folder"},
+    "files.save": {"de": "Speichern", "en": "Save"},
+    "files.close": {"de": "Schliessen", "en": "Close"},
     "sftp.title": {"de": "SFTP-Zugang", "en": "SFTP access"},
     "sftp.user": {"de": "Benutzer", "en": "User"},
     "sftp.port": {"de": "Port", "en": "Port"},

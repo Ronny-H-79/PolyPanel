@@ -1024,6 +1024,19 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
     <div class="meta" id="dateiKrumen" style="margin:12px 0 6px"></div>
     <div id="dateiListe"><div class="meta">…</div></div>
 
+    <div id="dateiViewer" style="display:none;margin-top:16px">
+      <div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <b id="dateiViewerName"></b>
+        <span>
+          <button onclick="dSave()" data-t="files.save">Speichern</button>
+          <button onclick="dClose()" data-t="files.close">Schliessen</button>
+        </span>
+      </div>
+      <textarea id="dateiInhalt" spellcheck="false"
+        style="width:100%;height:340px;margin-top:8px;font-family:ui-monospace,monospace;font-size:12px;
+               background:rgba(0,0,0,.35);color:inherit;border:1px solid rgba(64,255,199,.2);border-radius:8px;padding:10px"></textarea>
+    </div>
+
     <h2 style="margin-top:26px" data-t="sftp.title">SFTP-Zugang</h2>
     <div id="sftpbox"><div class="meta">…</div></div>
     <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:8px">
@@ -1332,6 +1345,7 @@ function dGroesse(n){
 function dEsc(t){ return String(t).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 async function dateien(pfad){
+  try{ dClose(); }catch(e){}
   DATEI_PFAD = (pfad||'').replace(/^\/+|\/+$/g,'');
   let d={};
   try{ d = JSON.parse(await api('/api/files?path='+encodeURIComponent(DATEI_PFAD))); }
@@ -1346,7 +1360,8 @@ async function dateien(pfad){
     const icon = e.ordner ? '📁' : '📄';
     const name = e.ordner
       ? `<a href="#" onclick="dateien('${dEsc(e.pfad)}');return false;">${icon} ${dEsc(e.name)}</a>`
-      : `<a href="/api/files/download?token=${encodeURIComponent(T)}&name=${encodeURIComponent(NAME)}&path=${encodeURIComponent(e.pfad)}">${icon} ${dEsc(e.name)}</a>`;
+      : `<a href="#" onclick="dOpen('${dEsc(e.pfad)}');return false;">${icon} ${dEsc(e.name)}</a>
+         <a href="/api/files/download?token=${encodeURIComponent(T)}&name=${encodeURIComponent(NAME)}&path=${encodeURIComponent(e.pfad)}" title="herunterladen" style="opacity:.6">⬇</a>`;
     const datum = e.zeit ? new Date(e.zeit*1000).toLocaleString() : '';
     return `<tr>
       <td style="padding:4px 8px">${name}</td>
@@ -1403,6 +1418,42 @@ async function dRename(pfad, name){
     const d = JSON.parse(r); if(!d.ok) toast(r);
   }catch(e){ toast('Umbenennen: '+e); }
   dateien(DATEI_PFAD);
+}
+
+let DATEI_OFFEN='';
+
+async function dOpen(pfad){
+  const st=document.getElementById('dateiStatus');
+  try{
+    const r = await fetch('/api/files/view?token='+encodeURIComponent(T)+'&name='+encodeURIComponent(NAME)
+      +'&path='+encodeURIComponent(pfad));
+    if(!r.ok) throw new Error(await r.text());
+    const d = await r.json();
+    DATEI_OFFEN = d.pfad;
+    document.getElementById('dateiViewerName').textContent = d.pfad+' ('+dGroesse(d.groesse)+')';
+    document.getElementById('dateiInhalt').value = d.text;
+    document.getElementById('dateiViewer').style.display='';
+    if(st) st.textContent='';
+  }catch(e){ if(st) st.textContent='Nicht lesbar: '+e; }
+}
+
+async function dSave(){
+  if(!DATEI_OFFEN) return;
+  const st=document.getElementById('dateiStatus');
+  try{
+    const r = await fetch('/api/files/save?token='+encodeURIComponent(T)+'&name='+encodeURIComponent(NAME)
+      +'&path='+encodeURIComponent(DATEI_OFFEN),
+      {method:'POST', body: document.getElementById('dateiInhalt').value});
+    if(!r.ok) throw new Error(await r.text());
+    if(st) st.textContent='gespeichert: '+DATEI_OFFEN+' (Sicherung als .bak)';
+    dateien(DATEI_PFAD);
+  }catch(e){ if(st) st.textContent='Speichern fehlgeschlagen: '+e; }
+}
+
+function dClose(){
+  DATEI_OFFEN='';
+  document.getElementById('dateiViewer').style.display='none';
+  document.getElementById('dateiInhalt').value='';
 }
 
 async function renderSftp(){
@@ -2932,6 +2983,31 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(blob)
             return
+        if path == "/api/files/view":
+            from . import files as filesmod
+
+            inst_v = self._inst(q)
+            if not inst_v:
+                self._send(404, b"keine Instanz")
+                return
+            rel = q.get("path", [""])[0]
+            try:
+                ziel = filesmod.lesen(inst_v, rel)
+                groesse = os.path.getsize(ziel)
+                if groesse > 2 * 1024 * 1024:
+                    self._send(413, b"Datei ist groesser als 2 MB - bitte herunterladen")
+                    return
+                with open(ziel, "rb") as fh:
+                    roh = fh.read()
+            except (filesmod.PfadFehler, FileNotFoundError, OSError) as exc:
+                self._send(400, str(exc).encode())
+                return
+            if b"\x00" in roh[:8192]:
+                self._send(415, b"Binaerdatei - bitte herunterladen")
+                return
+            self._json({"ok": True, "pfad": rel, "groesse": groesse,
+                        "text": roh.decode("utf-8", "replace")})
+            return
         if path in ("/api/files", "/api/files/download"):
             from . import files as filesmod
 
@@ -3332,6 +3408,21 @@ class Handler(BaseHTTPRequestHandler):
                         return
                     self._json({"ok": True,
                                 "pfad": filesmod.ordner(inst, (rel.strip("/") + "/" + name).strip("/"))})
+                    return
+                if aktion == "save":
+                    laenge = int(self.headers.get("Content-Length") or 0)
+                    if laenge > 2 * 1024 * 1024:
+                        self._send(413, b"Datei groesser als 2 MB")
+                        return
+                    roh = self.rfile.read(laenge) if laenge else b""
+                    ziel = filesmod.lesen(inst, rel) if rel else ""
+                    if ziel and os.path.isfile(ziel):
+                        try:
+                            with open(ziel + ".bak", "wb") as fh:
+                                fh.write(open(ziel, "rb").read())
+                        except OSError:
+                            pass
+                    self._json({"ok": True, "pfad": filesmod.schreiben(inst, rel, roh)})
                     return
                 if aktion == "delete":
                     self._json({"ok": True, "entfernt": filesmod.loeschen(inst, rel)})
