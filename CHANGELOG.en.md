@@ -1,6 +1,10 @@
 ## [0.15] — 2026-11-14
 
 ### Added
+- **File browser inside the panel.** The "Files" tab of an instance shows its directory in the
+  browser: open folders, upload files (several at once), download, rename, delete and create new
+  folders. Everything stays inside the instance directory — paths with `..` are rejected and
+  downloads are streamed.
 - **Per-instance SFTP access.** Each instance card can switch SFTP on and off; access is confined to
   the instance directory (chroot), user and password are generated per instance, and the port comes
   from `sftp_base_port + running number` (default 2225). "New password" immediately creates one and

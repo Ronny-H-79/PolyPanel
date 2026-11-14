@@ -1329,7 +1329,7 @@ function dGroesse(n){
   while(v>=1024 && i<u.length-1){ v/=1024; i++; }
   return (i? v.toFixed(1):v)+' '+u[i];
 }
-function dEsc(t){ return String(t).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function dEsc(t){ return String(t).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 async function dateien(pfad){
   DATEI_PFAD = (pfad||'').replace(/^\/+|\/+$/g,'');
@@ -1337,8 +1337,9 @@ async function dateien(pfad){
   try{ d = JSON.parse(await api('/api/files?path='+encodeURIComponent(DATEI_PFAD))); }
   catch(e){ const s=document.getElementById('dateiStatus'); if(s) s.textContent='Fehler: '+e; return; }
   const teile = DATEI_PFAD ? DATEI_PFAD.split('/') : [];
-  let kr = '<a href="#" onclick="dateien(\'\');return false;">/</a>';
-  teile.forEach((t,i)=>{ kr += ' <span style="opacity:.5">›</span> <a href="#" onclick="dateien(\''+dEsc(teile.slice(0,i+1).join('/'))+'\');return false;">'+dEsc(t)+'</a>'; });
+  let kr = `<a href="#" onclick="dateien('')">/</a>`;
+  teile.forEach((t,i)=>{ const pfad = dEsc(teile.slice(0,i+1).join('/'));
+    kr += ` <span style="opacity:.5">›</span> <a href="#" onclick="dateien('${pfad}')">${dEsc(t)}</a>`; });
   document.getElementById('dateiKrumen').innerHTML = kr;
 
   const zeilen = (d.eintraege||[]).map(e=>{
