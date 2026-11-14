@@ -1,3 +1,22 @@
+## [0.15] — 2026-11-14
+
+### Neu
+- **SFTP-Zugang pro Instanz.** Auf der Instanzkarte läßt sich SFTP ein- und ausschalten; der
+  Zugang ist auf den Instanzordner beschränkt (Chroot), Benutzer und Passwort werden je Instanz
+  erzeugt, der Port kommt aus `sftp_base_port + laufender Nummer` (Standard 2225). „Neues Passwort"
+  legt sofort ein neues an und kopiert es in die Zwischenablage.
+- Der SFTP-Dienst läuft als eigener systemd-Dienst `polypanel-sftp` (Benutzer- oder Systemdienst,
+  je nachdem wie das Panel installiert ist) und liest die Ports/Passwörter alle 30 Sekunden neu ein.
+  Er hängt nicht am Laufzeitzustand der Instanz: Dateien hochladen geht auch bei gestopptem Server.
+
+### Voraussetzung
+- `asyncssh` (z. B. `apt install python3-asyncssh`). Fehlt es, läuft das Panel unverändert weiter,
+  nur der SFTP-Dienst meldet im Panel-Log, was fehlt.
+
+### Geändert
+- Instanz-JSON kennt `sftp_enabled`, `sftp_user`, `sftp_password`, `sftp_port`; die Adresse
+  `sftp://benutzer@host:port` steht auf der Karte, FileZilla-kompatibel (SFTP, kein FTP).
+
 ## [0.14] — 2026-11-13
 
 ### Behoben

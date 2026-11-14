@@ -51,6 +51,11 @@ class Instance:
     beacon_port: int = 15000             # Satisfactory: dritter Port
     api_token: str = ""                  # Satisfactory: Bearer-Token der HTTPS-API
     telnet_password: str = ""            # 7 Days to Die: TelnetPassword
+    # SFTP-Zugang: eigener Benutzer je Instanz, Chroot auf den Instanzordner
+    sftp_enabled: bool = False
+    sftp_user: str = ""
+    sftp_password: str = ""
+    sftp_port: int = 0                   # 0 = Basis-Port + laufende Nummer
 
     # ------------------------------------------------------------------ Profil
     @property

@@ -134,6 +134,13 @@ def cmd_supervise(args: argparse.Namespace) -> None:
     Supervisor(inst, interval=args.interval).run()
 
 
+def cmd_sftp(args: argparse.Namespace) -> None:
+    """SFTP-Dienst im Vordergrund (systemd-Unit polypanel-sftp)."""
+    from . import sftp
+
+    raise SystemExit(sftp.run())
+
+
 def cmd_lang(args: argparse.Namespace) -> None:
     """Sprache anzeigen oder setzen (de/en)."""
     from .i18n import lang, set_lang, t
@@ -496,6 +503,10 @@ def main(argv: list[str] | None = None) -> None:
 
     pv = sub.add_parser("version", parents=[common], help="Version und Update-Status anzeigen")
     pv.set_defaults(func=cmd_version)
+
+    psftp = sub.add_parser("sftp", parents=[common],
+                           help="SFTP-Dienst fuer die Instanzen starten (Vordergrund)")
+    psftp.set_defaults(func=cmd_sftp)
 
     psu = sub.add_parser("self-update", parents=[common], help="PolyPanel selbst aktualisieren")
     psu.add_argument("--force", action="store_true", help="auch ohne neuere Version neu laden")

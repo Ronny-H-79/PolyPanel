@@ -1,3 +1,22 @@
+## [0.15] — 2026-11-14
+
+### Added
+- **Per-instance SFTP access.** Each instance card can switch SFTP on and off; access is confined to
+  the instance directory (chroot), user and password are generated per instance, and the port comes
+  from `sftp_base_port + running number` (default 2225). "New password" immediately creates one and
+  copies it to the clipboard.
+- The SFTP service runs as its own systemd unit `polypanel-sftp` (user or system service, following
+  how the panel itself is installed) and re-reads ports/passwords every 30 seconds. It is independent
+  of the instance runtime state: uploading works while the server is stopped.
+
+### Requirement
+- `asyncssh` (e.g. `apt install python3-asyncssh`). Without it the panel keeps working unchanged and
+  only the SFTP service reports the missing module in the panel log.
+
+### Changed
+- The instance JSON gained `sftp_enabled`, `sftp_user`, `sftp_password`, `sftp_port`; the address
+  `sftp://user@host:port` is shown on the card and works with FileZilla (SFTP, not FTP).
+
 ## [0.14] — 2026-11-13
 
 ### Fixed
