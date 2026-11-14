@@ -9,13 +9,16 @@
   how the panel itself is installed) and re-reads ports/passwords every 30 seconds. It is independent
   of the instance runtime state: uploading works while the server is stopped.
 
+### Changed
+- **Token stays the same.** The web token is generated on the very first start only and is read from
+  `~/.config/polypanel/token` afterwards — restarts, updates and self-updates do not change it, so old
+  links keep working. A new token is only created when that file is deleted.
+- The instance JSON gained `sftp_enabled`, `sftp_user`, `sftp_password`, `sftp_port`; the address
+  `sftp://user@host:port` is shown on the card and works with FileZilla (SFTP, not FTP).
+
 ### Requirement
 - `asyncssh` (e.g. `apt install python3-asyncssh`). Without it the panel keeps working unchanged and
   only the SFTP service reports the missing module in the panel log.
-
-### Changed
-- The instance JSON gained `sftp_enabled`, `sftp_user`, `sftp_password`, `sftp_port`; the address
-  `sftp://user@host:port` is shown on the card and works with FileZilla (SFTP, not FTP).
 
 ## [0.14] — 2026-11-13
 

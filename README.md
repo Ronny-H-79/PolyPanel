@@ -126,6 +126,10 @@ The token is also stored in `/home/polypanel/.config/polypanel/token` for the se
 The panel also writes the finished address to `/home/polypanel/.config/polypanel/url` (mode `600`) -
 `cat` is enough, and it stays current across restarts.
 
+**The token never changes.** It is created once on first start and then reused from
+`~/.config/polypanel/token` — restarts, updates and reinstalls of the panel keep it. Only if you
+delete that file does a new token get generated, and only then do old links stop working.
+
 Instances are created **in the browser**: open the address the command prints, enter a name, pick the
 game and map and press **Anlegen / Create** — the card then offers **Install** (SteamCMD, then start).
 No terminal is needed after the first command.

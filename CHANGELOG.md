@@ -9,13 +9,16 @@
   je nachdem wie das Panel installiert ist) und liest die Ports/Passwörter alle 30 Sekunden neu ein.
   Er hängt nicht am Laufzeitzustand der Instanz: Dateien hochladen geht auch bei gestopptem Server.
 
+### Geändert
+- **Token bleibt gleich.** Der Web-Token wird nur beim allerersten Start erzeugt und danach immer aus
+  `~/.config/polypanel/token` gelesen — Neustart, Update und Selbst-Update ändern ihn nicht. Alte Links
+  funktionieren also weiter; ein neuer Token entsteht erst, wenn die Datei gelöscht wird.
+- Instanz-JSON kennt `sftp_enabled`, `sftp_user`, `sftp_password`, `sftp_port`; die Adresse
+  `sftp://benutzer@host:port` steht auf der Karte, FileZilla-kompatibel (SFTP, kein FTP).
+
 ### Voraussetzung
 - `asyncssh` (z. B. `apt install python3-asyncssh`). Fehlt es, läuft das Panel unverändert weiter,
   nur der SFTP-Dienst meldet im Panel-Log, was fehlt.
-
-### Geändert
-- Instanz-JSON kennt `sftp_enabled`, `sftp_user`, `sftp_password`, `sftp_port`; die Adresse
-  `sftp://benutzer@host:port` steht auf der Karte, FileZilla-kompatibel (SFTP, kein FTP).
 
 ## [0.14] — 2026-11-13
 

@@ -135,6 +135,11 @@ bzw. `~/.config/polypanel/token` bei einer Installation im eigenen Konto (Rechte
 Die fertige Adresse schreibt das Panel zusätzlich nach `/home/polypanel/.config/polypanel/url` (Rechte `600`) —
 `cat` genügt, sie bleibt auch nach einem Neustart aktuell.
 
+**Der Token bleibt immer gleich.** Er wird beim ersten Start einmal erzeugt und danach aus
+`~/.config/polypanel/token` gelesen — Neustarts, Updates und Neuinstallationen des Panels ändern ihn
+nicht. Erst wenn du diese Datei löschst, entsteht ein neuer Token, und erst dann hören alte Links auf
+zu funktionieren.
+
 Instanzen legst du **im Browser** an: Adresse aus der Ausgabe öffnen, Namen eintragen, Spiel und Karte
 wählen, **Anlegen** drücken — die Karte bietet dann **Installieren** an (SteamCMD, danach Start).
 Nach dem ersten Befehl braucht es kein Terminal mehr.
