@@ -1,3 +1,11 @@
+## [0.19] — 2026-11-15
+
+### Behoben
+- **StarRupture-Installation scheiterte mit „Invalid platform".** Der Schalter
+  `+@sSteamCmdForcePlatformType windows` wurde nur für ARK gesetzt; StarRupture hat ebenfalls nur
+  einen Windows-Server. Die Liste der Windows-Only-Spiele steht jetzt zentral in `installer.py`
+  (`WINDOWS_ONLY_APPS`).
+
 ## [0.18] — 2026-11-15
 
 ### Neu

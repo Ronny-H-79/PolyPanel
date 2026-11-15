@@ -49,14 +49,16 @@ def ensure_steamcmd(log=print) -> str:
 
 
 ASA_APP = "2430930"
+# Spiele ohne Linux-Server: SteamCMD muss den Windows-Zweig laden.
+WINDOWS_ONLY_APPS = {ASA_APP, "3809400"}      # ARK: Survival Ascended, StarRupture
 
 
 def _plattform_flagge(app_id: str) -> list[str]:
-    """ARR Ascended hat keinen Linux-Server: SteamCMD muss den Windows-Zweig laden.
+    """Spiele ohne Linux-Server: SteamCMD muss den Windows-Zweig laden.
 
-    Ohne diesen Schalter endet die Installation mit "Failed to install app ... (Missing configuration)".
+    Ohne diesen Schalter endet die Installation mit "Failed to install app ... (Invalid platform)".
     """
-    if str(app_id) == ASA_APP:
+    if str(app_id) in WINDOWS_ONLY_APPS:
         return ["""+@sSteamCmdForcePlatformType windows"""]
     return []
 
