@@ -31,6 +31,37 @@ def clean(text: str, limit: int = 150) -> str:
     return text[:limit]
 
 
+ROLLEN = re.compile(r"\s+(Primary roles|Secondary roles|Hauptfunktionen|"
+                     r"Prim(?:ä|ae)re Funktionen|Nebenfunktionen|Roles)\s*:", re.I)
+
+
+def umbrueche(text: str) -> str:
+    """Lesbare Zeilen in Ein-Zeilen-Beschreibungen einbauen.
+
+    Steam liefert die Kurzbeschreibung als einen einzigen Absatz ("… Unlock Level 15 -
+    Reforged Eden 2 Only Primary roles: Production, Storage …"). Vor den Rollenangaben
+    und nach langen Saetzen wird ein Umbruch gesetzt, damit die Liste nicht als
+    Textwueste erscheint.
+    """
+    text = (text or "").strip()
+    if not text:
+        return text
+    # 1) Rollenangaben auf eine eigene Zeile
+    text = ROLLEN.sub(lambda m: "\n" + m.group(1) + ":", text)
+    # 2) lange Saetze umbrechen (nur wenn der Satz schon > 70 Zeichen hat)
+    teile = re.split(r"(?<=[.!?])\s+", text)
+    zeilen: list[str] = []
+    puffer = ""
+    for teil in teile:
+        puffer = (puffer + " " + teil).strip() if puffer else teil
+        if len(puffer) > 70 and teil.endswith((".", "!", "?")):
+            zeilen.append(puffer)
+            puffer = ""
+    if puffer:
+        zeilen.append(puffer)
+    return "\n".join(z for z in zeilen if z)
+
+
 def search(app_id: str, query: str, limit: int = 24, page: int = 1,
            timeout: float = 25.0) -> dict:
     """Trefferliste des Workshops durchsuchen; wirft RuntimeError bei kaputter Antwort."""
@@ -74,7 +105,7 @@ def hits(app_id: str, query: str, limit: int = 24) -> dict:
         treffer.append({
             "id": pid,
             "name": str(it.get("title") or "Mod %s" % pid),
-            "description": clean(it.get("short_description")),
+            "description": umbrueche(clean(it.get("short_description"))),
             "downloads": int(it.get("subscriptions") or 0),
             "thumbnail": str(it.get("preview_url") or ""),
             "url": "https://steamcommunity.com/sharedfiles/filedetails/?id=%s" % pid,
