@@ -273,6 +273,9 @@ background:linear-gradient(180deg,rgba(6,9,14,.30) 0%,rgba(6,9,14,.62) 45%,rgba(
 border-top:1px solid #16302a;border-bottom:1px solid #16302a}
 #modhits .p{padding:6px 0;border-bottom:1px solid #10201b}
 #modhits .p:last-child{border-bottom:0}
+/* Beschreibung: drei Zeilen statt harter Zeichengrenze */
+#modhits .mrow{align-items:flex-start}
+#modhits .txt small{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;line-height:1.35}
 .taskrow{display:flex;gap:5px;row-gap:2px;align-items:center;flex-wrap:wrap;padding:2px 0;border-bottom:1px solid #10201b}
 .taskrow select{width:auto;min-width:120px}
 .taskrow select,.taskrow input{width:auto;padding:3px 6px;font-size:12px}
@@ -2188,7 +2191,7 @@ function suggestMods(){
         <span class="mrow">
           ${m.thumbnail?`<img class="thumb" src="${m.thumbnail}" alt="" loading="lazy">`:'<div class="thumb"></div>'}
           <span class="txt"><b>${m.title||('Mod '+m.id)}</b>
-          <small>${m.id}${m.downloads?(' · '+m.downloads.toLocaleString('de-DE')):''}${m.summary?(' · '+m.summary.slice(0,80)):''}</small></span>
+          <small>${m.id}${m.downloads?(' · '+m.downloads.toLocaleString('de-DE')):''}${m.summary?(' · '+m.summary):''}</small></span>
         </span>
         <span class="row"><span class="badge">+</span></span></div>`).join('');
   }, 350);
@@ -2217,7 +2220,7 @@ async function searchMods(){
   box.innerHTML=hits.map(m=>`<div class="p"><span class="mrow">
       ${m.thumbnail?`<img class="thumb" src="${m.thumbnail}" alt="" loading="lazy">`:'<div class="thumb"></div>'}
       <span class="txt"><b>${m.title||('Mod '+m.id)}</b>
-      <small>${m.id}${m.downloads?(' · '+m.downloads.toLocaleString('de-DE')+' Downloads'):''}${m.summary?(' · '+m.summary.slice(0,90)):''}</small></span></span>
+      <small>${m.id}${m.downloads?(' · '+m.downloads.toLocaleString('de-DE')+' Downloads'):''}${m.summary?(' · '+m.summary):''}</small></span></span>
       <span class="row"><button class="primary" onclick="addModId('${m.id}')">${L['mods.add_hit']}</button></span></div>`).join('');
 }
 async function addModId(id){
