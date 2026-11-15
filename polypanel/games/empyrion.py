@@ -560,6 +560,34 @@ class EmpyrionProfile(GameProfile):
             argv.extend(inst.extra_args.split())
         return argv
 
+    # ------------------------------------------------------------- Mod-Ordner
+    def _mods_ordner(self, inst, log=print) -> None:
+        """`Content/Mods` anlegen - Empyrion bringt den Ordner nicht mit.
+
+        Mods sind Unterordner darin (z. B. Content/Mods/MeinMod/...). Ohne den
+        Ordner findet der Server keine Mods, und im Dateien-Reiter fehlt der Pfad.
+        """
+        ordner = os.path.join(inst.directory, "Content", "Mods")
+        try:
+            os.makedirs(ordner, exist_ok=True)
+            hinweis = os.path.join(ordner, "README.txt")
+            if not os.path.exists(hinweis):
+                with open(hinweis, "w", encoding="utf-8") as fh:
+                    fh.write("Empyrion: Galactic Survival - Mods\n"
+                             "=================================\n\n"
+                             "Jeder Mod ist ein eigener Unterordner mit seinen Dateien, "
+                             "z. B. Content/Mods/MeinMod/Configuration/...\n"
+                             "Der Ordnername entspricht dem Mod-Ordner aus dem Workshop-"
+                             "Paket. Nach dem Kopieren den Server neu starten.\n")
+        except OSError as exc:
+            log("Empyrion: Mods-Ordner nicht anlegbar (%s): %s" % (ordner, exc))
+
+    def post_install(self, inst, log=print) -> None:
+        self._mods_ordner(inst, log)
+
+    def prepare_start(self, inst, log=print) -> None:
+        self._mods_ordner(inst, log)
+
     # ---------------------------------------------------------- Konfigdatei
     def write_config(self, inst) -> None:
         """Nur die Panel-Felder schreiben; alles andere bleibt, wie es ist."""
