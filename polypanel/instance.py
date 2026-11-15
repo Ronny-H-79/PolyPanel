@@ -32,6 +32,8 @@ class Instance:
     extra_args: str = ""
     max_players: int = 20
     admin_password: str = ""
+    # Passwort, das Spieler beim Beitreten eingeben (Spiele mit Join-Passwort)
+    server_password: str = ""
     restart_times: list[str] = field(default_factory=list)
     # Zeitplan-Aufgaben: {"id","action","time":"HH:MM","days":[1..7] (leer = taeglich),"arg","on"}
     tasks: list[dict] = field(default_factory=list)

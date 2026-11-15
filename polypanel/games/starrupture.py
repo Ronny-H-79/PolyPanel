@@ -86,6 +86,8 @@ class StarRuptureProfile(GameProfile):
         ("session_name", "Session-Name", "Ordnername der Welt unter StarRupture/Saved/SaveGames", "text"),
         ("max_players", "Max. Spieler", "Vanilla-Grenze liegt bei 8", "int"),
         ("port", "Spielport (UDP)", "Standard 7777", "int"),
+        ("server_password", "Server-Passwort", "Passwort beim Beitreten (leer = offen)", "password"),
+        ("admin_password", "Admin-Passwort", "fuer \"Manage Server\" im Spiel", "password"),
     )
 
     # ----------------------------------------------------------------- Pfade
@@ -152,6 +154,14 @@ class StarRuptureProfile(GameProfile):
         daten.setdefault("SaveGameName", "AutoSave0.sav")
         if not str(daten.get("SessionName") or "").strip():
             daten["SessionName"] = name
+
+        # Passwoerter nur schreiben, wenn sie gesetzt sind - ein leeres Feld soll
+        # ein bereits im Spiel vergebenes Passwort nicht ueberschreiben.
+        for feld, schluessel in (("server_password", "ServerPassword"),
+                                 ("admin_password", "AdminPassword")):
+            wert = (getattr(inst, feld, "") or "").strip()
+            if wert:
+                daten[schluessel] = wert
 
         with open(pfad, "w", encoding="utf-8") as fh:
             json.dump(daten, fh, indent=2)
