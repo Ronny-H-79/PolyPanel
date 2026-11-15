@@ -1,3 +1,13 @@
+## [0.22] — 2026-11-15
+
+### Behoben
+- **Empyrion startet jetzt wirklich.** Drei Korrekturen am Profil: Startdatei ist
+  `DedicatedServer/EmpyrionDedicated.exe` (im Wurzelordner liegen nur Batchdateien und der
+  Launcher), Unity braucht `-nographics` **zusammen mit** `-batchmode` (einzeln: „requires
+  -batchmode"), und `dedicated.yaml` wird nur innerhalb des `ServerConfig:`-Blocks gepflegt —
+  Schlüssel auf oberster Ebene lehnt der Server mit „config file is updated to the current
+  server version" ab und bricht ab.
+
 ## [0.21] — 2026-11-15
 
 ### Neu

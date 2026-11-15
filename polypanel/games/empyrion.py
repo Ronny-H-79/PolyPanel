@@ -23,7 +23,10 @@ import shutil
 
 from .base import GameProfile
 
-EXE_NOGFX = "EmpyrionDedicated_NoGraphics.exe"
+# Das echte Serverprogramm liegt im Unterordner - im Wurzelverzeichnis stehen nur
+# die Hersteller-Batchdateien (EmpyrionDedicated.cmd) und der Launcher.
+EXE_SERVER = os.path.join("DedicatedServer", "EmpyrionDedicated.exe")
+EXE_NOGFX = "EmpyrionDedicated_NoGraphics.exe"   # nur als Notnagel, falls vorhanden
 EXE_GUI = "EmpyrionDedicated.exe"
 CFG_NAME = "dedicated.yaml"
 
@@ -86,6 +89,9 @@ class EmpyrionProfile(GameProfile):
 
     # ----------------------------------------------------------------- Pfade
     def exe(self, inst) -> str:
+        echt = os.path.join(inst.directory, EXE_SERVER)
+        if os.path.exists(echt):
+            return echt
         for name in (EXE_NOGFX, EXE_GUI):
             pfad = os.path.join(inst.directory, name)
             if os.path.exists(pfad):
@@ -108,61 +114,86 @@ class EmpyrionProfile(GameProfile):
             treffer = sorted(glob.glob(os.path.join(inst.directory, muster)))
             if treffer:
                 return treffer[-1]
-        return os.path.join(inst.directory, "EmpyrionDedicated.log")
+        ordner = os.path.join(inst.directory, "Logs")
+        os.makedirs(ordner, exist_ok=True)
+        return os.path.join(ordner, "EmpyrionDedicated.log")
 
     # ------------------------------------------------------------ Startzeile
     def launch_prefix(self, inst) -> list[str]:
         return _xvfb()
 
     def launch_argv(self, inst) -> list[str]:
-        argv = [self.exe(inst)]
+        # "-nographics requires -batchmode" - einzeln bricht Unity den Start ab.
+        argv = [self.exe(inst), "-batchmode", "-nographics",
+                "-logFile", self.log_path(inst)]
         if getattr(inst, "extra_args", ""):
             argv.extend(inst.extra_args.split())
         return argv
 
     # ---------------------------------------------------------- Konfigdatei
     def write_config(self, inst) -> None:
-        """dedicated.yaml zeilenweise pflegen - Kommentare und Reihenfolge bleiben."""
+        """dedicated.yaml pflegen - Schluessel liegen unter `ServerConfig:`.
+
+        Die Vorlage des Herstellers verschachtelt alles unter `ServerConfig:` und
+        kommentiert die meisten Zeilen aus. Ein Anhaengen am Dateiende erzeugt
+        deshalb YAML auf oberster Ebene: der Server liest die Werte nicht (und
+        bricht bei ungueltigem Aufbau ganz ab). Deshalb werden vorhandene - auch
+        auskommentierte - Zeilen ersetzt und fehlende innerhalb des Blocks mit
+        derselben Einrueckung eingesetzt.
+        """
         pfad = self.config_path(inst)
         if not os.path.exists(pfad):
             return          # Vorlage fehlt (noch nicht installiert): nichts erfinden
-        werte = [("Srv_Name", str(getattr(inst, "session_name", "") or inst.name)),
-                 ("Srv_Port", str(getattr(inst, "port", self.default_game_port)
-                                  or self.default_game_port)),
-                 ("Srv_MaxPlayers", str(getattr(inst, "max_players",
-                                                self.default_max_players)))]
+
         passwort = (getattr(inst, "server_password", "") or "").strip()
+        werte = {
+            "Srv_Name": ('"%s"' % (getattr(inst, "session_name", "") or inst.name), True),
+            "Srv_Port": (str(getattr(inst, "port", self.default_game_port)
+                             or self.default_game_port), False),
+            "Srv_MaxPlayers": (str(getattr(inst, "max_players", self.default_max_players)), False),
+        }
         if passwort:
-            werte.append(("Srv_Password", passwort))
+            werte["Srv_Password"] = ('"%s"' % passwort, True)
 
         with open(pfad, encoding="utf-8", errors="replace") as fh:
             zeilen = fh.read().splitlines()
 
-        offen = {k for k, _ in werte}
+        offen = dict(werte)
         neu = []
         for zeile in zeilen:
-            treffer = re.match(r"^(\s*)([A-Za-z_]+)(\s*:\s*)(.*)$", zeile)
-            if treffer and treffer.group(2) in offen:
-                schluessel = treffer.group(2)
-                wert = dict(werte)[schluessel]
-                rest = treffer.group(4)
-                # Kommentar hinter dem Wert erhalten (z. B. "30000   # Spielport")
-                kommentar = ""
-                if "#" in rest:
-                    kommentar = "  " + rest[rest.index("#"):]
-                if passwort and schluessel == "Srv_Password":
-                    wert_text = '"%s"' % wert
-                elif schluessel in ("Srv_Port", "Srv_MaxPlayers"):
-                    wert_text = wert
-                else:
-                    wert_text = '"%s"' % wert
-                neu.append("%s%s%s%s%s" % (treffer.group(1), schluessel,
-                                           treffer.group(3), wert_text, kommentar))
-                offen.discard(schluessel)
+            treffer = re.match(r"^(\s*)(#\s*)?(Srv_[A-Za-z]+)(\s*:\s*)(.*)$", zeile)
+            if treffer and treffer.group(3) in offen:
+                schluessel = treffer.group(3)
+                wert, _ = offen.pop(schluessel)
+                rest = treffer.group(5)
+                kommentar = ("  " + rest[rest.index("#"):]) if "#" in rest else ""
+                neu.append("%s%s: %s%s" % (treffer.group(1), schluessel, wert, kommentar))
+                continue
+            # Streuner auf oberster Ebene entfernen: YamlDotNet verweigert den Start,
+            # wenn ein Schluessel ausserhalb von ServerConfig/GameConfig steht
+            # ("Make sure your config file is updated to the current server version").
+            if re.match(r"^(Srv_|Tel_|EACActive|GameName|Mode|CustomScenario)[A-Za-z_]*\s*:", zeile):
+                continue
+            neu.append(zeile)
+
+        if offen:
+            block = next((i for i, z in enumerate(neu) if re.match(r"^ServerConfig:\s*$", z)), None)
+            if block is None:
+                neu.extend("%s: %s" % (k, v) for k, (v, _) in sorted(offen.items()))
             else:
-                neu.append(zeile)
-        for schluessel in sorted(offen):
-            neu.append("%s: %s" % (schluessel, dict(werte)[schluessel]))
+                einzug = None
+                ende = len(neu)
+                for i in range(block + 1, len(neu)):
+                    if neu[i].strip() and not neu[i].startswith((" ", "\t")):
+                        ende = i
+                        break
+                    if einzug is None:
+                        m2 = re.match(r"^(\s+)\S", neu[i])
+                        if m2:
+                            einzug = m2.group(1)
+                einzug = einzug or "    "
+                neu[ende:ende] = ["%s%s: %s" % (einzug, k, v)
+                                  for k, (v, _) in sorted(offen.items())]
 
         with open(pfad, "w", encoding="utf-8") as fh:
             fh.write("\n".join(neu) + "\n")
