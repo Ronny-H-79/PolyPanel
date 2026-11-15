@@ -6,11 +6,13 @@ from .arkse import ArkSeProfile
 from .base import GameProfile
 from .satisfactory import SatisfactoryProfile
 from .spaceengineers import SpaceEngineersProfile
+from .starrupture import StarRuptureProfile
 from .sv7dtd import SevenDaysProfile
 
 PROFILES: dict[str, GameProfile] = {
     p.key: p for p in (ArkProfile(), ArkSeProfile(), SatisfactoryProfile(),
-                       SpaceEngineersProfile(), SevenDaysProfile())
+                       SpaceEngineersProfile(), SevenDaysProfile(),
+                       StarRuptureProfile())
 }
 
 DEFAULT_GAME = "ark"

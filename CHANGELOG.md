@@ -1,3 +1,14 @@
+## [0.18] — 2026-11-15
+
+### Neu
+- **StarRupture als Spielprofil.** Dedicated Server über SteamCMD (App-ID 3809400, Windows-Binary
+  unter Wine). Angelegt wird die Instanz wie jede andere: Name, Port (UDP 7777), Spielerzahl. Die
+  Startdatei wird gesucht (`StarRuptureServerEOS.exe`, `StarRuptureServer.exe` oder Pfad unter
+  `Binaries/Win64`), die Konfiguration landet in `DSSettings.txt` neben der Startdatei
+  (ServerName, Port, MaxPlayers, Passwort wenn gesetzt). Es gibt keinen Steuerkanal — Start, Stop,
+  Update, Backups und Datei-Browser funktionieren, RCON/Spielerkonsole nicht; „Bereit" erkennt das
+  Panel am belegten UDP-Port.
+
 ## [0.17] — 2026-11-14
 
 ### Geändert

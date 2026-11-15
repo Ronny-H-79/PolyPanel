@@ -507,7 +507,8 @@ const GAMESHINT = {
   arkse:          {install: "~20 GB über SteamCMD (nativ, Linux)",         ports: "Spiel 7777 · Query 7778 · RCON 27020", ram: "6–10 GB (ohne Mods)"},
   satisfactory:   {install: "~12 GB über SteamCMD (nativ)",                 ports: "Spiel 7777 · Query 15777 · Beacon 15000", ram: "6–12 GB (ohne Mods)"},
   "7d2d":         {install: "~18 GB über SteamCMD (nativ)",                 ports: "Spiel 26900 · Telnet 8081",        ram: "4–8 GB (ohne Mods)"},
-  spaceengineers: {install: "~8 GB über SteamCMD (Windows-Binary, Wine)",   ports: "Spiel 27016 · Steam 27015",        ram: "4–8 GB (ohne Mods)"}
+  spaceengineers: {install: "~8 GB über SteamCMD (Windows-Binary, Wine)",   ports: "Spiel 27016 · Steam 27015",        ram: "4–8 GB (ohne Mods)"},
+  starrupture:    {install: "~10 GB über SteamCMD (Windows-Binary, Wine)",   ports: "Spiel 7777 (UDP)",                 ram: "8–16 GB (ohne Mods)"}
 };
 const GAMEMAPS = __GAMEMAPS__;
 function fillMap(){

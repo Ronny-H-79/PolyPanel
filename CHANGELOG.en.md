@@ -1,3 +1,13 @@
+## [0.18] — 2026-11-15
+
+### Added
+- **StarRupture game profile.** Dedicated server via SteamCMD (app ID 3809400, Windows binary under
+  Wine). Instances are created like any other: name, port (UDP 7777), player count. The start file is
+  located automatically (`StarRuptureServerEOS.exe`, `StarRuptureServer.exe` or a path under
+  `Binaries/Win64`), configuration is written to `DSSettings.txt` next to it (ServerName, Port,
+  MaxPlayers, password if set). There is no control channel — start, stop, update, backups and the
+  file browser work, RCON/console and player list do not; "ready" is detected by the bound UDP port.
+
 ## [0.17] — 2026-11-14
 
 ### Changed
