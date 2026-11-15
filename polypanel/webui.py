@@ -275,7 +275,10 @@ border-top:1px solid #16302a;border-bottom:1px solid #16302a}
 #modhits .p:last-child{border-bottom:0}
 /* Beschreibung: drei Zeilen statt harter Zeichengrenze */
 #modhits .mrow{align-items:flex-start}
-#modhits .txt small{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;line-height:1.35}
+#modhits .txt small{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line;line-height:1.35}
+/* Nicht-ARK-Spiele (Empyrion, SE, ...): eigener Aufbau mit <label>, drei Zeilen */
+#modhits-local .setrow small{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line;line-height:1.35}
+#modhits-local .setrow .mrow{align-items:flex-start}
 .taskrow{display:flex;gap:5px;row-gap:2px;align-items:center;flex-wrap:wrap;padding:2px 0;border-bottom:1px solid #10201b}
 .taskrow select{width:auto;min-width:120px}
 .taskrow select,.taskrow input{width:auto;padding:3px 6px;font-size:12px}

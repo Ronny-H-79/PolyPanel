@@ -22,7 +22,12 @@ def clean(text: str, limit: int = 150) -> str:
     text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"\*{1,3}|_{2,}|`{1,3}", "", text)
     text = re.sub(r"https?://\S+", "", text)
-    text = re.sub(r"\s+", " ", text).strip()
+    # Zeilenumbrueche erhalten: vorher wurde ALLES zu einer Zeile zusammengezogen
+    # ("\s+" trifft auch \n), dadurch gab es nie einen Umbruch in der Liste.
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"[ \t]+", " ", text)          # nur Leerzeichen/Tabs zusammenfassen
+    text = re.sub(r"\n{3,}", "\n\n", text)      # mehrere Leerzeilen auf eine
+    text = "\n".join(z.strip() for z in text.split("\n")).strip()
     return text[:limit]
 
 
