@@ -508,7 +508,8 @@ const GAMESHINT = {
   satisfactory:   {install: "~12 GB über SteamCMD (nativ)",                 ports: "Spiel 7777 · Query 15777 · Beacon 15000", ram: "6–12 GB (ohne Mods)"},
   "7d2d":         {install: "~18 GB über SteamCMD (nativ)",                 ports: "Spiel 26900 · Telnet 8081",        ram: "4–8 GB (ohne Mods)"},
   spaceengineers: {install: "~8 GB über SteamCMD (Windows-Binary, Wine)",   ports: "Spiel 27016 · Steam 27015",        ram: "4–8 GB (ohne Mods)"},
-  starrupture:    {install: "~20 GB über SteamCMD (Windows-Binary, Wine)",   ports: "Spiel 7777 (UDP)",                 ram: "8–16 GB (ohne Mods)"}
+  starrupture:    {install: "~20 GB über SteamCMD (Windows-Binary, Wine)",   ports: "Spiel 7777 (UDP)",                 ram: "8–16 GB (ohne Mods)"},
+  empyrion:       {install: "~8 GB über SteamCMD (Windows-Binary, Wine)",    ports: "Spiel 30000 (UDP)",                ram: "8–16 GB (je Playfield mehr)"}
 };
 const GAMEMAPS = __GAMEMAPS__;
 function fillMap(){
@@ -1023,6 +1024,8 @@ body[data-game="ark"] #mods-nonark{display:none !important}
 /* Spiele ohne Mod-Unterstuetzung: Reiter komplett ausblenden (z. B. StarRupture) */
 body[data-game="starrupture"] [data-tab="mods"]{display:none !important}
 body[data-game="starrupture"] .tab-mods{display:none !important}
+body[data-game="empyrion"] [data-tab="mods"]{display:none !important}
+body[data-game="empyrion"] .tab-mods{display:none !important}
 body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{display:none !important}
 </style></head><body data-game="__GAME__">
 <canvas id="bg"></canvas>

@@ -1,3 +1,13 @@
+## [0.21] — 2026-11-15
+
+### Neu
+- **Empyrion: Galactic Survival als Spielprofil.** Dedicated Server über SteamCMD
+  (App 530870, Windows-Binary unter Wine). Konfiguration in `dedicated.yaml`
+  (`Srv_Name`, `Srv_Port`, `Srv_MaxPlayers`, `Srv_Password`) — Kommentare und Reihenfolge
+  der Vorlage bleiben erhalten, unbekannte Schlüssel werden nicht angefasst. Start ohne
+  Grafik über `EmpyrionDedicated_NoGraphics.exe`, Spielport UDP 30000. Kein RCON; kein
+  Mod-Reiter (die Modverwaltung im Panel ist ARK-spezifisch).
+
 ## [0.20] — 2026-11-15
 
 ### Neu

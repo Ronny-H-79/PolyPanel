@@ -1,3 +1,12 @@
+## [0.21] — 2026-11-15
+
+### Added
+- **Empyrion: Galactic Survival game profile.** Dedicated server via SteamCMD
+  (app 530870, Windows binary under Wine). Configuration in `dedicated.yaml`
+  (`Srv_Name`, `Srv_Port`, `Srv_MaxPlayers`, `Srv_Password`) — comments and key order of the
+  template are preserved, unknown keys stay untouched. Started without graphics via
+  `EmpyrionDedicated_NoGraphics.exe`, game port UDP 30000. No RCON, no mods tab.
+
 ## [0.20] — 2026-11-15
 
 ### Added

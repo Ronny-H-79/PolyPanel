@@ -4,6 +4,7 @@ from __future__ import annotations
 from .ark import ArkProfile
 from .arkse import ArkSeProfile
 from .base import GameProfile
+from .empyrion import EmpyrionProfile
 from .satisfactory import SatisfactoryProfile
 from .spaceengineers import SpaceEngineersProfile
 from .starrupture import StarRuptureProfile
@@ -12,7 +13,7 @@ from .sv7dtd import SevenDaysProfile
 PROFILES: dict[str, GameProfile] = {
     p.key: p for p in (ArkProfile(), ArkSeProfile(), SatisfactoryProfile(),
                        SpaceEngineersProfile(), SevenDaysProfile(),
-                       StarRuptureProfile())
+                       StarRuptureProfile(), EmpyrionProfile())
 }
 
 DEFAULT_GAME = "ark"

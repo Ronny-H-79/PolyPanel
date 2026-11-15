@@ -50,7 +50,8 @@ def ensure_steamcmd(log=print) -> str:
 
 ASA_APP = "2430930"
 # Spiele ohne Linux-Server: SteamCMD muss den Windows-Zweig laden.
-WINDOWS_ONLY_APPS = {ASA_APP, "3809400"}      # ARK: Survival Ascended, StarRupture
+WINDOWS_ONLY_APPS = {ASA_APP, "3809400", "530870"}
+# ARK: Survival Ascended, StarRupture, Empyrion: Galactic Survival
 
 
 def _plattform_flagge(app_id: str) -> list[str]:
