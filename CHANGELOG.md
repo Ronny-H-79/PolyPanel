@@ -1,3 +1,11 @@
+## [0.20] — 2026-11-15
+
+### Neu
+- **Karte zeigt, was gerade läuft.** Bisher stand bei einem laufenden Update nur "AUS".
+  Jetzt erscheint eine Hinweiszeile (⏳ UPDATE LÄUFT, INSTALLATION LÄUFT, NEUSTART LÄUFT,
+  WIRD GESTOPPT, WIRD GELÖSCHT, ASAPI WIRD EINGERICHTET). Quelle sind die laufenden
+  Aktionen im Panel (Installation, SteamCMD-Update, Start/Stop/Restart/Löschen).
+
 ## [0.19] — 2026-11-15
 
 ### Behoben

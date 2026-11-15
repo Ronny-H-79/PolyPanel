@@ -1,3 +1,10 @@
+## [0.20] — 2026-11-15
+
+### Added
+- **The card shows what is happening.** Previously an update in progress showed only
+  "STOPPED". Now a hint line appears (⏳ UPDATING, INSTALLING, RESTARTING, STOPPING,
+  DELETING, SETTING UP ASAPI), sourced from the panel's running actions.
+
 ## [0.19] — 2026-11-15
 
 ### Fixed

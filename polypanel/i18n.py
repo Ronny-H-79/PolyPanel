@@ -62,6 +62,13 @@ T: dict[str, dict[str, str]] = {
     "status.starting": {"de": "STARTET", "en": "STARTING"},
     "status.off": {"de": "AUS", "en": "STOPPED"},
     "status.ready": {"de": "BEREIT", "en": "READY"},
+    # laufende Aktionen auf der Karte (Update, Installation, Neustart ...)
+    "status.updating": {"de": "UPDATE LÄUFT", "en": "UPDATING"},
+    "status.installing": {"de": "INSTALLATION LÄUFT", "en": "INSTALLING"},
+    "status.restarting": {"de": "NEUSTART LÄUFT", "en": "RESTARTING"},
+    "status.stopping": {"de": "WIRD GESTOPPT", "en": "STOPPING"},
+    "status.deleting": {"de": "WIRD GELÖSCHT", "en": "DELETING"},
+    "status.asaapi": {"de": "ASAPI WIRD EINGERICHTET", "en": "SETTING UP ASAPI"},
     "status.current": {"de": "AKTUELL", "en": "UP TO DATE"},
     "status.hint_current": {"de": "Build ist aktuell - Klick prüft erneut",
                             "en": "build is up to date - click to check again"},

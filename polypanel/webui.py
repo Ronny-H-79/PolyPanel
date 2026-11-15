@@ -608,6 +608,15 @@ async function load(){
         <h3>${i.name}</h3>
         <span class="badge ${i.running?(i.ready?'on':'warn'):'off'}">${i.running?(i.ready?L['status.running']:L['status.starting']):L['status.off']}</span>
       </div>
+      ${(()=>{
+        // Laufende Aktion als Hinweiszeile (Update, Installation, Neustart ...):
+        // ohne das stand bei einem Update nur "AUS" auf der Karte.
+        const a=i.action||'';
+        const txt={install:L['status.installing'],update:L['status.updating'],start:L['status.starting'],
+                   restart:L['status.restarting'],stop:L['status.stopping'],delete:L['status.deleting'],
+                   asaapi:L['status.asaapi']}[a];
+        return txt?`<div class="meta" style="color:#e8b84b">\u23f3 ${txt}\u2026</div>`:'';
+      })()}
       <div class="meta">${i.map?i.map+' · ':''}${i.game&&i.game!=="ark"?i.game_label+' · ':''}Port ${i.port}${i.rcon_port?' · RCON '+i.rcon_port:''}</div>
       <div class="meta">${i.installed?('Build '+i.build+' · '+i.size_gb+' GB'):L['dash.not_installed']}</div>
       ${i.game==='ark'&&i.api_version?`<div class="meta">AsaApi ${i.api_version}${i.api_update?` <span class="badge warn">\u25b2 ${i.api_update.available}</span>`:''} · <a href="#" onclick="asaApiToggle('${i.name}',${i.asaapi?0:1});return false;">${i.asaapi?L['common.disable']:L['common.enable']}</a></div>`:''}
@@ -3129,7 +3138,15 @@ class Handler(BaseHTTPRequestHandler):
                 obj = registry.load(name)
                 if obj:
                     row = registry.info(obj)
-                    row["action"] = ACTIONS.get(row["name"], "")
+                    # Was macht die Instanz gerade? Die Karte zeigte bisher nur LÄUFT/AUS -
+                    # ein laufendes Update oder eine Installation war unsichtbar.
+                    if obj.name in INSTALLS:
+                        row["action"] = "install"
+                    elif (runner.UPDATE_STATE.get("name") == obj.name
+                          and runner.UPDATE_STATE.get("running")):
+                        row["action"] = "update"
+                    else:
+                        row["action"] = ACTIONS.get(row["name"], "")
                     # AsaApi (nur ARK): installierte Version und Hinweis auf ein neueres
                     # Release. asaapi_update() haelt das Ergebnis 30 Minuten im Cache,
                     # damit die Uebersicht nicht bei jedem Aufruf die GitHub-API fragt.
