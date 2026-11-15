@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -17,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 CACHE_DIR = os.path.expanduser("~/.config/polypanel/cache/translations")
 ENDPOINT = ("https://translate.googleapis.com/translate_a/single"
             "?client=gtx&sl=en&tl=de&dt=t&q=")
-MAX_CHARS = 400                      # laengere Texte werden abgeschnitten
+MAX_CHARS = 1200                     # Groesse eines Anfrage-Stuecks (Google-Limit ~2k)
 TIMEOUT = 8.0
 
 DE_WOERTER = (" der ", " die ", " das ", " und ", " für ", " mit ", " nicht ", " ist ",
@@ -55,6 +56,49 @@ def _in_cache(text: str, uebersetzt: str) -> None:
         pass
 
 
+def _stuecke(text: str) -> list[str]:
+    """Text in Anfrage-Stuecke zerlegen - an Satzenden, sonst an Wortgrenzen.
+
+    Vorher wurde hart bei 400 Zeichen abgeschnitten; der Rest blieb englisch.
+    Jetzt wird der ganze Text uebersetzt, nur die Anfragen bleiben klein.
+    """
+    text = (text or "").strip()
+    if not text:
+        return []
+    stuecke: list[str] = []
+    rest = text
+    while len(rest) > MAX_CHARS:
+        fenster = rest[:MAX_CHARS]
+        schnitt = max(fenster.rfind(". "), fenster.rfind("! "), fenster.rfind("? "),
+                      fenster.rfind("\n"))
+        if schnitt < MAX_CHARS // 2:            # kein Satzende gefunden: Wortgrenze nehmen
+            schnitt = fenster.rfind(" ")
+        if schnitt <= 0:
+            schnitt = MAX_CHARS
+        stuecke.append(rest[:schnitt + 1].strip())
+        rest = rest[schnitt + 1:].strip()
+    if rest:
+        stuecke.append(rest)
+    return stuecke
+
+
+def _frage(text: str, versuche: int = 2) -> str:
+    """Eine Uebersetzungsanfrage; bei Netzfehlern einmal erneut versuchen."""
+    url = ENDPOINT + urllib.parse.quote(text)
+    for versuch in range(versuche):
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 PolyPanel"})
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                daten = json.loads(resp.read().decode("utf-8", "replace"))
+            teile = [t[0] for t in (daten[0] or []) if t and t[0]]
+            ergebnis = "".join(teile).strip()
+            if ergebnis:
+                return ergebnis
+        except Exception:                     # noqa: BLE001 - naechster Versuch
+            time.sleep(0.4 + versuch)
+    return ""
+
+
 def _eins(text: str) -> str:
     if not text.strip():
         return text
@@ -63,20 +107,16 @@ def _eins(text: str) -> str:
         return zwischengespeichert
     if _schon_deutsch(text):
         return text
-    kurz = text[:MAX_CHARS]
-    url = ENDPOINT + urllib.parse.quote(kurz)
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 PolyPanel"})
-    try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-            daten = json.loads(resp.read().decode("utf-8", "replace"))
-        teile = [t[0] for t in (daten[0] or []) if t and t[0]]
-        ergebnis = "".join(teile).strip()
-    except Exception:                     # noqa: BLE001 - Originaltext behalten
+    stuecke = _stuecke(text)
+    if not stuecke:
         return text
+    ergebnisse = []
+    for stueck in stuecke:
+        teil = _frage(stueck) or stueck      # fehlgeschlagen: Original behalten
+        ergebnisse.append(teil)
+    ergebnis = " ".join(ergebnisse).strip()
     if not ergebnis:
         return text
-    if len(text) > MAX_CHARS:             # Rest unuebersetzt anhaengen
-        ergebnis += " …"
     _in_cache(text, ergebnis)
     return ergebnis
 
