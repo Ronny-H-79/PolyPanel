@@ -12,6 +12,7 @@ import json
 import os
 import time
 import urllib.parse
+import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
@@ -20,6 +21,12 @@ ENDPOINT = ("https://translate.googleapis.com/translate_a/single"
             "?client=gtx&sl=en&tl=de&dt=t&q=")
 MAX_CHARS = 1200                     # Groesse eines Anfrage-Stuecks (Google-Limit ~2k)
 TIMEOUT = 8.0
+
+# Wenn Google mit 429 antwortet, ist die IP kurz gesperrt. Dann wird eine Zeit lang
+# direkt der Ausweichdienst genutzt, statt weiter Anfragen zu verbrennen.
+_GOOGLE_GESPERRT_BIS = 0.0
+MYMEMORY = "https://api.mymemory.translated.net/get?langpair=en|de&q="
+MYMEMORY_MAX = 450          # Zeichen je Anfrage (Dienstlimit)
 
 DE_WOERTER = (" der ", " die ", " das ", " und ", " für ", " mit ", " nicht ", " ist ",
               " wird ", " kann ", " deine ", " dein ", " eine ", " einen ")
@@ -92,20 +99,50 @@ def _stuecke(text: str) -> list[str]:
 
 
 def _frage(text: str, versuche: int = 2) -> str:
-    """Eine Uebersetzungsanfrage; bei Netzfehlern einmal erneut versuchen."""
-    url = ENDPOINT + urllib.parse.quote(text)
-    for versuch in range(versuche):
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 PolyPanel"})
-        try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-                daten = json.loads(resp.read().decode("utf-8", "replace"))
-            teile = [t[0] for t in (daten[0] or []) if t and t[0]]
-            ergebnis = "".join(teile).strip()
-            if ergebnis:
-                return ergebnis
-        except Exception:                     # noqa: BLE001 - naechster Versuch
-            time.sleep(0.4 + versuch)
-    return ""
+    """Uebersetzung ueber Google; bei 429 Sperre merken und Ausweichdienst nehmen."""
+    global _GOOGLE_GESPERRT_BIS
+    if time.time() >= _GOOGLE_GESPERRT_BIS:
+        url = ENDPOINT + urllib.parse.quote(text)
+        for versuch in range(versuche):
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 PolyPanel"})
+            try:
+                with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                    daten = json.loads(resp.read().decode("utf-8", "replace"))
+                teile = [t[0] for t in (daten[0] or []) if t and t[0]]
+                ergebnis = "".join(teile).strip()
+                if ergebnis:
+                    return ergebnis
+            except urllib.error.HTTPError as exc:
+                if exc.code == 429:
+                    _GOOGLE_GESPERRT_BIS = time.time() + 300
+                    break
+                time.sleep(0.4 + versuch)
+            except Exception:                 # noqa: BLE001 - naechster Versuch
+                time.sleep(0.4 + versuch)
+    return _frage_ausweich(text)
+
+
+def _frage_ausweich(text: str) -> str:
+    """MyMemory als Ausweichdienst (kein Key, ~1000 Woerter/Tag)."""
+    stuecke = _stuecke(text)
+    if not stuecke:
+        return ""
+    teile = []
+    for stueck in stuecke:
+        weitere = [stueck[i:i + MYMEMORY_MAX] for i in range(0, len(stueck), MYMEMORY_MAX)]
+        for teil in weitere:
+            url = MYMEMORY + urllib.parse.quote(teil)
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 PolyPanel"})
+                with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                    daten = json.loads(resp.read().decode("utf-8", "replace"))
+                wert = ((daten.get("responseData") or {}).get("translatedText") or "").strip()
+                if not wert or "MYMEMORY WARNING" in wert.upper():
+                    return ""
+                teile.append(wert)
+            except Exception:                 # noqa: BLE001
+                return ""
+    return " ".join(teile).strip()
 
 
 def _eins(text: str) -> str:
