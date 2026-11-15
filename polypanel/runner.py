@@ -555,6 +555,9 @@ def update(inst: Instance, validate: bool = True) -> int:
         argv.append("validate")
     argv.append("+quit")
     log = update_log_path(inst)
+    # Frisch angelegte Instanzen haben noch kein Verzeichnis - ohne das scheitert
+    # schon das Schreiben von .update.log (FileNotFoundError statt SteamCMD).
+    os.makedirs(inst.directory, exist_ok=True)
     UPDATE_STATE.update({"name": inst.name, "running": True, "started": time.time()})
     try:
         with open(log, "w", encoding="utf-8", errors="replace") as fh:
