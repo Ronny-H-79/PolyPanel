@@ -1999,9 +1999,10 @@ async function loadSettings(){
     byGroup[g].forEach(v=>{ (bySect[v.file+'|'+v.section]=bySect[v.file+'|'+v.section]||[]).push(v); });
     const inner=Object.entries(bySect).map(([k,list])=>{
       const p=k.split('|'), g=document.body.dataset.game;
-      const file=p[0]==='gus'?'GameUserSettings.ini':
+      const file=p[0]==='gus'?'GameUserSettings.ini':(p[0]==='opts'?'gameoptions.yaml':
+        (p[0]==='admins'?'adminconfig.yaml':
         (p[0]==='instance'?(g==='7d2d'?'serverconfig.xml':(g==='arkse'?'Startzeile / Instanz':
-          (g==='empyrion'?'dedicated.yaml':'ServerSettings.ini'))):'Game.ini');
+          (g==='empyrion'?'dedicated.yaml':'ServerSettings.ini'))):'Game.ini')));
       return `<div class="meta" style="margin:10px 0 2px;opacity:.75">${file} · ${p[1]}</div>`+
         list.map(_setField).join('');
     }).join('');
