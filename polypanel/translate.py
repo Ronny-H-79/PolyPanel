@@ -28,15 +28,24 @@ EN_WOERTER = (" the ", " and ", " with ", " you ", " for ", " this ", " that ", 
 
 
 def _schon_deutsch(text: str) -> bool:
-    """Grobe Schaetzung: enthaelt der Text schon ueberwiegend deutsche Woerter?"""
+    """Ist der Text wirklich schon deutsch?
+
+    Fruehere Fassung (de >= 2 und de > en) hielt zweisprachige Beschreibungen -
+    viele Workshop-Mods schreiben englisch UND deutsch - fuer deutsch und liess
+    den englischen Teil stehen. Jetzt gilt ein Text erst als deutsch, wenn kein
+    einziges englisches Signalwort vorkommt.
+    """
     klein = " %s " % text.lower()
     de = sum(1 for w in DE_WOERTER if w in klein)
     en = sum(1 for w in EN_WOERTER if w in klein)
-    return de >= 2 and de > en
+    return en == 0 and de >= 2
 
 
 def _cache_pfad(text: str) -> str:
-    return os.path.join(CACHE_DIR, hashlib.sha1(text.encode("utf-8")).hexdigest() + ".txt")
+    # "v2": alte Eintraege stammen aus der Zeit, als Texte bei 400 Zeichen
+    # abgeschnitten wurden - die duerfen nicht mehr greifen.
+    return os.path.join(CACHE_DIR,
+                        hashlib.sha1(("v2:" + text).encode("utf-8")).hexdigest() + ".txt")
 
 
 def _aus_cache(text: str) -> str:
@@ -185,7 +194,7 @@ def query_english(query: str) -> str:
     return q
 
 
-def to_german(texts: list[str], workers: int = 6) -> list[str]:
+def to_german(texts: list[str], workers: int = 4) -> list[str]:
     """Liste uebersetzen; Reihenfolge bleibt, Fehler liefern den Originaltext."""
     if not texts:
         return []

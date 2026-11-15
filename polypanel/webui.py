@@ -3177,7 +3177,7 @@ class Handler(BaseHTTPRequestHandler):
                 # 7D2D/Satisfactory/SE/ASE: eigener Anbieter je Spielprofil
                 try:
                     payload = inst_m.profile.mods_search(inst_m, term)
-                    self._json(_translate_hits(payload, "description"))
+                    self._json(_translate_hits(payload, "description", limit=30))
                 except Exception as exc:          # noqa: BLE001
                     self._json({"results": [], "error": str(exc)})
                 return
