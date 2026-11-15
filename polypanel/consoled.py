@@ -28,8 +28,16 @@ def _argv(inst: Instance) -> list[str]:
         # native Spiele starten direkt (Satisfactory, 7 Days to Die)
         return argv
     if "proton" in os.path.basename(inst.wine_bin).lower():
-        return [inst.wine_bin, "run"] + argv
-    return [inst.wine_bin] + argv
+        basis = [inst.wine_bin, "run"]
+    else:
+        basis = [inst.wine_bin]
+    # Profile duerfen einen Vorspann verlangen (StarRupture: xvfb-run, weil der
+    # UE5-Server ohne X-Server mit exit 44 abbricht). Der Vorspann muss VOR wine
+    # stehen, deshalb gehoert er nicht in launch_argv().
+    vorspann = getattr(inst.profile, "launch_prefix", None)
+    if callable(vorspann):
+        return list(vorspann(inst)) + basis + argv
+    return basis + argv
 
 
 def _pump(master: int, out) -> None:

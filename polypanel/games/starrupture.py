@@ -113,8 +113,12 @@ class StarRuptureProfile(GameProfile):
         return os.path.join(inst.directory, "StarRupture", "Saved", "Logs", "StarRupture.log")
 
     # ------------------------------------------------------------ Startzeile
+    def launch_prefix(self, inst) -> list[str]:
+        """xvfb-run vor wine: der UE5-Server bricht ohne X-Server mit exit 44 ab."""
+        return _xvfb()
+
     def launch_argv(self, inst) -> list[str]:
-        argv = _xvfb() + [self.exe(inst), "-log"]
+        argv = [self.exe(inst), "-log"]
         port = int(getattr(inst, "port", self.default_game_port) or self.default_game_port)
         argv.append("-Port=%d" % port)
         qport = int(getattr(inst, "query_port", 0) or 0)
