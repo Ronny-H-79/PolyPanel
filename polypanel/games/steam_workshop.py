@@ -31,8 +31,9 @@ def clean(text: str, limit: int = 150) -> str:
     return text[:limit]
 
 
-ROLLEN = re.compile(r"\s+(Primary roles|Secondary roles|Hauptfunktionen|"
-                     r"Prim(?:ä|ae)re Funktionen|Nebenfunktionen|Roles)\s*:", re.I)
+ROLLEN = re.compile(r"\s+(Primary roles|Secondary roles|Hauptfunktionen|Hauptaufgaben|"
+                     r"Prim(?:ä|ae)re (?:Funktionen|Aufgaben)|Nebenfunktionen|"
+                     r"Nebenaufgaben|Roles)\s*:", re.I)
 
 
 def umbrueche(text: str) -> str:
