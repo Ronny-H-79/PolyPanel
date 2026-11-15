@@ -358,7 +358,7 @@ class EmpyrionProfile(GameProfile):
     needs_wine = True
     needs_display = True
     has_control = False              # kein RCON (nur Telnet auf 127.0.0.1)
-    supports_mods = False            # Panel-Modverwaltung ist ARK-spezifisch
+    supports_mods = True             # lokale Mods unter Content/Mods
     supports_cluster = False
     supports_whitelist = False
     use_pty = False                  # Unity-Server moegen kein PTY
@@ -408,6 +408,10 @@ class EmpyrionProfile(GameProfile):
         szenario = (yaml_lesen(self.config_path(inst)).get("GameConfig", {})
                     .get("CustomScenario") or "Default Multiplayer")
         return os.path.join(inst.directory, "Content", "Scenarios", szenario, OPTIONS)
+
+    def mods_path(self, inst) -> str:
+        """Lokale Mods liegen als Unterordner in Content/Mods."""
+        return os.path.join(inst.directory, "Content", "Mods")
 
     def log_path(self, inst) -> str:
         for muster in ("Logs/*.log", "*.log"):

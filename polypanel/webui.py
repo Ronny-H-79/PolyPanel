@@ -1024,8 +1024,6 @@ body[data-game="ark"] #mods-nonark{display:none !important}
 /* Spiele ohne Mod-Unterstuetzung: Reiter komplett ausblenden (z. B. StarRupture) */
 body[data-game="starrupture"] [data-tab="mods"]{display:none !important}
 body[data-game="starrupture"] .tab-mods{display:none !important}
-body[data-game="empyrion"] [data-tab="mods"]{display:none !important}
-body[data-game="empyrion"] .tab-mods{display:none !important}
 body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{display:none !important}
 </style></head><body data-game="__GAME__">
 <canvas id="bg"></canvas>
