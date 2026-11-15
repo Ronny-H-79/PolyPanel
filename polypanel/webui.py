@@ -2748,13 +2748,26 @@ def _start_install(inst: Instance) -> None:
 
 
 def _translate_hits(data: dict, field: str, limit: int = 24) -> dict:
-    """Mod-Beschreibungen in der deutschen Oberflaeche uebersetzen (Cache, fehlertolerant)."""
-    if i18n.lang() != "de":
-        return data
+    """Mod-Beschreibungen uebersetzen und lesbar umbrechen - fuer alle Anbieter.
+
+    Der Umbruch sass vorher nur im Steam-Workshop-Pfad; Nexus-, GitHub- und
+    CurseForge-Treffer liefen weiter als eine Zeile. Deshalb passiert beides hier
+    zentral fuer jede Suche.
+    """
+    treffer = data.get("results") or []
+    if i18n.lang() == "de":
+        try:
+            from . import translate
+            translate.translate_items(treffer, field, limit=limit)
+        except Exception:                   # noqa: BLE001 - Suche darf nie scheitern
+            pass
     try:
-        from . import translate
-        translate.translate_items(data.get("results") or [], field, limit=limit)
-    except Exception:                       # noqa: BLE001 - Suche darf nie scheitern
+        from .games.steam_workshop import umbrueche
+        for it in treffer:
+            wert = it.get(field)
+            if isinstance(wert, str) and wert and "\n" not in wert:
+                it[field] = umbrueche(wert)
+    except Exception:                       # noqa: BLE001
         pass
     return data
 
