@@ -1,6 +1,8 @@
 ## [0.19] — 2026-11-15
 
 ### Fixed
+- **StarRupture without a mods tab.** The game has no mods; the "Mods" tab is hidden for this game
+  type instead of offering an empty search.
 - **StarRupture installation failed with "Invalid platform".** The
   `+@sSteamCmdForcePlatformType windows` switch was only set for ARK; StarRupture also ships a
   Windows-only server. The list of Windows-only games now lives in `installer.py`

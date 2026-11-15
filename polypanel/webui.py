@@ -1011,6 +1011,9 @@ body:not([data-game="ark"]) .ark-only{display:none !important}
 body:not([data-game="ark"]):not([data-game="arkse"]) .arkcmd{display:none !important}
 body:not([data-game="ark"]):not([data-game="arkse"]) .tab-mods > *:not(h2):not(#mods-nonark):not(#mods-installed){display:none !important}
 body[data-game="ark"] #mods-nonark{display:none !important}
+/* Spiele ohne Mod-Unterstuetzung: Reiter komplett ausblenden (z. B. StarRupture) */
+body[data-game="starrupture"] [data-tab="mods"]{display:none !important}
+body[data-game="starrupture"] .tab-mods{display:none !important}
 body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{display:none !important}
 </style></head><body data-game="__GAME__">
 <canvas id="bg"></canvas>

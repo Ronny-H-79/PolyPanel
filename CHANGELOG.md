@@ -1,6 +1,8 @@
 ## [0.19] — 2026-11-15
 
 ### Behoben
+- **StarRupture ohne Mod-Reiter.** Das Spiel kennt keine Mods; der Reiter „Mods" wird bei dieser
+  Spielart ausgeblendet, statt eine leere Suche anzubieten.
 - **StarRupture-Installation scheiterte mit „Invalid platform".** Der Schalter
   `+@sSteamCmdForcePlatformType windows` wurde nur für ARK gesetzt; StarRupture hat ebenfalls nur
   einen Windows-Server. Die Liste der Windows-Only-Spiele steht jetzt zentral in `installer.py`
