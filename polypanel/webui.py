@@ -2833,6 +2833,24 @@ def _experimental_wirksam(inst) -> tuple[bool, str]:
         return False, ""
 
 
+
+def _als_schalter(felder: list) -> list:
+    """true/false-Felder als Auswahlliste ausliefern.
+
+    Die Spielprofile beschreiben solche Felder als Freitext; im Formular erschien
+    dann ein Eingabefeld statt einer Auswahl, und ein Tippfehler ("True " / "ja")
+    landete in der Serverkonfiguration.
+    """
+    for feld in felder or []:
+        if not isinstance(feld, dict) or feld.get("choices"):
+            continue
+        wert = str(feld.get("value", "")).strip().lower()
+        if wert in ("true", "false") and feld.get("type") in ("text", "bool", "int"):
+            feld["type"] = "select"
+            feld["choices"] = ["true", "false"]
+    return felder
+
+
 def _uebersetzte_settings(inst) -> list:
     """Einstellungen mit Label und Hinweis in der aktuellen Sprache.
 
@@ -3341,10 +3359,7 @@ class Handler(BaseHTTPRequestHandler):
                 "transfer_filtering": bool(inst.cluster_transfer_filtering),
             })
         elif path == "/api/settings":
-            if inst.game != "ark":
-                self._json(_uebersetzte_settings(inst))     # nur die Felder dieses Spiels
-            else:
-                self._json(_uebersetzte_settings(inst))
+            self._json(_als_schalter(_uebersetzte_settings(inst)))
         elif path == "/api/backups":
             self._json(bk.listing(inst))
         elif path == "/api/schedule":

@@ -83,9 +83,15 @@ class GameProfile:
 
         out = []
         for attr, label, hint, typ in self.settings_fields:
-            out.append({"file": "instance", "section": "", "key": attr, "label": label,
-                        "hint": hint, "type": typ, "value": str(getattr(inst, attr, "")),
-                        "group": "srv"})
+            wert = str(getattr(inst, attr, ""))
+            eintrag = {"file": "instance", "section": "", "key": attr, "label": label,
+                       "hint": hint, "type": typ, "value": wert, "group": "srv"}
+            # Schalter als Auswahlliste statt Freitext: das Feld erwartet genau
+            # true/false, tippen ist dort nur eine Fehlerquelle.
+            if typ in ("text", "bool") and wert.strip().lower() in ("true", "false"):
+                eintrag["type"] = "select"
+                eintrag["choices"] = ["true", "false"]
+            out.append(eintrag)
         return out
 
     def apply_settings(self, inst, items) -> int:
