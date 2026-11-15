@@ -76,7 +76,10 @@ def read_pid(inst: Instance) -> int | None:
 # Wine-Hilfsprozesse laufen mit cwd im Instanzordner und wuerden den Server "laufen lassen",
 # obwohl das Spiel schon beendet ist (Folge: Start antwortet "laeuft bereits").
 _HELFER = ("wineserver", "services.exe", "explorer.exe", "winedevice.exe",
-           "plugplay.exe", "rpcss.exe", "conhost.exe", "tabtip.exe")
+           "plugplay.exe", "rpcss.exe", "conhost.exe", "tabtip.exe",
+           # Vorspann-Prozesse (StarRupture startet über xvfb-run): sie bleiben nach
+           # einem Absturz als Leiche liegen und täuschen einen laufenden Server vor.
+           "xvfb-run", "xvfb")
 
 
 def _ist_helfer(pid: int) -> bool:
@@ -167,8 +170,14 @@ def _ports_free(inst: Instance) -> list[int]:
 
 
 def start(inst: Instance, wait: int = 0) -> int:
-    if is_running(inst):
-        raise RunnerError("laeuft bereits (PID %s)" % read_pid(inst))
+    laufend = read_pid(inst)
+    if laufend is not None and not _ist_helfer(laufend):
+        raise RunnerError("laeuft bereits (PID %s)" % laufend)
+    fremde = [p for p in instance_pids(inst) if not _ist_helfer(p)]
+    if fremde:
+        # Ohne PID-Datei von Hand gestartet - dann die echten PIDs nennen, nicht "None".
+        raise RunnerError("laeuft bereits (PID %s, ohne PID-Datei)"
+                          % ", ".join(str(p) for p in fremde[:3]))
     busy = _ports_free(inst)
     if busy:
         raise RunnerError(
