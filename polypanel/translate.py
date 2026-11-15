@@ -52,7 +52,7 @@ def _cache_pfad(text: str) -> str:
     # "v2": alte Eintraege stammen aus der Zeit, als Texte bei 400 Zeichen
     # abgeschnitten wurden - die duerfen nicht mehr greifen.
     return os.path.join(CACHE_DIR,
-                        hashlib.sha1(("v2:" + text).encode("utf-8")).hexdigest() + ".txt")
+                        hashlib.sha1(("v3:" + text).encode("utf-8")).hexdigest() + ".txt")
 
 
 def _aus_cache(text: str) -> str:
@@ -157,12 +157,18 @@ def _eins(text: str) -> str:
     if not stuecke:
         return text
     ergebnisse = []
+    unvollstaendig = False
     for stueck in stuecke:
-        teil = _frage(stueck) or stueck      # fehlgeschlagen: Original behalten
+        teil = _frage(stueck)
+        if not teil:
+            # Kein Ergebnis: Original behalten, aber NICHT cachen - sonst steht der
+            # englische Text fuer immer im Cache (genau das war der Fehler).
+            teil = stueck
+            unvollstaendig = True
         ergebnisse.append(teil)
     ergebnis = " ".join(ergebnisse).strip()
-    if not ergebnis:
-        return text
+    if not ergebnis or unvollstaendig or ergebnis == text.strip():
+        return ergebnis or text
     _in_cache(text, ergebnis)
     return ergebnis
 
