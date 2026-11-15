@@ -31,7 +31,7 @@ def clean(text: str, limit: int = 150) -> str:
     return text[:limit]
 
 
-ROLLEN = re.compile(r"\s+(Primary roles|Secondary roles|Hauptfunktionen|Hauptaufgaben|"
+ROLLEN = re.compile(r"\s+(Primary roles|Secondary roles|Hauptrollen|Nebenrollen|Hauptfunktionen|Hauptaufgaben|"
                      r"Prim(?:ä|ae)re (?:Funktionen|Aufgaben)|Nebenfunktionen|"
                      r"Nebenaufgaben|Roles)\s*:", re.I)
 
