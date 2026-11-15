@@ -159,6 +159,16 @@ class StarRuptureProfile(GameProfile):
         if not str(daten.get("SessionName") or "").strip():
             daten["SessionName"] = name
 
+        # Existiert die Welt schon, darf ein Neustart sie nicht neu erzeugen:
+        # dann StartNewGame=false + LoadSavedGame=true (sonst steht man nach jedem
+        # Restart in einer leeren Welt neben dem alten Speicherstand).
+        speicher = os.path.join(inst.directory, "StarRupture", "Saved", "SaveGames",
+                                str(daten["SessionName"]),
+                                str(daten.get("SaveGameName") or "AutoSave0.sav"))
+        if os.path.exists(speicher):
+            daten["StartNewGame"] = "false"
+            daten["LoadSavedGame"] = "true"
+
         # Passwoerter nur schreiben, wenn sie gesetzt sind - ein leeres Feld soll
         # ein bereits im Spiel vergebenes Passwort nicht ueberschreiben.
         for feld, schluessel in (("server_password", "ServerPassword"),
