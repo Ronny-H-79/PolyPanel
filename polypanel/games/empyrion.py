@@ -409,6 +409,56 @@ class EmpyrionProfile(GameProfile):
                     .get("CustomScenario") or "Default Multiplayer")
         return os.path.join(inst.directory, "Content", "Scenarios", szenario, OPTIONS)
 
+    def mods_search(self, inst, query: str) -> dict:
+        """Steam-Workshop von Empyrion durchsuchen (App 383120, ohne API-Key)."""
+        from . import steam_workshop
+        data = steam_workshop.hits("383120", query, limit=24)
+        ordner = self.mods_path(inst)
+        vorhanden = set()
+        if os.path.isdir(ordner):
+            vorhanden = {n for n in os.listdir(ordner)
+                         if os.path.isdir(os.path.join(ordner, n))}
+        for treffer in data.get("results") or []:
+            treffer["installed"] = str(treffer.get("id")) in vorhanden
+        return data
+
+    def mods_install(self, inst, mod_id: str, log=print) -> str:
+        """Workshop-Mod herunterladen und als Ordner in Content/Mods ablegen."""
+        from ..control import ControlError
+        mid = str(mod_id).strip()
+        if not mid.isdigit():
+            raise ControlError("Das ist keine Workshop-ID (nur Ziffern)")
+        from . import steam_workshop  # noqa: F401  (nur zur Dokumentation der Quelle)
+        import subprocess
+        from ..runner import STEAMCMD
+        ziel = os.path.join(self.mods_path(inst), mid)
+        if os.path.isdir(ziel):
+            return "Mod %s liegt bereits in Content/Mods." % mid
+        log("Lade Workshop-Mod %s (App 383120)" % mid)
+        argv = [STEAMCMD, "+login", "anonymous", "+workshop_download_item", "383120", mid,
+                "+quit"]
+        try:
+            lauf = subprocess.run(argv, cwd=os.path.expanduser("~/steamcmd"),
+                                  capture_output=True, text=True, timeout=600)
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ControlError("SteamCMD-Start fehlgeschlagen: %s" % exc) from exc
+        if lauf.returncode != 0 or "Success. Downloaded item" not in (lauf.stdout or ""):
+            rest = [z for z in (lauf.stdout or "").splitlines() if "ERROR" in z or "Failed" in z]
+            raise ControlError("Download fehlgeschlagen: %s"
+                               % (rest[-1] if rest else "SteamCMD exit %s" % lauf.returncode))
+        quelle = os.path.join(os.path.expanduser("~/steamcmd"), "steamapps", "workshop",
+                              "content", "383120", mid)
+        if not os.path.isdir(quelle):
+            quelle = os.path.join(inst.directory, "steamapps", "workshop", "content",
+                                  "383120", mid)
+        if not os.path.isdir(quelle):
+            raise ControlError("Download-Ordner nicht gefunden (%s)" % mid)
+        os.makedirs(self.mods_path(inst), exist_ok=True)
+        shutil.copytree(quelle, ziel, dirs_exist_ok=True)
+        log("Mod %s nach %s kopiert" % (mid, ziel))
+        return ("Mod %s installiert (Content/Mods/%s). Server neu starten, damit er sie "
+                "laedt." % (mid, mid))
+
     def mods_path(self, inst) -> str:
         """Lokale Mods liegen als Unterordner in Content/Mods."""
         return os.path.join(inst.directory, "Content", "Mods")
