@@ -1,3 +1,12 @@
+## [0.24] — 2026-11-16
+
+### Added
+- **Empyrion: all config files in the "Settings" tab** (80 fields): `dedicated.yaml` in full
+  (ServerConfig + GameConfig, incl. reserve playfields, LogFlags, KickPlayerWithPing,
+  PlayerLoginParallelCount, EnableDLC, Seed, Notes), the multiplayer block of the scenario's
+  `gameoptions.yaml` (49 gameplay rules) and the admin list from `adminconfig.yaml`
+  (SteamID64:level). The singleplayer block is never touched.
+
 ## [0.23] — 2026-11-15
 
 ### Added

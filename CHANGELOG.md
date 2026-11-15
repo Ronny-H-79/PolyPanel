@@ -1,3 +1,14 @@
+## [0.24] — 2026-11-16
+
+### Neu
+- **Empyrion: alle Konfigurationsdateien im Reiter „Einstellungen"** (80 Felder):
+  `dedicated.yaml` vollständig (ServerConfig + GameConfig, inkl. Reserve-Playfields, LogFlags,
+  KickPlayerWithPing, PlayerLoginParallelCount, EnableDLC, Seed, Notes), der Mehrspieler-Block aus
+  `gameoptions.yaml` des Szenarios (49 Spielregeln: Verfall, Anti-Grief, Handel, Strukturen …) und
+  die Adminliste aus `adminconfig.yaml` (SteamID64:Stufe — 3 GameMaster, 6 Moderator, 9 Admin).
+  Die Adminliste wird beim ersten Speichern aus `adminconfig.example.yaml` angelegt.
+- Der Einzelspieler-Block in `gameoptions.yaml` bleibt unangetastet.
+
 ## [0.23] — 2026-11-15
 
 ### Neu

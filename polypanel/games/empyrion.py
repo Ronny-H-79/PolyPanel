@@ -33,32 +33,29 @@ EXE_SERVER = os.path.join("DedicatedServer", "EmpyrionDedicated.exe")
 EXE_NOGFX = "EmpyrionDedicated_NoGraphics.exe"   # nur als Notnagel, falls vorhanden
 EXE_GUI = "EmpyrionDedicated.exe"
 CFG_NAME = "dedicated.yaml"
+OPTIONS = "gameoptions.yaml"
 
-# Alle Einstellungen, die der Reiter "Einstellungen" anbietet.
-# (Sektion, Schluessel, Label, Hinweis, Typ, Gruppe)
-FELDER = (
-    ("ServerConfig", "Srv_Name", "Server-Name", "Name in der Serverliste", "text", "srv"),
-    ("ServerConfig", "Srv_Port", "Spielport (UDP)", "Standard 30000", "int", "srv"),
-    ("ServerConfig", "Srv_MaxPlayers", "Max. Spieler", "", "int", "srv"),
-    ("ServerConfig", "Srv_Password", "Server-Passwort", "leer = offen", "password", "srv"),
-    ("ServerConfig", "Srv_Description", "Beschreibung", "max. 127 Zeichen", "text", "srv"),
-    ("ServerConfig", "Srv_Public", "In Serverliste zeigen", "true / false", "text", "srv"),
-    ("ServerConfig", "Srv_ReservePlayfields", "Reserve-Playfields", "0 – 10", "int", "srv"),
-    ("ServerConfig", "Srv_StopPeriod", "Auto-Neustart alle n Std.", "leer = nie", "int", "srv"),
-    ("ServerConfig", "EACActive", "Easy Anti-Cheat", "true / false – Client muss passen",
-     "text", "srv"),
-    ("ServerConfig", "MaxAllowedSizeClass", "Max. Bauklasse", "Standard 10", "int", "srv"),
-    ("ServerConfig", "AllowedBlueprints", "Erlaubte Blueprints", "z. B. All", "text", "srv"),
-    ("ServerConfig", "HeartbeatServer", "Heartbeat (s)", "", "int", "srv"),
-    ("ServerConfig", "TimeoutBootingPfServer", "Start-Timeout Playfield (s)", "", "int", "srv"),
-    ("ServerConfig", "Tel_Enabled", "Telnet an", "true / false (nur lokal)", "text", "srv"),
-    ("ServerConfig", "Tel_Port", "Telnet-Port", "Standard 30004", "int", "srv"),
-    ("ServerConfig", "Tel_Pwd", "Telnet-Passwort", "", "password", "srv"),
-    ("GameConfig", "GameName", "Spielstand-Name", "Ordner unter Saves", "text", "game"),
-    ("GameConfig", "Mode", "Modus", "Survival oder Creative", "text", "game"),
-    ("GameConfig", "CustomScenario", "Szenario", "z. B. Default Multiplayer", "text", "game"),
-    ("GameConfig", "SaveDirectory", "Speicherordner", "leer = Standard", "text", "game"),
-)
+# Passwort-artige Schluessel werden im Formular maskiert
+PASSWORT_MUSTER = ("password", "pwd", "secret", "token", "clientid")
+
+# Deutsche Bezeichnungen; alles ohne Eintrag zeigt den YAML-Schluessel
+LABEL = {
+    "Srv_Name": "Server-Name", "Srv_Port": "Spielport (UDP)",
+    "Srv_MaxPlayers": "Max. Spieler", "Srv_Password": "Server-Passwort",
+    "Srv_Description": "Beschreibung", "Srv_Public": "In Serverliste zeigen",
+    "Srv_ReservePlayfields": "Reserve-Playfields", "Srv_StopPeriod": "Auto-Neustart (Std.)",
+    "Tel_Enabled": "Telnet an", "Tel_Port": "Telnet-Port", "Tel_Pwd": "Telnet-Passwort",
+    "EACActive": "Easy Anti-Cheat", "SaveDirectory": "Speicherordner",
+    "MaxAllowedSizeClass": "Max. Bauklasse", "AllowedBlueprints": "Erlaubte Blueprints",
+    "HeartbeatServer": "Heartbeat Server (s)", "HeartbeatClient": "Heartbeat Client (s)",
+    "LogFlags": "Log-Flags", "DisableSteamFamilySharing": "Steam Family Sharing sperren",
+    "KickPlayerWithPing": "Kick ab Ping (ms)", "TimeoutBootingPfServer": "Start-Timeout (s)",
+    "PlayerLoginParallelCount": "Parallele Logins", "PlayerLoginVipNames": "VIP-Logins",
+    "EnableDLC": "DLC erlauben", "GameName": "Spielstand-Name", "Mode": "Modus",
+    "Seed": "Welten-Seed", "CustomScenario": "Szenario", "Notes": "Notizen",
+    "SharedDataURL": "Shared-Data-URL",
+}
+
 
 # Panel-Felder, die zusaetzlich in der Instanz gespiegelt werden.
 SPIEGEL = {"Srv_Name": "session_name", "Srv_Port": "port",
@@ -87,6 +84,15 @@ def _xvfb() -> list[str]:
         return []
     xvfb = shutil.which("xvfb-run")
     return [xvfb, "-a"] if xvfb else []
+
+
+def _zeilen(pfad: str) -> list[str]:
+    """Dateiinhalt als Zeilen (leer, wenn nicht lesbar)."""
+    try:
+        with open(pfad, encoding="utf-8", errors="replace") as fh:
+            return fh.read().splitlines()
+    except OSError:
+        return []
 
 
 def _abschnitte(zeilen) -> list[tuple[str, int, int]]:
@@ -128,8 +134,24 @@ def yaml_lesen(pfad: str) -> dict[str, dict[str, str]]:
     return daten
 
 
+def yaml_hinweise(pfad: str) -> dict[tuple[str, str], str]:
+    """Kommentartext hinter einem Schluessel - dient als Hinweis im Formular."""
+    out: dict[tuple[str, str], str] = {}
+    zeilen = _zeilen(pfad)
+    for name, start, ende in _abschnitte(zeilen):
+        for zeile in zeilen[start + 1:ende]:
+            m = re.match(r"^\s+(#\s*)?([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$", zeile)
+            if not m:
+                continue
+            rest = m.group(3)
+            if "#" in rest:
+                text = rest[rest.index("#") + 1:].strip() or rest[:rest.index("#")].strip()
+                if text:
+                    out[(name, m.group(2))] = text[:120]
+    return out
+
+
 def yaml_aktiv(pfad: str) -> set[tuple[str, str]]:
-    """Welche Schluessel sind wirklich gesetzt (nicht nur als Kommentar vorhanden)?"""
     aktiv: set[tuple[str, str]] = set()
     try:
         with open(pfad, encoding="utf-8", errors="replace") as fh:
@@ -195,6 +217,139 @@ def yaml_setzen(pfad: str, werte: list[tuple[str, str, str]]) -> None:
         fh.write("\n".join(zeilen) + "\n")
 
 
+# ------------------------------------------------------- gameoptions.yaml (MP)
+def _options_block(zeilen) -> tuple[int, int] | None:
+    """Zeilengrenzen des Mehrspieler-Blocks (ValidFor enthaelt MP)."""
+    start = None
+    for i, zeile in enumerate(zeilen):
+        m = re.match(r"^\s*-\s*ValidFor:\s*\[(.*?)\]", zeile)
+        if not m:
+            continue
+        if start is not None:
+            return start, i
+        if "MP" in m.group(1).upper():
+            start = i
+    return (start, len(zeilen)) if start is not None else None
+
+
+def gameoptions_lesen(pfad: str) -> dict[str, str]:
+    zeilen = _zeilen(pfad)
+    block = _options_block(zeilen)
+    if not block:
+        return {}
+    start, ende = block
+    werte = {}
+    for zeile in zeilen[start:ende]:
+        m = re.match(r"^\s+(#\s*)?([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$", zeile)
+        if not m:
+            continue
+        wert = m.group(3)
+        if "#" in wert:
+            wert = wert[:wert.index("#")]
+        werte[m.group(2)] = wert.strip().strip('"').strip("'")
+    return werte
+
+
+def gameoptions_hinweise(pfad: str) -> dict[str, str]:
+    zeilen = _zeilen(pfad)
+    block = _options_block(zeilen)
+    out: dict[str, str] = {}
+    if not block:
+        return out
+    start, ende = block
+    for zeile in zeilen[start:ende]:
+        m = re.match(r"^\s+(#\s*)?([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$", zeile)
+        if not m or "#" not in m.group(3):
+            continue
+        text = m.group(3)[m.group(3).index("#") + 1:].strip()
+        if text:
+            out.setdefault(m.group(2), text[:120])
+    return out
+
+
+def gameoptions_setzen(pfad: str, werte: dict[str, str]) -> int:
+    zeilen = _zeilen(pfad)
+    block = _options_block(zeilen)
+    if not block:
+        return 0
+    start, ende = block
+    geaendert = 0
+    for i in range(start, ende):
+        m = re.match(r"^(\s+)(#\s*)?([A-Za-z_][A-Za-z0-9_]*)(\s*:\s*)(.*)$", zeilen[i])
+        if not m or m.group(3) not in werte:
+            continue
+        schluessel = m.group(3)
+        rest = m.group(5)
+        kommentar = ("  " + rest[rest.index("#"):]) if "#" in rest else ""
+        zeilen[i] = "%s%s: %s%s" % (m.group(1), schluessel, werte.pop(schluessel), kommentar)
+        geaendert += 1
+    einzug = "    "
+    for zeile in zeilen[start:ende]:
+        m2 = re.match(r"^(\s+)\S", zeile)
+        if m2:
+            einzug = m2.group(1)
+            break
+    for schluessel, wert in list(werte.items()):
+        zeilen.insert(ende, "%s%s: %s" % (einzug, schluessel, wert))
+        ende += 1
+        geaendert += 1
+    with open(pfad, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(zeilen) + "\n")
+    return geaendert
+
+
+# ------------------------------------------------------------- Adminrechte
+def admins_pfad(inst) -> str:
+    return os.path.join(inst.directory, "Saves", "adminconfig.yaml")
+
+
+def admins_lesen(pfad: str) -> list[tuple[str, str]]:
+    """Elevated-Eintraege als (SteamID64, Stufe)."""
+    aus: list[tuple[str, str]] = []
+    im_block = False
+    for zeile in _zeilen(pfad):
+        if re.match(r"^Elevated:\s*$", zeile):
+            im_block = True
+            continue
+        if im_block and re.match(r"^[A-Za-z_][A-Za-z0-9_]*:\s*$", zeile):
+            break
+        m = re.match(r"^\s*-?\s*Id:\s*(\d+)\s*(#.*)?$", zeile)
+        if im_block and m:
+            aus.append((m.group(1), ""))
+            continue
+        m = re.match(r"^\s*Permission:\s*(\d+)", zeile)
+        if im_block and m and aus:
+            aus[-1] = (aus[-1][0], m.group(1))
+    return aus
+
+
+def admins_setzen(pfad: str, eintraege: list[tuple[str, str]], vorlage: str = "") -> bool:
+    """Elevated-Block neu schreiben; alles andere in der Datei bleibt."""
+    zeilen = _zeilen(pfad)
+    if not zeilen and vorlage and os.path.exists(vorlage):
+        zeilen = _zeilen(vorlage)
+    block = ["Elevated:"]
+    for steamid, stufe in eintraege:
+        block.append("- Id: %s" % steamid)
+        block.append("  Permission: %s" % (stufe or "3"))
+
+    start = next((i for i, z in enumerate(zeilen) if re.match(r"^Elevated:\s*$", z)), None)
+    if start is None:
+        zeilen = block + ([""] if zeilen else []) + zeilen
+    else:
+        ende = len(zeilen)
+        for i in range(start + 1, len(zeilen)):
+            if re.match(r"^[A-Za-z_][A-Za-z0-9_]*:\s*$", zeilen[i]):
+                ende = i
+                break
+        zeilen[start:ende] = block + ([""] if ende < len(zeilen) else [])
+
+    os.makedirs(os.path.dirname(pfad), exist_ok=True)
+    with open(pfad, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(zeilen) + "\n")
+    return True
+
+
 class EmpyrionProfile(GameProfile):
     key = "empyrion"
     label = "Empyrion: Galactic Survival"
@@ -248,6 +403,12 @@ class EmpyrionProfile(GameProfile):
     def config_path(self, inst) -> str:
         return os.path.join(inst.directory, CFG_NAME)
 
+    def options_path(self, inst) -> str:
+        """gameoptions.yaml des eingestellten Szenarios (Spielregeln)."""
+        szenario = (yaml_lesen(self.config_path(inst)).get("GameConfig", {})
+                    .get("CustomScenario") or "Default Multiplayer")
+        return os.path.join(inst.directory, "Content", "Scenarios", szenario, OPTIONS)
+
     def log_path(self, inst) -> str:
         for muster in ("Logs/*.log", "*.log"):
             treffer = sorted(glob.glob(os.path.join(inst.directory, muster)))
@@ -258,65 +419,134 @@ class EmpyrionProfile(GameProfile):
         return os.path.join(ordner, "EmpyrionDedicated.log")
 
     # ---------------------------------------------------------- Einstellungen
+    @staticmethod
+    def _typ(schluessel: str, wert: str) -> str:
+        if any(m in schluessel.lower() for m in PASSWORT_MUSTER):
+            return "password"
+        if re.fullmatch(r"-?\d+", wert or ""):
+            return "int"
+        return "text"
+
     def settings(self, inst) -> list[dict]:
-        """Alle Schluessel aus dedicated.yaml anbieten (nicht nur die vier Panel-Felder)."""
-        pfad = self.config_path(inst)
-        datei = yaml_lesen(pfad) if os.path.exists(pfad) else {}
-        aktiv = yaml_aktiv(pfad) if os.path.exists(pfad) else set()
-        out = []
-        for abschnitt, schluessel, label, hinweis, typ, gruppe in FELDER:
-            wert = datei.get(abschnitt, {}).get(schluessel, "")
-            # Auskommentierte Vorlagenwerte nicht als "gesetzt" anzeigen - sonst
-            # steht beim Passwort das Beispiel aus der Datei.
-            if typ == "password" and (abschnitt, schluessel) not in aktiv:
-                wert = ""
-            if not wert and schluessel in SPIEGEL:
-                wert = str(getattr(inst, SPIEGEL[schluessel], "") or "")
-            out.append({"file": "instance", "section": abschnitt, "key": schluessel,
-                        "label": label, "hint": hinweis, "type": typ,
-                        "value": wert, "group": gruppe})
+        """dedicated.yaml (alle Schluessel), gameoptions.yaml (MP-Block) und Adminliste."""
+        cfg_pfad = self.config_path(inst)
+        datei = yaml_lesen(cfg_pfad) if os.path.exists(cfg_pfad) else {}
+        hinweise = yaml_hinweise(cfg_pfad) if os.path.exists(cfg_pfad) else {}
+        aktiv = yaml_aktiv(cfg_pfad) if os.path.exists(cfg_pfad) else set()
+
+        out: list[dict] = []
+        for abschnitt in ("ServerConfig", "GameConfig"):
+            for schluessel, wert in datei.get(abschnitt, {}).items():
+                typ = self._typ(schluessel, wert)
+                if typ == "password" and (abschnitt, schluessel) not in aktiv:
+                    wert = ""      # auskommentierter Vorlagenwert ist nicht gesetzt
+                if not wert and schluessel in SPIEGEL:
+                    wert = str(getattr(inst, SPIEGEL[schluessel], "") or "")
+                out.append({"file": "instance", "section": abschnitt, "key": schluessel,
+                            "label": LABEL.get(schluessel, schluessel),
+                            "hint": hinweise.get((abschnitt, schluessel), ""),
+                            "type": typ, "value": wert,
+                            "group": "game" if abschnitt == "GameConfig" else "srv"})
+
+        opt_pfad = self.options_path(inst)
+        if os.path.exists(opt_pfad):
+            opt_h = gameoptions_hinweise(opt_pfad)
+            for schluessel, wert in gameoptions_lesen(opt_pfad).items():
+                out.append({"file": "opts", "section": "Options (MP)", "key": schluessel,
+                            "label": LABEL.get(schluessel, schluessel),
+                            "hint": opt_h.get(schluessel, ""),
+                            "type": self._typ(schluessel, wert), "value": wert,
+                            "group": "game"})
+
+        apfad = admins_pfad(inst)
+        eintraege = admins_lesen(apfad)
+        out.append({"file": "admins", "section": "", "key": "Elevated",
+                    "label": "Admins", "type": "text",
+                    "hint": "SteamID64:Stufe, mehrere durch Komma — 3 GameMaster, 6 Moderator, 9 Admin",
+                    "value": ", ".join("%s:%s" % (i, s or "3") for i, s in eintraege),
+                    "group": "srv"})
         return out
 
     def apply_settings(self, inst, items) -> int:
-        """Werte aus dem Formular in dedicated.yaml schreiben."""
-        pfad = self.config_path(inst)
-        if not os.path.exists(pfad):
-            return 0
-        erlaubt = {(a, s): (t, g) for a, s, _l, _h, t, g in FELDER}
-        werte: list[tuple[str, str, str]] = []
+        """Werte in dedicated.yaml, gameoptions.yaml bzw. adminconfig.yaml schreiben."""
+        cfg_pfad = self.config_path(inst)
+        opt_pfad = self.options_path(inst)
+        apfad = admins_pfad(inst)
+
+        cfg_abschnitt: dict[str, str] = {}
+        if os.path.exists(cfg_pfad):
+            for abschnitt, werte in yaml_lesen(cfg_pfad).items():
+                for schluessel in werte:
+                    cfg_abschnitt[schluessel] = abschnitt
+        opt_keys = set(gameoptions_lesen(opt_pfad)) if os.path.exists(opt_pfad) else set()
+
+        cfg_werte: list[tuple[str, str, str]] = []
+        opt_werte: dict[str, str] = {}
+        admin_text = None
         geaendert = 0
+
         for item in items:
             schluessel = str(item.get("key") or "")
-            treffer = next((k for k in erlaubt if k[1] == schluessel), None)
-            if not treffer:
-                continue
-            abschnitt, typ = treffer[0], erlaubt[treffer][0]
             wert = str(item.get("value", "")).strip()
-            if typ in ("int",):
-                if not wert:
+
+            if schluessel == "Elevated":
+                admin_text = wert
+                geaendert += 1
+                continue
+
+            if schluessel in cfg_abschnitt:
+                typ = self._typ(schluessel, wert)
+                if typ == "password" and not wert:
                     continue
-                if not re.fullmatch(r"-?\d+", wert):
+                if typ == "int" and not re.fullmatch(r"-?\d+", wert):
                     continue
-            elif typ == "text" and schluessel not in ("Srv_Description", "AllowedBlueprints"):
-                if re.fullmatch(r"(true|false)", wert, re.I):
-                    pass
-                elif not wert:
-                    continue
-            if typ == "password" and not wert:
-                continue          # leeres Feld ueberschreibt kein vorhandenes Passwort
-            if typ in ("text", "password") and not re.fullmatch(r"-?\d+", wert):
-                if not re.fullmatch(r"(true|false)", wert, re.I):
+                if typ == "text" and not re.fullmatch(r"(true|false|-?\d+)", wert, re.I) \
+                        and schluessel not in ("Srv_Description", "Notes", "AllowedBlueprints",
+                                               "PlayerLoginVipNames", "SharedDataURL", "Mode",
+                                               "CustomScenario", "GameName", "SaveDirectory"):
                     wert = '"%s"' % wert.replace('"', "")
-            werte.append((abschnitt, schluessel, wert))
-            inst_feld = SPIEGEL.get(schluessel)
-            if inst_feld:
-                alt = getattr(inst, inst_feld, "")
-                setattr(inst, inst_feld, int(wert) if isinstance(alt, int) and wert.isdigit()
-                        else wert.strip('"'))
-            geaendert += 1
-        if werte:
-            yaml_setzen(pfad, werte)
+                cfg_werte.append((cfg_abschnitt[schluessel], schluessel, wert))
+                inst_feld = SPIEGEL.get(schluessel)
+                if inst_feld:
+                    alt = getattr(inst, inst_feld, "")
+                    setattr(inst, inst_feld,
+                            int(wert) if isinstance(alt, int) and wert.lstrip("-").isdigit()
+                            else wert.strip('"'))
+                geaendert += 1
+                continue
+
+            if schluessel in opt_keys:
+                typ = self._typ(schluessel, wert)
+                if typ == "password" and not wert:
+                    continue
+                if typ == "int" and not re.fullmatch(r"-?\d+", wert):
+                    continue
+                if typ == "text" and not re.fullmatch(r"(true|false|None|-?\d+)", wert, re.I) \
+                        and " " not in wert and not re.fullmatch(r"[A-Za-z0-9_,.]+", wert):
+                    wert = '"%s"' % wert.replace('"', "")
+                opt_werte[schluessel] = wert
+                geaendert += 1
+
+        if cfg_werte:
+            yaml_setzen(cfg_pfad, cfg_werte)
+        if opt_werte:
+            gameoptions_setzen(opt_pfad, dict(opt_werte))
+        if admin_text is not None:
+            liste: list[tuple[str, str]] = []
+            for teil in re.split(r"[,;\n]", admin_text):
+                teil = teil.strip()
+                if not teil:
+                    continue
+                m = re.match(r"^(\d{10,20})\s*[:/ ]\s*(\d+)$", teil)
+                if m:
+                    liste.append((m.group(1), m.group(2)))
+                elif re.fullmatch(r"\d{10,20}", teil):
+                    liste.append((teil, "9"))
+            admins_setzen(apfad, liste,
+                          vorlage=os.path.join(inst.directory, "Saves",
+                                               "adminconfig.example.yaml"))
         return geaendert
+
 
     # ------------------------------------------------------------ Startzeile
     def launch_prefix(self, inst) -> list[str]:
