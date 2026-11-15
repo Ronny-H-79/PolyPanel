@@ -1,3 +1,13 @@
+## [0.23] — 2026-11-15
+
+### Added
+- **Empyrion: every setting in the panel.** The "Settings" tab now exposes the keys from
+  `dedicated.yaml` (ServerConfig and GameConfig): name, port, players, password, description,
+  visibility, reserve playfields, auto restart, EAC, size class, blueprints, heartbeat, start
+  timeout, telnet (on/port/password), save name, mode, scenario and save directory. Values are
+  edited in place — indentation, order and comments of the template are preserved, commented-out
+  passwords are not shown as set.
+
 ## [0.22] — 2026-11-15
 
 ### Fixed

@@ -1,3 +1,14 @@
+## [0.23] — 2026-11-15
+
+### Neu
+- **Empyrion: alle Einstellungen im Panel.** Der Reiter „Einstellungen" zeigt jetzt die
+  Schlüssel aus `dedicated.yaml` (ServerConfig und GameConfig): Name, Port, Spielerzahl,
+  Passwort, Beschreibung, Sichtbarkeit, Reserve-Playfields, Auto-Neustart, EAC, Bauklasse,
+  Blueprints, Heartbeat, Start-Timeout, Telnet (an/Port/Passwort), Spielstand-Name, Modus,
+  Szenario und Speicherordner. Werte werden direkt in der YAML gepflegt — Einrückung,
+  Reihenfolge und Kommentare der Vorlage bleiben erhalten, auskommentierte Passwörter werden
+  nicht als gesetzt angezeigt.
+
 ## [0.22] — 2026-11-15
 
 ### Behoben

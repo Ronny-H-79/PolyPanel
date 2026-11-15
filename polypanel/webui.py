@@ -2000,7 +2000,8 @@ async function loadSettings(){
     const inner=Object.entries(bySect).map(([k,list])=>{
       const p=k.split('|'), g=document.body.dataset.game;
       const file=p[0]==='gus'?'GameUserSettings.ini':
-        (p[0]==='instance'?(g==='7d2d'?'serverconfig.xml':(g==='arkse'?'Startzeile / Instanz':'ServerSettings.ini')):'Game.ini');
+        (p[0]==='instance'?(g==='7d2d'?'serverconfig.xml':(g==='arkse'?'Startzeile / Instanz':
+          (g==='empyrion'?'dedicated.yaml':'ServerSettings.ini'))):'Game.ini');
       return `<div class="meta" style="margin:10px 0 2px;opacity:.75">${file} · ${p[1]}</div>`+
         list.map(_setField).join('');
     }).join('');
