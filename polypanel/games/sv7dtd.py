@@ -64,7 +64,7 @@ class SevenDaysProfile(GameProfile):
         ("port", "Spiel-Port", "UDP, Spielverbindung", "int"),
         ("rcon_port", "Telnet-Port", "Steuerkanal (serverconfig.xml)", "int"),
         ("telnet_password", "Telnet-Passwort", "Passwort fuer den Steuerkanal", "password"),
-        ("rcon_password", "Server-Passwort", "leer = oeffentlicher Server", "password"),
+        ("server_password", "Server-Passwort", "leer = oeffentlicher Server", "password"),
     )
 
     # ---------------------------------------------------------------- Pfade
@@ -254,7 +254,7 @@ class SevenDaysProfile(GameProfile):
         values = {
             "ServerName": inst.session_name,
             "ServerPort": str(inst.port),
-            "ServerPassword": inst.rcon_password or "",
+            "ServerPassword": inst.server_password or "",
             "MaxPlayers": str(inst.max_players),
             "TelnetEnabled": "true",
             "TelnetPort": str(inst.rcon_port),
@@ -278,7 +278,7 @@ class SevenDaysProfile(GameProfile):
         "ServerName": "session_name",
         "ServerPort": "port",
         "MaxPlayers": "max_players",
-        "ServerPassword": "rcon_password",
+        "ServerPassword": "server_password",
         "TelnetPort": "rcon_port",
         "TelnetPassword": "telnet_password",
     }

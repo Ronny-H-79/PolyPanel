@@ -1,3 +1,13 @@
+## [0.40] — 2026-11-21
+
+### Fixed
+
+- **7 Days to Die: the join password is a field of its own now.** `ServerPassword` was tied to
+  `rcon_password` (`ALIASES`, `write_config`, core field), so saving the server password overwrote
+  the RCON password and vice versa. The panel kept showing the randomly generated hex value, and a
+  password that was entered was gone after the next start. It now uses `inst.server_password` (as
+  Empyrion/StarRupture do) and leaves `rcon_password` untouched.
+
 ## [0.24] — 2026-11-16
 
 ### Added

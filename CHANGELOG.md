@@ -1,3 +1,13 @@
+## [0.40] — 2026-11-21
+
+### Behoben
+
+- **7 Days to Die: Beitritts-Passwort ist jetzt ein eigenes Feld.** `ServerPassword` hing an
+  `rcon_password` (`ALIASES`, `write_config`, Kernfeld) — jedes Speichern des Server-Passworts
+  überschrieb damit das RCON-Passwort und umgekehrt. Im Panel stand dauerhaft der zufällig erzeugte
+  Hex-Wert, ein eingetragenes Passwort war nach dem nächsten Start wieder weg. Jetzt gilt
+  `inst.server_password` (wie bei Empyrion/StarRupture), `rcon_password` bleibt unberührt.
+
 ## [0.24] — 2026-11-16
 
 ### Neu
