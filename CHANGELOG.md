@@ -1,3 +1,13 @@
+## [0.45] — 2026-11-21
+
+### Behoben
+
+- **Panel-Oberflaeche: Syntaxfehler in 0.44 behoben.** Die Datei-Beschriftung fuer die neuen
+  Live-Regeln brachte eine zusaetzliche Klammer in das Panel-JavaScript; das Panel blieb leer,
+  weil keine Funktion definiert wurde. Jetzt korrekt verkettet, JavaScript geprueft (`node --check`).
+- **Panel-Quelltext: keine Python-Syntaxwarnungen mehr.** Zwei JavaScript-Regexe (`\/` und `\d`)
+  waren als einfache Zeichenkette notiert; sie stehen jetzt korrekt maskiert, die Ausgabe bleibt gleich.
+
 ## [0.44] — 2026-11-21
 
 ### Neu

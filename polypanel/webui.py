@@ -1406,7 +1406,7 @@ function dEsc(t){ return String(t).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt
 
 async function dateien(pfad){
   try{ dClose(); }catch(e){}
-  DATEI_PFAD = (pfad||'').replace(/^\/+|\/+$/g,'');
+  DATEI_PFAD = (pfad||'').replace(/^\\/+|\\/+$/g,'');
   let d={};
   try{ d = JSON.parse(await api('/api/files?path='+encodeURIComponent(DATEI_PFAD))); }
   catch(e){ const s=document.getElementById('dateiStatus'); if(s) s.textContent='Fehler: '+e; return; }
@@ -2099,7 +2099,7 @@ async function loadSettings(){
     byGroup[g].forEach(v=>{ (bySect[v.file+'|'+v.section]=bySect[v.file+'|'+v.section]||[]).push(v); });
     const inner=Object.entries(bySect).map(([k,list])=>{
       const p=k.split('|'), g=document.body.dataset.game;
-      const file=p[0]==='live'?'live · sofort wirksam (setgamepref)':(p[0]==='gus'?'GameUserSettings.ini':(p[0]==='opts'?'gameoptions.yaml':
+      const file=p[0]==='live'?'live · sofort wirksam (setgamepref)':p[0]==='gus'?'GameUserSettings.ini':(p[0]==='opts'?'gameoptions.yaml':
         (p[0]==='admins'?'adminconfig.yaml':
         (p[0]==='instance'?(g==='7d2d'?'serverconfig.xml':(g==='arkse'?'Startzeile / Instanz':
           (g==='empyrion'?'dedicated.yaml':'ServerSettings.ini'))):'Game.ini')));
@@ -2167,7 +2167,7 @@ async function saveSettings(){
   const r=await fetch('/api/settings?name='+NAME+'&token='+encodeURIComponent(T),
     {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const meldung=await r.text();
-  banner(meldung, /^\d+ Einstellung/.test(meldung)?'#39d98a':'#f0a020');
+  banner(meldung, /^\\d+ Einstellung/.test(meldung)?'#39d98a':'#f0a020');
   document.getElementById('setmsg').textContent=meldung;
   // Rueckmeldung auch oben einblenden: bei 250 Einstellungen steht die Zeile sonst
   // ausserhalb des sichtbaren Bereichs und es wirkt, als sei nichts gespeichert worden.

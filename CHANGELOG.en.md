@@ -1,3 +1,13 @@
+## [0.45] — 2026-11-21
+
+### Fixed
+
+- **Panel UI: syntax error from 0.44 fixed.** The file caption for the new live rules added an
+  extra parenthesis to the panel JavaScript; the panel rendered empty because no function was
+  defined. Now chained correctly and checked with `node --check`.
+- **Panel source: no more Python syntax warnings.** Two JavaScript regexes (`\/` and `\d`)
+  sat in plain strings; they are masked correctly now, the emitted code is unchanged.
+
 ## [0.44] — 2026-11-21
 
 ### Added
