@@ -1,3 +1,21 @@
+## [0.44] — 2026-11-21
+
+### Neu
+
+- **7 Days to Die: Blutmond und Spielregeln im Panel.** Ab Version 2.0 des Spiels stehen
+  Blutmond, Schwierigkeit, Loot, XP, Zombie-Tempo und aehnliche Regeln nicht mehr einzeln in der
+  `serverconfig.xml` - FFP hat sie in den `SandboxCode` gepackt. Das Panel zeigt sie deshalb als
+  eigene Gruppen „Blutmond" (Haeufigkeit, Gegnerzahl, Fenster, Warnung) und „Spielregeln (live)"
+  (Schwierigkeit, XP, Loot, Luftabwurf, Tag-Nacht-Laenge, Todesstrafe, Zombie-Tempo, Block-Schaden,
+  Quest-Limit). Die Werte gehen per `setgamepref` sofort an den laufenden Server; die Ist-Werte
+  liest das Panel mit einem einzigen `getgamepref` (15 Sekunden zwischengespeichert).
+
+### Behoben
+
+- **7 Days to Die: gesetzte Live-Regeln ueberleben einen Neustart.** Das Panel merkt sich die
+  Werte in der Instanz und setzt sie nach jedem Serverstart automatisch erneut - einmal je
+  Server-PID, damit haeufige Statusabfragen keinen zweiten Aufruf ausloesen.
+
 ## [0.43] — 2026-11-21
 
 ### Neu

@@ -55,6 +55,9 @@ class Instance:
     beacon_port: int = 15000             # Satisfactory: dritter Port
     api_token: str = ""                  # Satisfactory: Bearer-Token der HTTPS-API
     telnet_password: str = ""            # 7 Days to Die: TelnetPassword
+    # 7 Days to Die V2.0: Spielregeln (Blutmond, Loot, XP ...) stecken im SandboxCode.
+    # Das Panel merkt sich die Wunschwerte hier und setzt sie per setgamepref.
+    live_prefs: dict = field(default_factory=dict)
     # SFTP-Zugang: eigener Benutzer je Instanz, Chroot auf den Instanzordner
     sftp_enabled: bool = False
     sftp_user: str = ""

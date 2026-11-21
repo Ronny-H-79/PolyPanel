@@ -1903,7 +1903,7 @@ async function saveCluster(){
   }catch(e){ msg.textContent=String(e); }
 }
 const SETGROUP_ORDER=['srv','play','pvp','struct','dino','transfer','hud','motd','game',
-               'server','netz','welt','spieler','weitere'];
+               'blutmond','regeln','server','netz','welt','spieler','weitere'];
 function _setField(v){
   const i=SETTINGS.indexOf(v);
   let field;
@@ -2099,7 +2099,7 @@ async function loadSettings(){
     byGroup[g].forEach(v=>{ (bySect[v.file+'|'+v.section]=bySect[v.file+'|'+v.section]||[]).push(v); });
     const inner=Object.entries(bySect).map(([k,list])=>{
       const p=k.split('|'), g=document.body.dataset.game;
-      const file=p[0]==='gus'?'GameUserSettings.ini':(p[0]==='opts'?'gameoptions.yaml':
+      const file=p[0]==='live'?'live · sofort wirksam (setgamepref)':(p[0]==='gus'?'GameUserSettings.ini':(p[0]==='opts'?'gameoptions.yaml':
         (p[0]==='admins'?'adminconfig.yaml':
         (p[0]==='instance'?(g==='7d2d'?'serverconfig.xml':(g==='arkse'?'Startzeile / Instanz':
           (g==='empyrion'?'dedicated.yaml':'ServerSettings.ini'))):'Game.ini')));
@@ -3908,7 +3908,12 @@ class Handler(BaseHTTPRequestHandler):
                         continue
             plog.write("EINSTELLUNGEN %s: %d Werte empfangen, %d uebernommen"
                        % (inst.name, len(items), changed))
-            text = "%d Einstellung(en) gespeichert - wirksam nach Neustart" % changed
+            live = [i for i in items if isinstance(i, dict) and i.get("file") == "live"]
+            if live:
+                text = ("%d Live-Regel(n) sofort gesetzt, %d Einstellung(en) in der Datei - "
+                        "wirksam nach Neustart" % (len(live), max(0, changed - len(live))))
+            else:
+                text = "%d Einstellung(en) gespeichert - wirksam nach Neustart" % changed
             if changed < len(items):
                 # Nicht jede Zeile landet in der Datei (unbekannter Schluessel, ungueltiger
                 # Wert). Ohne Hinweis wirkt das wie "nichts passiert".

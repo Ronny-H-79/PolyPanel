@@ -8,6 +8,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
+import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -362,6 +364,119 @@ class SevenDaysProfile(GameProfile):
         "ZombieFeralSense": ["0", "1", "2", "3"],
     }
 
+    # --- Live-Spielregeln ---------------------------------------------------
+    # Seit V2.0 stehen diese Werte nicht mehr einzeln in der serverconfig.xml -
+    # FFP buendelt sie im `SandboxCode`. Zur Laufzeit sind sie aber ueber Telnet
+    # (`setgamepref`) aenderbar; das Panel merkt sich die Wunschwerte und setzt
+    # sie nach jedem Serverstart erneut.
+    LIVE_PREFS = (
+        ("BloodMoonFrequency", "Blutmond-Haeufigkeit (Tage)", "0 = kein Blutmond, 7 = jede Woche", "int", None, "blutmond"),
+        ("BloodMoonEnemyCount", "Gegner im Blutmond", "Grundwert, skaliert mit der Spielerzahl", "int", None, "blutmond"),
+        ("BloodMoonRange", "Blutmond-Fenster (Tage)", "0 = genau am Blutmondtag, sonst +/- N Tage", "int", None, "blutmond"),
+        ("BloodMoonWarning", "Blutmond-Warnung ab (Spielstunde)", "Warnung erscheint ab dieser Stunde", "int", None, "blutmond"),
+        ("GameDifficulty", "Schwierigkeit", "0 Scavenger, 1 Adventurer, 2 Nomad, 3 Warrior, 4 Survivalist, 5 Insane", "select", ["0", "1", "2", "3", "4", "5"], "regeln"),
+        ("XPMultiplier", "XP-Multiplikator (%)", "100 = normal", "int", None, "regeln"),
+        ("LootAbundance", "Loot-Menge (%)", "100 = normal", "int", None, "regeln"),
+        ("LootRespawnDays", "Loot-Nachschub (Tage)", "Tage bis Loot in Containern nachwaechst", "int", None, "regeln"),
+        ("AirDropFrequency", "Luftabwurf alle (Spieltage)", "0 = aus", "int", None, "regeln"),
+        ("AirDropMarker", "Luftabwurf auf der Karte", "True = Position wird angezeigt", "select", ["True", "False"], "regeln"),
+        ("DayNightLength", "Tag-Nacht-Laenge (Minuten)", "echte Minuten pro Spieltag, Standard 60", "int", None, "regeln"),
+        ("DayLightLength", "Tageslicht (Spielstunden)", "Standard 18", "int", None, "regeln"),
+        ("DeathPenalty", "Strafe beim Tod", "0 = keine, 1 = XP-Verlust, 2 = Rucksack, 3 = alles", "select", ["0", "1", "2", "3"], "regeln"),
+        ("ZombieMove", "Zombie-Tempo (Tag)", "0 gehen, 1 joggen, 2 rennen, 3 sprinten, 4 Albtraum", "select", ["0", "1", "2", "3", "4"], "regeln"),
+        ("ZombieMoveNight", "Zombie-Tempo (Nacht)", "0 gehen bis 4 Albtraum", "select", ["0", "1", "2", "3", "4"], "regeln"),
+        ("ZombieBMMove", "Zombie-Tempo (Blutmond)", "0 gehen bis 4 Albtraum", "select", ["0", "1", "2", "3", "4"], "regeln"),
+        ("ZombieFeralSense", "Wilde Zombies spueren dich", "0 aus, 1 tagsueber, 2 nachts, 3 immer", "select", ["0", "1", "2", "3"], "regeln"),
+        ("BlockDamagePlayer", "Block-Schaden Spieler (%)", "100 = normal", "int", None, "regeln"),
+        ("BlockDamageAI", "Block-Schaden Zombies (%)", "100 = normal", "int", None, "regeln"),
+        ("BlockDamageAIBM", "Block-Schaden Zombies im Blutmond (%)", "100 = normal", "int", None, "regeln"),
+        ("QuestProgressionDailyLimit", "Quests pro Tag", "0 = unbegrenzt", "int", None, "regeln"),
+    )
+    _LIVE_CACHE: dict = {}
+    _PREFS_LAEUFT: set = set()
+
+    def _live_werte(self, inst) -> dict:
+        """Ist-Werte vom laufenden Server - ein `getgamepref` liefert alle, 15 s Cache."""
+        zwischen = SevenDaysProfile._LIVE_CACHE.get(inst.name)
+        if zwischen and time.time() - zwischen[0] < 15:
+            return zwischen[1]
+        if not _udp_port_bound(inst.port):
+            return {}
+        try:
+            with self.control(inst, timeout=6) as tn:
+                text = tn.command("getgamepref", timeout=6) or ""
+        except Exception:      # noqa: BLE001 - ohne Server gelten die gespeicherten Werte
+            return {}
+        werte = {m.group(1): m.group(2).strip()
+                 for m in re.finditer(r"GamePref\.([A-Za-z0-9_]+) = ([^\r\n]*)", text)}
+        SevenDaysProfile._LIVE_CACHE[inst.name] = (time.time(), werte)
+        return werte
+
+    def _live_felder(self, inst) -> list[dict]:
+        ist = self._live_werte(inst)
+        gespeichert = dict(getattr(inst, "live_prefs", None) or {})
+        felder = []
+        for key, label, hint, typ, choices, gruppe in self.LIVE_PREFS:
+            wert = ist.get(key, gespeichert.get(key, ""))
+            feld = {"file": "live", "section": "", "key": key, "label": label,
+                    "hint": hint, "type": typ, "value": str(wert), "group": gruppe}
+            if choices:
+                feld["type"] = "select"
+                feld["choices"] = list(choices)
+                if str(wert) and str(wert) not in feld["choices"]:
+                    feld["choices"].insert(0, str(wert))
+            felder.append(feld)
+        return felder
+
+    def apply_live_prefs(self, inst, werte: dict) -> list[str]:
+        """Werte per Telnet setzen (`setgamepref`). Rueckgabe: tatsaechlich gesendete Keys."""
+        gesetzt: list[str] = []
+        if not werte:
+            return gesetzt
+        try:
+            with self.control(inst, timeout=10) as tn:
+                for key, wert in werte.items():
+                    if not key or not str(wert).strip():
+                        continue
+                    tn.command("setgamepref %s %s" % (key, wert), timeout=6)
+                    gesetzt.append(key)
+        except Exception:       # noqa: BLE001 - kein Server: Werte bleiben gespeichert
+            return gesetzt
+        SevenDaysProfile._LIVE_CACHE.pop(inst.name, None)
+        return gesetzt
+
+    def _prefs_nachziehen(self, inst) -> None:
+        """Gemerkte Live-Regeln nach einem Serverstart einmal anwenden."""
+        werte = dict(getattr(inst, "live_prefs", None) or {})
+        if not werte:
+            return
+        from .. import runner
+        try:
+            pid = str(runner.read_pid(inst) or "")
+        except Exception:       # noqa: BLE001
+            return
+        if not pid:
+            return
+        marker = os.path.join(inst.directory, ".PolyPanel-prefs")
+        try:
+            with open(marker, encoding="utf-8") as fh:
+                if fh.read().strip() == pid:
+                    return
+        except OSError:
+            pass
+        if inst.name in SevenDaysProfile._PREFS_LAEUFT:
+            return
+        SevenDaysProfile._PREFS_LAEUFT.add(inst.name)
+
+        def _lauf() -> None:
+            try:
+                if self.apply_live_prefs(inst, werte):
+                    with open(marker, "w", encoding="utf-8") as fh:
+                        fh.write(pid)
+            finally:
+                SevenDaysProfile._PREFS_LAEUFT.discard(inst.name)
+        threading.Thread(target=_lauf, daemon=True).start()
+
     def settings(self, inst) -> list[dict]:
         props = self._read_props(inst)
         if not props:
@@ -389,9 +504,24 @@ class SevenDaysProfile(GameProfile):
                     # unbekannter Wert aus einer aelteren Config bleibt waehlbar
                     eintrag["choices"].insert(0, str(value))
             out.append(eintrag)
+        out.extend(self._live_felder(inst))
         return out
 
     def apply_settings(self, inst, items) -> int:
+        # Live-Regeln (setgamepref) haben keine Zeile in der serverconfig.xml.
+        live = [i for i in items if isinstance(i, dict) and i.get("file") == "live"]
+        items = [i for i in items if not (isinstance(i, dict) and i.get("file") == "live")]
+        if live:
+            store = dict(getattr(inst, "live_prefs", None) or {})
+            neu = {}
+            for i in live:
+                key = i.get("key")
+                if not key:
+                    continue
+                store[key] = str(i.get("value", "")).strip()
+                neu[key] = store[key]
+            inst.live_prefs = store
+            self.apply_live_prefs(inst, neu)
         path = self.config_file(inst)
         try:
             text = open(path, encoding="utf-8", errors="replace").read()
@@ -414,7 +544,7 @@ class SevenDaysProfile(GameProfile):
         if changed:
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(text)
-        return changed
+        return changed + len(live)
 
     # ---------------------------------------------------------- Steuerkanal
     def control(self, inst, timeout: float = 10.0):
@@ -429,7 +559,10 @@ class SevenDaysProfile(GameProfile):
         `IOException: Unable to write data to the transport connection: The socket has been shut down`.
         Der Spielport in /proc/net/udp verraet dasselbe, ohne dass sich jemand einloggt.
         """
-        return _udp_port_bound(inst.port)
+        bereit = _udp_port_bound(inst.port)
+        if bereit:
+            self._prefs_nachziehen(inst)
+        return bereit
 
     def graceful_stop(self, inst) -> list[str]:
         """7D2D kennt kein RCON-Quit: Welt speichern, beenden per Signal."""

@@ -277,6 +277,8 @@ T: dict[str, dict[str, str]] = {
     "setg.server": {"de": "Server", "en": "Server"},
     "setg.netz": {"de": "Netzwerk & Steuerung", "en": "Network & control"},
     "setg.welt": {"de": "Welt", "en": "World"},
+    "setg.blutmond": {"de": "Blutmond", "en": "Blood moon"},
+    "setg.regeln": {"de": "Spielregeln (live)", "en": "Game rules (live)"},
     "setg.spieler": {"de": "Spieler & Fortschritt", "en": "Players & progression"},
     "setg.weitere": {"de": "Weitere", "en": "Other"},
     "setg.not_set": {"de": "Standard, noch nicht gesetzt", "en": "default, not set yet"},

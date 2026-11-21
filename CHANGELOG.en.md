@@ -1,3 +1,21 @@
+## [0.44] — 2026-11-21
+
+### Added
+
+- **7 Days to Die: blood moon and game rules in the panel.** Since game version 2.0, blood moon,
+  difficulty, loot, XP, zombie speed and similar rules are no longer individual properties in
+  `serverconfig.xml` - FFP packed them into `SandboxCode`. The panel therefore shows two extra
+  groups, "Blood Moon" (frequency, enemy count, range, warning) and "Game rules (live)"
+  (difficulty, XP, loot, airdrop, day/night length, death penalty, zombie speed, block damage,
+  quest limit). Values are pushed to the running server with `setgamepref`; current values are read
+  with a single `getgamepref` (cached for 15 seconds).
+
+### Fixed
+
+- **7 Days to Die: live rules survive a restart.** The panel stores the values in the instance and
+  re-applies them after every server start - once per server PID, so frequent status polls do not
+  trigger a second run.
+
 ## [0.43] — 2026-11-21
 
 ### Added
