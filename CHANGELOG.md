@@ -1,3 +1,14 @@
+## [0.43] — 2026-11-21
+
+### Neu
+
+- **Dateien: Fortschrittsbalken beim Hochladen.** Ueber der Dateiliste laeuft ein Balken mit
+  Prozentwert mit; die Statuszeile zeigt zusaetzlich Datei, Nummer und Prozent
+  („lade 12/53 (42%): Mods/…/ModInfo.xml"). Der Upload laeuft ueber XMLHttpRequest, weil nur so
+  der tatsaechliche Fortschritt der Leitung bekannt ist (`fetch` kann das nicht). Prozent bezieht
+  sich auf die Gesamtgroesse aller Dateien im Stapel; beim Erfolg verschwindet der Balken nach
+  2,5 Sekunden, bei Fehlern bleibt er mit der Fehlerzeile stehen.
+
 ## [0.42] — 2026-11-21
 
 ### Neu

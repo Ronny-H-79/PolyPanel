@@ -1023,6 +1023,8 @@ document.addEventListener('click', function(ev){
 INST = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>PolyPanel · __NAME__</title>
 <style>""" + SHARED_CSS + """
+#dateiBalken{height:8px;border-radius:4px;background:#1b2430;overflow:hidden;margin:10px 0 4px;display:none}
+#dateiBalkenFuell{height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#3b82f6);transition:width .15s linear}
 body:not([data-game="ark"]) .ark-only{display:none !important}
 body:not([data-game="ark"]):not([data-game="arkse"]) .arkcmd{display:none !important}
 body:not([data-game="ark"]):not([data-game="arkse"]) .tab-mods > *:not(h2):not(#mods-nonark):not(#mods-installed){display:none !important}
@@ -1067,6 +1069,7 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
       <span class="meta" id="dateiStatus"></span>
     </div>
     <div class="meta" id="dateiKrumen" style="margin:12px 0 6px"></div>
+    <div id="dateiBalken"><div id="dateiBalkenFuell"></div></div>
     <div id="dateiListe" data-drop="1"><div class="meta">…</div></div>
 
     <div id="dateiViewer" style="display:none;margin-top:16px">
@@ -1448,28 +1451,56 @@ async function dUpload(input){
 }
 
 /* Einzeldatei oder ganzer Ordner: je Datei ein Upload, Zielordner aus dem relativen Pfad. */
+function dPut(datei, ziel, name, onp){
+  return new Promise((ok,fehler)=>{
+    const x=new XMLHttpRequest();
+    x.open('POST','/api/files/upload?token='+encodeURIComponent(T)+'&name='+encodeURIComponent(NAME)
+      +'&path='+encodeURIComponent(ziel)+'&file='+encodeURIComponent(name));
+    x.upload.onprogress=e=>{ if(onp) onp(e.lengthComputable?e.loaded:0); };
+    x.onload=()=>{ if(x.status>=200&&x.status<300){ ok(x.responseText||''); }
+                   else { fehler(new Error((x.responseText||('HTTP '+x.status)).slice(0,140))); } };
+    x.onerror=()=>fehler(new Error('Netzwerkfehler'));
+    x.onabort=()=>fehler(new Error('abgebrochen'));
+    x.send(datei);
+  });
+}
+
 async function dSende(liste){
   const st=document.getElementById('dateiStatus');
+  const balken=document.getElementById('dateiBalken');
+  const fuell=document.getElementById('dateiBalkenFuell');
   if(!liste.length) return;
-  let ok=0; const fehler=[];
+  const gesamtBytes=liste.reduce((s,e)=>s+(e.datei.size||0),0);
+  const setzePct=p=>{ if(!fuell) return; fuell.style.width=Math.max(0,Math.min(100,p))+'%'; };
+  if(balken) balken.style.display='';
+  setzePct(0);
+  let ok=0, versendet=0; const fehler=[];
   for(let i=0;i<liste.length;i++){
     const datei=liste[i].datei;
     const teile=(liste[i].rel||datei.name).split('/').filter(Boolean);
     const name=teile.pop()||datei.name;
     const unter=teile.join('/');
     const ziel=[DATEI_PFAD, unter].filter(Boolean).join('/');
-    if(st) st.textContent='lade '+(i+1)+'/'+liste.length+': '+(liste[i].rel||name);
+    const beschriftung=liste[i].rel||name;
+    if(st) st.textContent='lade '+(i+1)+'/'+liste.length+': '+beschriftung;
     try{
-      const r = await fetch('/api/files/upload?token='+encodeURIComponent(T)+'&name='+encodeURIComponent(NAME)
-        +'&path='+encodeURIComponent(ziel)+'&file='+encodeURIComponent(name),
-        {method:'POST', body:datei});
-      if(!r.ok) throw new Error((await r.text()).slice(0,140));
+      await dPut(datei, ziel, name, geladen=>{
+        const pct = gesamtBytes
+          ? Math.round((versendet+Math.min(geladen,datei.size||0))/gesamtBytes*100)
+          : Math.round(i/liste.length*100);
+        setzePct(pct);
+        if(st) st.textContent='lade '+(i+1)+'/'+liste.length+' ('+pct+'%): '+beschriftung;
+      });
       ok++;
-    }catch(e){ fehler.push((liste[i].rel||name)+': '+e.message); }
+    }catch(e){ fehler.push(beschriftung+': '+e.message); }
+    versendet += (datei.size||0);
+    setzePct(gesamtBytes ? versendet/gesamtBytes*100 : (i+1)/liste.length*100);
   }
+  if(!fehler.length) setzePct(100);
   if(st) st.textContent = fehler.length
     ? ok+' von '+liste.length+' übertragen, '+fehler.length+' Fehler: '+fehler.slice(0,3).join(' · ')
     : ok+' Datei(en) übertragen';
+  if(balken && !fehler.length) setTimeout(()=>{ balken.style.display='none'; setzePct(0); }, 2500);
 }
 
 /* Ordner per Drag & Drop einsammeln (webkitGetAsEntry kann Ordner lesen). */

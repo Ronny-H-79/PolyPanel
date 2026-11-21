@@ -1,3 +1,13 @@
+## [0.43] — 2026-11-21
+
+### Added
+
+- **Files: upload progress bar.** A bar above the file list tracks the percentage; the status line
+  also names the file, index and percent ("uploading 12/53 (42%): Mods/…/ModInfo.xml"). Uploads now
+  use XMLHttpRequest, since only that exposes real transfer progress (`fetch` cannot). The
+  percentage covers the total size of the whole batch; on success the bar disappears after 2.5
+  seconds, on errors it stays next to the error line.
+
 ## [0.42] — 2026-11-21
 
 ### Added
