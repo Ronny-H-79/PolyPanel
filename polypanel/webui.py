@@ -1439,7 +1439,7 @@ async function dUpload(input){
   const st=document.getElementById('dateiStatus');
   const liste=[];
   for(const f of input.files){
-    const rel=(f.webkitRelativePath||'').replace(/\\/g,'/');
+    const rel=(f.webkitRelativePath||'').split(String.fromCharCode(92)).join('/');
     liste.push({datei:f, rel:rel});
   }
   await dSende(liste);
