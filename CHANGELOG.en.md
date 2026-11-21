@@ -1,3 +1,13 @@
+## [0.42] — 2026-11-21
+
+### Added
+
+- **Files: upload whole folders.** New "Upload folder" button plus drag & drop onto the file list:
+  folders including all subfolders are transferred recursively and keep their structure
+  (`Mods/<Mod>/Config/...`). Previously only single files could be dropped into the open folder and
+  subfolders had to be created by hand. Progress ("uploading 12/53") and errors show up in the Files
+  tab; uploads run one by one, so the 2 GB per-file limit still applies.
+
 ## [0.41] — 2026-11-21
 
 ### Fixed

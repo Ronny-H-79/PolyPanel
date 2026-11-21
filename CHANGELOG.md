@@ -1,3 +1,13 @@
+## [0.42] — 2026-11-21
+
+### Neu
+
+- **Dateien: ganze Ordner hochladen.** Neuer Knopf „Ordner hochladen" und Drag & Drop auf die
+  Dateiliste: Ordner mit allen Unterordnern werden rekursiv uebertragen, die Struktur bleibt
+  erhalten (`Mods/<Mod>/Config/...`). Bisher wanderten nur einzelne Dateien in den offenen Ordner,
+  Unterordner musste man von Hand anlegen. Fortschritt („lade 12/53") und Fehlerzeile stehen
+  im Dateien-Tab, Uploads laufen einzeln und ueberstehen damit die 2-GB-Grenze je Datei.
+
 ## [0.41] — 2026-11-21
 
 ### Behoben

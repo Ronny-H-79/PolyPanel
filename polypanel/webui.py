@@ -1060,12 +1060,14 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
     <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
       <button onclick="dateien(DATEI_PFAD)" data-t="files.reload">Aktualisieren</button>
       <button onclick="document.getElementById('dateiUpload').click()" data-t="files.upload">Hochladen</button>
+      <button onclick="document.getElementById('dateiOrdner').click()" data-t="files.uploaddir">Ordner hochladen</button>
       <button onclick="dMkdir()" data-t="files.mkdir">Neuer Ordner</button>
       <input type="file" id="dateiUpload" multiple style="display:none" onchange="dUpload(this)">
+      <input type="file" id="dateiOrdner" webkitdirectory directory multiple style="display:none" onchange="dUpload(this)">
       <span class="meta" id="dateiStatus"></span>
     </div>
     <div class="meta" id="dateiKrumen" style="margin:12px 0 6px"></div>
-    <div id="dateiListe"><div class="meta">…</div></div>
+    <div id="dateiListe" data-drop="1"><div class="meta">…</div></div>
 
     <div id="dateiViewer" style="display:none;margin-top:16px">
       <div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
@@ -1435,17 +1437,80 @@ async function dateien(pfad){
 
 async function dUpload(input){
   const st=document.getElementById('dateiStatus');
+  const liste=[];
   for(const f of input.files){
-    if(st) st.textContent='lade '+f.name+' …';
-    try{
-      const r = await fetch('/api/files/upload?token='+encodeURIComponent(T)+'&name='+encodeURIComponent(NAME)
-        +'&path='+encodeURIComponent(DATEI_PFAD)+'&file='+encodeURIComponent(f.name),
-        {method:'POST', body:f});
-      if(!r.ok) throw new Error(await r.text());
-    }catch(e){ if(st) st.textContent='Fehler bei '+f.name+': '+e; }
+    const rel=(f.webkitRelativePath||'').replace(/\\/g,'/');
+    liste.push({datei:f, rel:rel});
   }
+  await dSende(liste);
   input.value='';
   dateien(DATEI_PFAD);
+}
+
+/* Einzeldatei oder ganzer Ordner: je Datei ein Upload, Zielordner aus dem relativen Pfad. */
+async function dSende(liste){
+  const st=document.getElementById('dateiStatus');
+  if(!liste.length) return;
+  let ok=0; const fehler=[];
+  for(let i=0;i<liste.length;i++){
+    const datei=liste[i].datei;
+    const teile=(liste[i].rel||datei.name).split('/').filter(Boolean);
+    const name=teile.pop()||datei.name;
+    const unter=teile.join('/');
+    const ziel=[DATEI_PFAD, unter].filter(Boolean).join('/');
+    if(st) st.textContent='lade '+(i+1)+'/'+liste.length+': '+(liste[i].rel||name);
+    try{
+      const r = await fetch('/api/files/upload?token='+encodeURIComponent(T)+'&name='+encodeURIComponent(NAME)
+        +'&path='+encodeURIComponent(ziel)+'&file='+encodeURIComponent(name),
+        {method:'POST', body:datei});
+      if(!r.ok) throw new Error((await r.text()).slice(0,140));
+      ok++;
+    }catch(e){ fehler.push((liste[i].rel||name)+': '+e.message); }
+  }
+  if(st) st.textContent = fehler.length
+    ? ok+' von '+liste.length+' übertragen, '+fehler.length+' Fehler: '+fehler.slice(0,3).join(' · ')
+    : ok+' Datei(en) übertragen';
+}
+
+/* Ordner per Drag & Drop einsammeln (webkitGetAsEntry kann Ordner lesen). */
+function dSammle(entry, pfad, ziel){
+  return new Promise(res=>{
+    try{
+      if(entry.isFile){
+        entry.file(f=>{ ziel.push({datei:f, rel:(pfad?pfad+'/':'')+entry.name}); res(); }, ()=>res());
+      } else if(entry.isDirectory){
+        const leser=entry.createReader(); const alle=[];
+        const weiter=()=>leser.readEntries(async es=>{
+          if(!es.length){
+            for(const e2 of alle) await dSammle(e2,(pfad?pfad+'/':'')+entry.name, ziel);
+            res(); return;
+          }
+          alle.push(...es); weiter();
+        }, ()=>res());
+        weiter();
+      } else res();
+    }catch(e){ res(); }
+  });
+}
+
+function dDropInit(){
+  const box=document.getElementById('dateiListe'); if(!box||box.dataset.dropReady) return;
+  box.dataset.dropReady='1';
+  box.addEventListener('dragover',e=>{e.preventDefault(); box.style.outline='2px dashed #22d3ee';});
+  box.addEventListener('dragleave',()=>{box.style.outline='';});
+  box.addEventListener('drop',async e=>{
+    e.preventDefault(); box.style.outline='';
+    const items=e.dataTransfer.items; const liste=[];
+    if(items&&items.length&&items[0].webkitGetAsEntry){
+      const eintraege=[];
+      for(const it of items){ const en=it.webkitGetAsEntry&&it.webkitGetAsEntry(); if(en) eintraege.push(en); }
+      for(const en of eintraege) await dSammle(en,'',liste);
+    } else {
+      for(const f of e.dataTransfer.files) liste.push({datei:f, rel:f.name});
+    }
+    await dSende(liste);
+    dateien(DATEI_PFAD);
+  });
 }
 
 async function dMkdir(){
@@ -1698,7 +1763,7 @@ function showTab(name, btn){
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));
   if(btn) btn.classList.add('on');
   try{ localStorage.setItem('PolyPanel.tab', name); if(history.replaceState) history.replaceState(null,'','#'+name); }catch(e){}
-  if(name==='files'){ try{ dateien(DATEI_PFAD); renderSftp(); }catch(e){} }
+  if(name==='files'){ try{ dateien(DATEI_PFAD); renderSftp(); dDropInit(); }catch(e){} }
   if(name==='mods'){
     if(!['ark','arkse'].includes(document.body.dataset.game)) loadInstalledMods();   // ARK hat seine Liste darunter
     if(document.body.dataset.game!=='ark'){

@@ -155,6 +155,7 @@ T: dict[str, dict[str, str]] = {
     "files.title": {"de": "Dateien", "en": "Files"},
     "files.reload": {"de": "Aktualisieren", "en": "Refresh"},
     "files.upload": {"de": "Hochladen", "en": "Upload"},
+    "files.uploaddir": {"de": "Ordner hochladen", "en": "Upload folder"},
     "files.mkdir": {"de": "Neuer Ordner", "en": "New folder"},
     "files.save": {"de": "Speichern", "en": "Save"},
     "files.close": {"de": "Schliessen", "en": "Close"},
