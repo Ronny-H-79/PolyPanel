@@ -1,3 +1,14 @@
+## [0.41] — 2026-11-21
+
+### Behoben
+
+- **SFTP-Zugang blieb nach kurzer Zeit tot.** Der Dienst hat alle 30 Sekunden alle Listener
+  geschlossen und neu gebunden; das `wait_closed()` des asyncssh-Servers kann ohne bestehende
+  Verbindung haengenbleiben. Danach war der Port (Standard 2225) dauerhaft geschlossen, obwohl die
+  Unit weiterlief — Verbindungen wurden mit „Connection refused" abgewiesen. Der Dienst bindet
+  jetzt einmal und laesst die Listener stehen; neu gebunden wird nur, wenn sich Port, Benutzer,
+  Passwort oder Chroot einer Instanz aendern (Pruefung alle 10 Sekunden).
+
 ## [0.40] — 2026-11-21
 
 ### Behoben

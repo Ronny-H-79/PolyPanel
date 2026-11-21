@@ -269,6 +269,26 @@ def _instanzen() -> list:
     return gefunden
 
 
+def _plan() -> tuple[tuple, int]:
+    """Signatur der SFTP-relevanten Einstellungen plus Anzahl erwarteter Dienste.
+
+    Aendert sich die Signatur, muss neu gebunden werden; sonst laufen die vorhandenen
+    Listener einfach weiter.
+    """
+    teile = []
+    erwartet = 0
+    for nummer, inst in enumerate(_instanzen()):
+        if not getattr(inst, "sftp_enabled", False):
+            continue
+        passwort = getattr(inst, "sftp_password", "") or ""
+        basis = os.path.abspath(inst.directory)
+        if not passwort or not os.path.isdir(basis):
+            continue
+        erwartet += 1
+        teile.append((inst.name, default_user(inst), port_for(inst, nummer), passwort, basis))
+    return tuple(teile), erwartet
+
+
 async def _aufbauen() -> list:
     ssh = _ssh()
     key = ensure_hostkey()
@@ -314,15 +334,23 @@ def run() -> int:
         return 2
 
     async def haupt() -> None:
+        # Einmal binden und stehen lassen: frueher wurde alle 30 s ab- und wieder aufgebaut.
+        # `await dienst.wait_closed()` blieb dabei haengen (asyncssh-Server ohne Verbindung),
+        # danach war der Port dauerhaft zu. Neu: nur bei geaenderter Konfiguration neu binden.
+        dienste: list = []
+        signatur: tuple = ()
         while True:
-            dienste = await _aufbauen()
-            await asyncio.sleep(30)          # Aenderungen an Port/Passwort greifen nach 30 s
-            for dienst in dienste:
-                dienst.close()
-                try:
-                    await dienst.wait_closed()
-                except Exception:  # noqa: BLE001 - Abschluss darf nicht toeten
-                    pass
+            try:
+                neu, erwartet = _plan()
+            except Exception as exc:      # noqa: BLE001 - Konfiguration darf den Dienst nicht toeten
+                panellog.write("SFTP: Konfiguration nicht lesbar (%s)" % exc.__class__.__name__)
+                neu, erwartet = signatur, len(dienste)
+            if neu != signatur or len(dienste) < erwartet:
+                for dienst in dienste:
+                    dienst.close()
+                dienste = await _aufbauen()
+                signatur = neu
+            await asyncio.sleep(10)          # Aenderungen an Port/Passwort greifen nach 10 s
 
     panellog.write("SFTP-Dienst startet (Basis-Port %d)" % base_port())
     try:

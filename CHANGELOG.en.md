@@ -1,3 +1,13 @@
+## [0.41] — 2026-11-21
+
+### Fixed
+
+- **The SFTP port died a few seconds after start.** The service closed and rebuilt every listener
+  every 30 seconds; asyncssh's `wait_closed()` can hang when no connection ever existed. After that
+  the port (2225 by default) stayed closed while the unit kept running, so clients got
+  "Connection refused". The service now binds once and keeps the listeners; it only rebinds when
+  port, user, password or chroot of an instance change (checked every 10 seconds).
+
 ## [0.40] — 2026-11-21
 
 ### Fixed
