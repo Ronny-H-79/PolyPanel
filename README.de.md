@@ -1,0 +1,295 @@
+# PolyPanel - Multigame-Servermanager für Linux · Web-UI im Browser
+
+ARK: Survival Ascended · ARK: Survival Evolved · Satisfactory · 7 Days to Die · Space Engineers - ein Manager, eine Oberfläche.
+
+[Deutsch](README.de.md) · [English](README.md) - der Installer fragt beim Start nach der Sprache, die Oberfläche lässt sich
+jederzeit umschalten (Knopf oben rechts, `polypanel lang en` in der Konsole).
+
+[![Spenden](https://img.shields.io/badge/Spenden-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?business=ronnyhase%40fn.de&item_name=PolyPanel%20Servermanager&currency_code=EUR)
+[![Discord](https://img.shields.io/badge/Discord-Ark--ASA--ASE--Hilfe-5865F2?logo=discord&logoColor=white)](https://discord.gg/ark-ase-asa-hilfe)
+[![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-25e6a4)](LICENSE)
+[![Tests](https://github.com/Ronny-H-79/PolyPanel/actions/workflows/ci.yml/badge.svg)](https://github.com/Ronny-H-79/PolyPanel/actions/workflows/ci.yml)
+
+[![Ubuntu 24.04](docs/badges/ubuntu.svg)](#installation)
+[![Arch](docs/badges/arch.svg)](#installation)
+[![Debian](docs/badges/debian.svg)](#installation)
+[![Fedora](docs/badges/fedora.svg)](#installation)
+[![openSUSE](docs/badges/opensuse.svg)](#installation)
+
+**[Installation](#installation)** · [Deinstallation](#deinstallieren) · [Funktionen](docs/funktionen.md) · [Zugriff](docs/zugriff.md) · [Betrieb](docs/betrieb.md) · [Technik](docs/technik.md)
+
+Ein eigener Servermanager für ARK-ASA-Dedicated-Server: Start, Stop, Updates, Mods, Backups,
+Einstellungen und Spielerverwaltung über eine Weboberfläche.
+
+> Keine App für deinen PC - kein Windows- oder macOS-Programm. polypanel läuft als Dienst auf dem
+> Linux-Server und wird im **Browser** bedient: vom PC, Notebook, Tablet oder Handy, im Heimnetz oder
+> über VPN. Auf dem Server installierst du es **einmal** (`install.sh`, `git clone`); danach gibt es
+> nichts mehr herunterzuladen und kein Programm zu starten - nur die Adresse mit Token.
+
+Reines Python (nur Standardbibliothek), SteamCMD für Installation und Updates, Wine für den
+Serverprozess, RCON für alles, was der Server von außen anbietet.
+
+![Dashboard](docs/screenshot-dashboard-de.png)
+
+## Weitere Spiele (ARK: Survival Evolved, Satisfactory, 7 Days to Die, Space Engineers)
+
+polypanel kann neben ARK: Survival Ascended auch andere Dedicated Server verwalten. Der Kern
+(Start/Stop, Updates, Backups, Zeitplan, Web-UI, Mehrinstanzen) ist spielunabhängig; ein
+**Spielprofil** liefert nur, was das jeweilige Spiel braucht:
+
+| Profil | Steam-App | Start | Steuerung |
+|---|---|---|---|
+| `ark` | 2430930 | `ArkAscendedServer.exe` unter Wine | Source-RCON |
+| `arkse` | 376030 | `ShooterGame/Binaries/Linux/ShooterGameServer` (nativ) | Source-RCON (`ServerAdminPassword`) |
+| `satisfactory` | 1690800 | `FactoryServer.sh` (nativ) | HTTPS-API `/api/v1` (Bearer-Token) |
+| `7d2d` | 294420 | `startserver.sh` (nativ) | Telnet (`TelnetPassword` in `serverconfig.xml`) |
+| `spaceengineers` | 298740 | `DedicatedServer64/SpaceEngineersDedicated.exe` unter Wine | kein RCON - Start/Stop, XML-Config, Serverkonsole |
+
+Instanz anlegen:
+
+```bash
+polypanel --name insel  init --game arkse --map Ragnarok
+polypanel --name fabrik init --game satisfactory
+polypanel --name horde  init --game 7d2d
+polypanel --name werft  init --game spaceengineers
+polypanel --name fabrik start
+```
+
+**ARK: Survival Evolved** ist die ältere ARK-Generation und braucht kein Wine: SteamCMD liefert einen
+Linux-Server. Die Konfiguration liegt in `ShooterGame/Saved/Config/LinuxServer/`
+(`GameUserSettings.ini` und `Game.ini`); der Manager schreibt Ports, Namen, Admin-Passwort und
+Workshop-Mods hinein, Karte und Cluster-Argumente stehen in der Startzeile. Mods sind
+Steam-Workshop-IDs: die Suche läuft direkt im Workshop, geladen wird beim Start (`-automanagedmods`). Der Einstellungs-Reiter liest **alle** Eigenschaften aus
+beiden INI-Dateien - 262 Werte, alle mit deutschen Beschriftungen.
+
+Im Web-UI nimmt `POST /api/instances` zusätzlich den Parameter `game` an. Ports: Satisfactory
+braucht drei (Spiel `-Port`, `-QueryPort`, `-BeaconPort`), 7 Days to Die Spiel-, Query- und
+Telnet-Port. Die Instanzverzeichnisse liegen unter `~/polypanel-instances/<name>`.
+
+**Space Engineers** ist der einzige Kandidat ohne Linux-Server: SteamCMD liefert nur die
+Windows-.exe. polypanel legt deshalb beim ersten Installieren ein **gemeinsames Wine-Prefix**
+(`~/.polypanel-wine-se`) an und installiert dort `dotnet48` und `vcrun2019` (einmalig, 10–20 min).
+Ohne diese Laufzeit bricht der Start mit einer klaren Meldung ab statt still zu scheitern.
+Konfiguriert wird über `SpaceEngineers-Dedicated.cfg` (über 200 Optionen), die Vorlage bringt
+polypanel mit - Space Engineers legt sie nicht selbst an.
+
+## Einblicke
+
+| | |
+|:--:|:--:|
+| ![Einstellungen](docs/screenshot-settings-de.png) | ![Mods](docs/screenshot-mods-de.png) |
+| ![Übersicht](docs/screenshot-overview-de.png) | ![Verwaltung](docs/screenshot-manage-de.png) |
+
+Mehr dazu: [docs/funktionen.md](docs/funktionen.md)
+
+## Installation
+
+```bash
+git clone https://github.com/Ronny-H-79/PolyPanel.git polypanel   # einmalig
+cd polypanel
+./install.sh --check     # prüfen, was fehlt (ändert nichts)
+./install.sh             # installieren (im eigenen Benutzerkonto, ohne sudo)
+polypanel url           # Adresse mit Token - der Web-Dienst laeuft bereits
+```
+
+Ohne `sudo` installieren: Panel, Instanzen und Server laufen dann unter deinem Benutzer. Für
+**Satisfactory** ist das Pflicht - der Server startet nicht als root.
+
+Als **root** auf einem Server (eine Zeile, ohne Rückfragen - legt den Dienst-Benutzer mit an):
+
+```bash
+git clone https://github.com/Ronny-H-79/PolyPanel.git polypanel && cd polypanel && ./install.sh --auto --lang de --web
+```
+
+Landet unter `/home/polypanel`, Web-Dienst als Benutzer `polypanel`, Port 8790.
+
+Token vergessen oder Adresse verloren?
+
+```bash
+polypanel token          # Web-Token mit Dateipfad und Adresse
+polypanel token --quiet  # nur der Token (für Skripte)
+polypanel url            # fertige Adresse inklusive Token
+```
+
+Wenn der Befehl nicht im `PATH` liegt (Dienst-Benutzer, andere Sitzung) - voller Pfad:
+
+```bash
+/home/polypanel/.local/bin/polypanel token              # als Benutzer polypanel
+su - polypanel -c '/home/polypanel/.local/bin/polypanel token'   # als root
+```
+
+Wenn du nur die **Adresse** willst (mit IP und Token fertig zum Kopieren):
+
+```bash
+/home/polypanel/.local/bin/polypanel url        # http://<IP>:8790/?token=...
+```
+
+Ohne den Befehl (reine Shell, falls nichts installiert ist oder der PATH fehlt):
+
+```bash
+echo "http://$(hostname -I | awk '{print $1}'):8790/?token=$(cat /home/polypanel/.config/polypanel/token)"
+```
+
+Der Token liegt zusätzlich in `/home/polypanel/.config/polypanel/token` für den Dienst-Benutzer
+bzw. `~/.config/polypanel/token` bei einer Installation im eigenen Konto (Rechte `600`).
+
+Die fertige Adresse schreibt das Panel zusätzlich nach `/home/polypanel/.config/polypanel/url` (Rechte `600`) -
+`cat` genügt, sie bleibt auch nach einem Neustart aktuell.
+
+Der Token bleibt immer gleich. Er wird beim ersten Start einmal erzeugt und danach aus
+`~/.config/polypanel/token` gelesen - Neustarts, Updates und Neuinstallationen des Panels ändern ihn
+nicht. Erst wenn du diese Datei löschst, entsteht ein neuer Token, und erst dann hören alte Links auf
+zu funktionieren.
+
+Instanzen legst du **im Browser** an: Adresse aus der Ausgabe öffnen, Namen eintragen, Spiel und Karte
+wählen, **Anlegen** drücken - die Karte bietet dann **Installieren** an (SteamCMD, danach Start).
+Nach dem ersten Befehl braucht es kein Terminal mehr.
+
+Nur Konsole, optional: `polypanel wizard` ist die Terminal-Alternative zum Browser - fragt Name,
+Karte, Port und Session-Namen ab, lädt die Serverdateien und richtet den systemd-Dienst ein. Er
+braucht eine interaktive Sitzung und ist **nicht** nötig: alles, was der Wizard macht, geht auch in
+der Web-Oberfläche. `./install.sh --wizard` startet ihn direkt nach der Installation.
+
+**Voraussetzungen:** Linux, Python ≥ 3.10, Wine, `curl` und `tar`. Fehlende Pakete fragt der Installer
+und installiert sie auf Wunsch (`pacman`, `apt`, `dnf`, `zypper`). SteamCMD lädt er selbst nach,
+root-Rechte braucht nur das Nachinstallieren von Wine.
+
+**Wo es getestet ist**: Stand 8. November 2026, jeweils mit laufendem ARK-ASA-Server:
+
+| System | Version | Umgebung |
+|---|---|---|
+| Ubuntu LTS | 24.04.5 | Python 3.12.3, Wine 9.0 |
+| Arch Linux (CachyOS) | aktuell | Python 3.14.9, Wine 11.21 |
+
+Debian, Fedora und openSUSE unterstützt der Installer ebenfalls (`apt`, `dnf`, `zypper`), dort ist
+polypanel aber noch nicht durchgetestet - Rückmeldung willkommen. Nötig ist 64-Bit-Wine (für den
+Windows-Server von ARK); ältere Wine-Stände unter 8.0 sind nicht getestet.
+
+Prüfen, was die eigene Kiste hat:
+
+```bash
+. /etc/os-release && echo "$PRETTY_NAME"; python3 --version; wine --version
+```
+
+Der Installer stellt nacheinander:
+
+- **Sprache** (Deutsch/Englisch)
+- ob fehlende Pakete (**Wine**, iproute2) nachinstalliert werden sollen
+- wie die Oberfläche erreichbar sein soll:
+  **Tunnel**: nur client-seitig über SSH,
+  **Domain**: öffentlich mit HTTPS (wird gleich mitgespeichert),
+  **IP**: direkt über IP und Port (HTTP, Port in der Firewall freigeben)
+- **nur bei „Domain"**: ob die Web-Oberfläche dauerhaft laufen soll (`polypanel-web.service`) - als root ein
+  **Systemdienst** in `/etc/systemd/system` (startet beim Booten, kein Login und kein `linger` nötig),
+  als normaler Benutzer ein User-Dienst in `~/.config/systemd/user`
+
+Bei **„Tunnel"** entfällt die letzte Frage: dafür braucht es keinen Dauerdienst, die Oberfläche wird
+mit `polypanel web` gestartet, wenn du sie brauchst.
+
+Am Ende steht genau der Befehl, der zu deiner Wahl passt: der SSH-Tunnel mit deinem Benutzer und der
+**IP des Servers** (nicht dem Hostnamen - der ist von außen oft nicht auflösbar), oder
+`sudo polypanel proxy --write --cert`, das die gespeicherte Domain automatisch verwendet.
+`--web` / `--no-web` überspringt die Dienst-Frage.
+
+> **Sicherheit:** Die Oberfläche ist eine Administrationskonsole - wer den Token hat, kann alles
+> steuern. Modus `[3]` (direkt über IP) ist **unverschlüsselt**, der Token ist dort mitlesbar. Nimm
+> `[1]` (SSH-Tunnel) oder `[2]` (HTTPS). Details: [docs/zugriff.md](docs/zugriff.md#sicherheit--was-der-token-bedeutet)
+
+### Wenn die Installation hakt
+
+| Meldung | Ursache | Lösung |
+|---|---|---|
+| `fatal: destination path 'PolyPanel' already exists` | der Ordner liegt schon da | `cd polypanel && git pull` statt erneut klonen |
+| `./install.sh: No such file or directory` **nach** `cd polypanel/polypanel` | du stehst im Paketordner `PolyPanel/PolyPanel` - dort liegen nur `.py`-Dateien | `cd ..` - `install.sh` liegt eine Ebene höher, im Projektordner |
+| `PolyPanel: command not found` | `~/.local/bin` ist nicht im `PATH` | als root legt der Installer `/usr/local/bin/polypanel` an; sonst `export PATH="$HOME/.local/bin:$PATH"` und neue Shell öffnen |
+
+Eine Falle bei Namensgleichheit: im Projektordner heißt der Python-Teil ebenfalls `polypanel`.
+`cd polypanel/polypanel` führt dich also ein zweites Mal hinein - dort liegen `cli.py`, `i18n.py` und Co., aber kein
+`install.sh`. Merksatz: der richtige Ordner ist der mit `install.sh`, `README.md` und `docs/`.
+
+Als **root** auf einem Server: alle Befehle in einer Sitzung hintereinander ausführen, sonst landet
+man schnell im falschen Verzeichnis. Und für `systemctl --user` (Autostart) einmalig
+`loginctl enable-linger root` - sonst startet der Dienst erst beim Login.
+
+Details, Voraussetzungen und Deinstallation: [INSTALL.md](INSTALL.de.md)
+
+## Deinstallieren
+
+**Nur das Programm** (Instanzen, Backups und Einstellungen bleiben):
+
+```bash
+cd ~/polypanel          # in den Klon des Repos wechseln
+./install.sh --uninstall
+```
+
+Das beendet und entfernt auch die systemd-Dienste (`polypanel-web`, `polypanel-*`), damit nach dem Löschen
+kein Dienst mehr ins Leere zeigt. Ist der Quellordner schon weg, reicht von Hand:
+
+```bash
+# Installation als root (Systemdienst) - der Normalfall auf einem Server
+systemctl disable --now polypanel-web.service
+rm -f /etc/systemd/system/polypanel-*.service /usr/local/bin/polypanel
+rm -rf /root/.local/share/polypanel
+
+# nur bei Installation als normaler Nutzer: dafuer muss eine Sitzung des Nutzers
+# laufen, sonst bricht systemctl --user ab ("DBUS_SESSION_BUS_ADDRESS not defined")
+systemctl --user disable --now polypanel-web.service
+rm -f ~/.config/systemd/user/polypanel-*.service ~/.local/bin/polypanel
+rm -rf ~/.local/share/polypanel
+```
+
+**Alles weg**: zusätzlich Konfiguration, Token, Sicherungen und Serverdaten (zusammen etwa 24 GB):
+
+```bash
+rm -rf ~/.config/polypanel          # Instanzen, Token, Mod-Cache
+rm -rf ~/polypanel-backups          # Welt-Backups
+rm -rf ~/polypanel-snapshots        # Instanz-Snapshots
+rm -rf ~/polypanel-instances        # die Serverdateien der Instanzen
+rm -rf ~/.wine                      # Wine-Prefix (Standard)
+rm -rf ~/.polypanel-wine-se         # Wine-Prefix für Space Engineers
+```
+
+Der letzte Schritt ist der einzige, der wirklich unwiederbringlich ist: Welt und Configs liegen in
+`~/polypanel-backups` - wer die behält, kann später alles wieder herstellen.
+
+**SteamCMD** (`~/steamcmd`, `~/.steam`, `~/Steam`) wird von `--uninstall` ebenfalls entfernt.
+
+### Alles entfernen (auch Instanzen und Welten)
+
+```bash
+cd ~/polypanel          # in den Klon des Repos wechseln
+./install.sh --uninstall
+rm -rf ~/polypanel-instances ~/.config/polypanel ~/polypanel-backups ~/polypanel-snapshots
+rm -rf ~/.wine ~/.polypanel-wine-se # Wine-Prefixe (Standard und Space Engineers)
+rm -f /etc/systemd/system/polypanel-*.service
+systemctl daemon-reload
+```
+
+Was wo liegt: Programm `~/.local/share/polypanel` und `~/.local/bin/polypanel`, Einstellungen und
+Token `~/.config/polypanel`, Instanzen mit Welten `~/polypanel-instances/<name>`, SteamCMD `~/steamcmd`,
+`~/.steam` und `~/Steam`.
+
+## Mehr
+
+| Thema | Datei |
+|---|---|
+| **Funktionen**: Übersicht, Screenshots, Mod-Suche, Discord-Meldungen | [docs/funktionen.md](docs/funktionen.md) |
+| **Zugriff**: SSH-Tunnel, LAN, HTTPS per nginx, Token | [docs/zugriff.md](docs/zugriff.md) |
+| **Betrieb**: Selbst-Update, Changelog, Sprache | [docs/betrieb.md](docs/betrieb.md) |
+| **Technik**: Aufbau, Konsole, Stop-Reihenfolge, Interna | [docs/technik.md](docs/technik.md) |
+
+Was sich zwischen Versionen geändert hat: [CHANGELOG.md](CHANGELOG.md) ·
+Installationsdetails: [INSTALL.md](INSTALL.de.md)
+
+## Hilfe
+
+Fragen, Probleme oder einfach andere Serverbetreiber: die Community
+**[Ark-ASA-ASE-Hilfe](https://discord.gg/ark-ase-asa-hilfe)** auf Discord hilft bei Einstellungen,
+Mods und Startproblemen. Dort bekommst du auch Rueckmeldung zu PolyPanel.
+
+## Lizenz
+
+**MIT**: mach damit, was du willst. Nutzen, ändern, eigene Fassung veröffentlichen, auch kommerziell;
+nur der Copyright-Hinweis und der Haftungsausschluss müssen bleiben. Details: [LICENSE](LICENSE).
+
+© 2026 Ronny H.
