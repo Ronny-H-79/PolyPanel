@@ -1,0 +1,325 @@
+"""Config-Editor fuer GameUserSettings.ini und Game.ini (mit Sicherungskopie)."""
+from __future__ import annotations
+
+import os
+
+from .instance import Instance
+
+FILES = {"gus": "GameUserSettings.ini", "game": "Game.ini"}
+
+MAX_BYTES = 512 * 1024
+
+# Haeufig gebrauchte Einstellungen: (datei, sektion, schluessel, label, hinweis)
+KNOWN = [
+    # (datei, sektion, schluessel, label, hinweis, typ)
+    ("gus", "MessageOfTheDay", "Message", "MOTD-Text", "erscheint beim Verbinden, mehrere Zeilen erlaubt", "longtext"),
+    ("gus", "MessageOfTheDay", "Duration", "MOTD-Dauer (Sekunden)", "Standard 60", "int"),
+    ("gus", "ServerSettings", "ServerPVE", "PvE-Modus", "PvP aus, PvE an", "bool"),
+    ("gus", "ServerSettings", "ServerHardcore", "Hardcore", "Tod = Charakter weg", "bool"),
+    ("gus", "ServerSettings", "DifficultyOffset", "Schwierigkeit", "0.0 - 1.0 (1.0 = max. Level)", "float"),
+    ("gus", "ServerSettings", "OverrideOfficialDifficulty", "Offizielle Schwierigkeit ueberschreiben", "z. B. 5.0", "float"),
+    ("gus", "ServerSettings", "MaxPlayers", "Max. Spieler", "1 - 70 (auf Steam)", "int"),
+    ("gus", "ServerSettings", "ServerAdminPassword", "Admin-Passwort", "leer = kein Admin-Zugang", "text"),
+    ("gus", "ServerSettings", "ServerPassword", "Server-Passwort", "leer = Server offen", "text"),
+    ("gus", "ServerSettings", "RCONEnabled", "RCON aktiv", "muss True sein fuer diesen Manager", "bool"),
+    ("gus", "ServerSettings", "RCONPort", "RCON-Port", "TCP-Port", "int"),
+    ("gus", "ServerSettings", "AutoSavePeriodMinutes", "Autosave (Minuten)", "Standard 15", "float"),
+    ("gus", "ServerSettings", "TamingSpeedMultiplier", "Zaehmgeschwindigkeit", "1.0 = offiziell, 5.0 = 5x", "float"),
+    ("gus", "ServerSettings", "XPMultiplier", "XP-Multiplikator", "1.0 = offiziell", "float"),
+    ("gus", "ServerSettings", "HarvestAmountMultiplier", "Erntemenge", "1.0 = offiziell", "float"),
+    ("gus", "ServerSettings", "HarvestHealthMultiplier", "Ernte-Zaehigkeit", "hoeher = mehr pro Schlag", "float"),
+    ("gus", "ServerSettings", "DinoCharacterFoodDrainMultiplier", "Dino-Futterverbrauch", "1.0 = offiziell", "float"),
+    ("gus", "ServerSettings", "PlayerCharacterFoodDrainMultiplier", "Spieler-Hunger", "1.0 = offiziell", "float"),
+    ("gus", "ServerSettings", "PlayerCharacterWaterDrainMultiplier", "Spieler-Durst", "1.0 = offiziell", "float"),
+    ("gus", "ServerSettings", "DinoCountMultiplier", "Dino-Dichte", "1.0 = offiziell", "float"),
+    ("gus", "ServerSettings", "DayTimeSpeedScale", "Tagesgeschwindigkeit", "1.0 = offiziell", "float"),
+    ("gus", "ServerSettings", "NightTimeSpeedScale", "Nachtgeschwindigkeit", "1.0 = offiziell", "float"),
+    ("gus", "ServerSettings", "AllowThirdPersonPlayer", "Third-Person erlauben", "", "bool"),
+    ("gus", "ServerSettings", "ShowMapPlayerLocation", "Eigene Position auf Karte", "", "bool"),
+    ("gus", "ServerSettings", "AllowCaveBuildingPvE", "Bauen in Hoehlen (PvE)", "", "bool"),
+    ("gus", "ServerSettings", "KickIdlePlayersPeriod", "Idle-Kick nach (Sekunden)", "3600 = 1 Stunde", "int"),
+    ("gus", "ServerSettings", "AdminLogging", "Admin-Befehle im Chat loggen", "", "bool"),
+    ("gus", "SessionSettings", "SessionName", "Session-Name", "Name in der Serverliste", "text"),
+    ("game", "/script/shootergame.shootergamemode", "MatingIntervalMultiplier", "Paarungsintervall", "1.0 = offiziell", "float"),
+    ("game", "/script/shootergame.shootergamemode", "EggHatchSpeedMultiplier", "Ei-Schluepfgeschwindigkeit", "1.0 = offiziell", "float"),
+    ("game", "/script/shootergame.shootergamemode", "BabyMatureSpeedMultiplier", "Baby-Wachstum", "1.0 = offiziell", "float"),
+    ("game", "/script/shootergame.shootergamemode", "BabyFoodConsumptionSpeedMultiplier", "Baby-Futterverbrauch", "1.0 = offiziell", "float"),
+    ("game", "/script/shootergame.shootergamemode", "BabyImprintingStatScaleMultiplier", "Praegungs-Bonus", "1.0 = offiziell", "float"),
+    ("game", "/script/shootergame.shootergamemode", "CropGrowthSpeedMultiplier", "Pflanzenwachstum", "1.0 = offiziell", "float"),
+    ("game", "/script/shootergame.shootergamemode", "LayEggIntervalMultiplier", "Ei-Abstand", "1.0 = offiziell", "float"),
+    ("game", "/script/shootergame.shootergamemode", "StructureDamageMultiplier", "Struktur-Schaden", "1.0 = offiziell", "float"),
+    ("game", "/script/shootergame.shootergamemode", "PerLevelStatsMultiplier_DinoTamed_Add[0]", "Dino-HP pro Level (zusaetzlich)", "1.0 = offiziell", "float"),
+    ("gus", "ServerSettings", "NoTributeDownloads", "Tribute-Downloads sperren", "kein Herunterladen von Obelisken/Transmittern", "bool"),
+    ("gus", "ServerSettings", "PreventDownloadSurvivors", "Spieler-Download sperren", "", "bool"),
+    ("gus", "ServerSettings", "PreventDownloadItems", "Item-Download sperren", "", "bool"),
+    ("gus", "ServerSettings", "PreventDownloadDinos", "Dino-Download sperren", "", "bool"),
+    ("gus", "ServerSettings", "PreventUploadSurvivors", "Spieler-Upload sperren", "", "bool"),
+    ("gus", "ServerSettings", "PreventUploadItems", "Item-Upload sperren", "", "bool"),
+    ("gus", "ServerSettings", "PreventUploadDinos", "Dino-Upload sperren", "", "bool"),
+    ("gus", "ServerSettings", "CrossARKAllowForeignDinoDownloads", "Fremde Cluster-Dinos erlauben", "", "bool"),
+    ("gus", "ServerSettings", "AllowFlyerCarryPvP", "Flieger tragen Spieler (PvP)", "", "bool"),
+    ("gus", "ServerSettings", "AllowRaidDinoFeeding", "Raid-Dinos füttern", "", "bool"),
+    ("gus", "ServerSettings", "AllowMultipleAttachedC4", "Mehrere C4 an einem Ziel", "", "bool"),
+    ("gus", "ServerSettings", "PreventOfflinePvP", "Offline-Raid-Schutz", "", "bool"),
+    ("gus", "ServerSettings", "PreventOfflinePvPInterval", "Schutz-Verzögerung (Sekunden)", "", "float"),
+    ("gus", "ServerSettings", "PreventTribeAlliances", "Tribe-Allianzen verbieten", "", "bool"),
+    ("gus", "ServerSettings", "MaxNumberOfPlayersInTribe", "Max. Spieler pro Tribe", "", "int"),
+    ("gus", "ServerSettings", "TribeNameChangeCooldown", "Tribe-Namenswechsel (Sekunden)", "", "float"),
+    ("gus", "ServerSettings", "PvPStructureDecay", "Struktur-Verfall im PvP", "", "bool"),
+    ("gus", "ServerSettings", "PvEStructureDecayPeriodMultiplier", "Verfallszeit (PvE)", "höher = langsamer", "float"),
+    ("gus", "ServerSettings", "DisableStructureDecayPvE", "Struktur-Verfall (PvE) aus", "", "bool"),
+    ("gus", "ServerSettings", "ForceAllStructureLocking", "Alle Strukturen abschließbar", "", "bool"),
+    ("gus", "ServerSettings", "AlwaysAllowStructurePickup", "Strukturen immer aufhebbar", "", "bool"),
+    ("gus", "ServerSettings", "StructurePickupTimeAfterPlacement", "Aufheben erlaubt nach (Sekunden)", "", "float"),
+    ("gus", "ServerSettings", "OverrideStructurePlatformPrevention", "Bauen auf Plattformen erlauben", "", "bool"),
+    ("gus", "ServerSettings", "TheMaxStructuresInRange", "Max. Strukturen im Umkreis", "", "int"),
+    ("gus", "ServerSettings", "StructureDamageRepairCooldown", "Reparatur-Cooldown (Sekunden)", "", "float"),
+    ("gus", "ServerSettings", "AutoDestroyDecayedDinos", "Verfallene Dinos entfernen", "", "bool"),
+    ("gus", "ServerSettings", "DisableDinoDecayPvE", "Dino-Verfall (PvE) aus", "", "bool"),
+    ("gus", "ServerSettings", "PvEDinoDecayPeriodMultiplier", "Dino-Verfallszeit (PvE)", "höher = langsamer", "float"),
+    ("gus", "ServerSettings", "MaxTamedDinos", "Max. gezähmte Dinos", "", "int"),
+    ("gus", "ServerSettings", "MaxPersonalTamedDinos", "Max. Dinos pro Spieler", "", "int"),
+    ("gus", "ServerSettings", "AllowAnyoneBabyImprintCuddle", "Jeder darf Babys prägen", "", "bool"),
+    ("gus", "ServerSettings", "DisableImprintDinoBuff", "Prägungs-Bonus abschalten", "", "bool"),
+    ("gus", "ServerSettings", "RaidDinoCharacterFoodDrainMultiplier", "Raid-Dino-Futterverbrauch", "", "float"),
+    ("gus", "ServerSettings", "ShowFloatingDamageText", "Schadenszahlen anzeigen", "", "bool"),
+    ("gus", "ServerSettings", "AllowFlyingStaminaRecovery", "Ausdauer im Flug erholen", "", "bool"),
+    ("gus", "ServerSettings", "ClampItemSpoilingTimes", "Verfallszeiten begrenzen", "", "bool"),
+    ("gus", "ServerSettings", "ClampResourceHarvestDamage", "Ernte-Schaden begrenzen", "", "bool"),
+    ("gus", "ServerSettings", "bDisableStructurePlacementCollision", "Kollision beim Bauen aus", "", "bool"),
+    ("gus", "ServerSettings", "ResourceNoReplenishRadiusPlayers", "Kein Nachwachsen um Spieler", "", "float"),
+    ("gus", "ServerSettings", "ResourceNoReplenishRadiusStructures", "Kein Nachwachsen um Bauten", "", "float"),
+    ("gus", "ServerSettings", "AllowHitMarkers", "Treffer-Markierungen", "", "bool"),
+    ("game", "/script/shootergame.shootergamemode", "TamedDinoCharacterFoodDrainMultiplier", "Gezähmte Dinos: Futterverbrauch", "", "float"),
+    ("game", "/script/shootergame.shootergamemode", "WildDinoCharacterFoodDrainMultiplier", "Wilde Dinos: Futterverbrauch", "", "float"),
+    ("game", "/script/shootergame.shootergamemode", "WildDinoTorporDrainMultiplier", "Wilde Dinos: Betäubung", "", "float"),
+    ("game", "/script/shootergame.shootergamemode", "TamedDinoTorporDrainMultiplier", "Gezähmte Dinos: Betäubung", "", "float"),
+    ("game", "/script/shootergame.shootergamemode", "PlayerHarvestingDamageMultiplier", "Spieler-Ernteschaden", "", "float"),
+    ("game", "/script/shootergame.shootergamemode", "DinoHarvestingDamageMultiplier", "Dino-Ernteschaden", "", "float"),
+    ("game", "/script/shootergame.shootergamemode", "CraftingSkillBonusMultiplier", "Handwerks-Bonus", "", "float"),
+    ("game", "/script/shootergame.shootergamemode", "PassiveTameIntervalMultiplier", "Passives Zähmen: Intervall", "", "float"),
+    ("game", "/script/shootergame.shootergamemode", "FuelConsumptionMultiplier", "Treibstoffverbrauch", "", "float"),
+    ("game", "/script/shootergame.shootergamemode", "MatingRangeMultiplier", "Paarungs-Reichweite", "", "float"),
+    ("game", "/script/shootergame.shootergamemode", "bDisableDinoTaming", "Zähmen komplett aus", "", "bool"),
+    ("game", "/script/shootergame.shootergamemode", "bDisableFriendlyFire", "Eigenbeschuss aus", "", "bool"),
+]
+
+
+def path_for(inst: Instance, which: str) -> str:
+    name = FILES.get(which)
+    if not name:
+        raise ValueError("unbekannte Datei: %s" % which)
+    return os.path.join(inst.config_dir, name)
+
+
+def read(inst: Instance, which: str) -> str:
+    path = path_for(inst, which)
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            return fh.read()
+    except OSError as exc:
+        return "; Datei konnte nicht gelesen werden: %s" % exc
+
+
+def _sync_admin_pw(inst: Instance, which: str) -> None:
+    """Admin-Passwort aus der Serverdatei in die Instanz-Config uebernehmen.
+
+    ARK liest `?ServerAdminPassword=` aus der Startzeile und schreibt diesen Wert beim Start in die
+    Datei zurueck. Ein Passwort, das nur in der Datei steht, ist beim naechsten Neustart (und damit
+    nach jedem Update) wieder weg. Deshalb wandert es hier in die Instanz - Startzeile, Datei und
+    RCON-Anmeldung nutzen danach denselben Wert.
+    """
+    if which != "gus":
+        return
+    value = _parse_ini(read(inst, "gus")).get(("serversettings", "serveradminpassword"), "").strip()
+    if value == inst.admin_password:
+        return
+    inst.admin_password = value
+    from . import registry
+    registry.save(inst)
+
+
+def _sync_gus_values(inst: Instance, which: str) -> None:
+    """SessionName und MaxPlayers aus der GameUserSettings.ini in die Instanz uebernehmen.
+
+    `Instance.write_ini()` schreibt beim Start SessionName, Ports und MaxPlayers aus der
+    Instanz-Config in die INI - eine Aenderung, die nur in der INI steht (Datei-Editor oder
+    Einstellungsseite), waere beim naechsten Start wieder weg. Deshalb wandern diese Werte
+    hier in die Instanz, damit INI, Startzeile und Oberflaeche denselben Stand zeigen.
+    """
+    if which != "gus":
+        return
+    werte = _parse_ini(read(inst, "gus"))
+    geaendert = False
+    name = werte.get(("sessionsettings", "sessionname"), "").strip()
+    if name and name != inst.session_name:
+        inst.session_name = name
+        geaendert = True
+    zahl = werte.get(("serversettings", "maxplayers"), "").strip()
+    if zahl.isdigit() and int(zahl) != inst.max_players:
+        inst.max_players = int(zahl)
+        geaendert = True
+    if geaendert:
+        from . import registry
+        registry.save(inst)
+
+
+def _write_text(path: str, text: str) -> None:
+    """Text schreiben und die Zeilenenden der vorhandenen Datei beibehalten.
+
+    ARK schreibt die INIs mit CRLF. Ein Neuschreiben mit LF funktioniert zwar,
+    laesst die Datei aber bei jedem Speichern schrumpfen (1 Byte je Zeile) und
+    weicht vom Original ab - deshalb CRLF uebernehmen, wenn sie schon da war.
+    """
+    crlf = False
+    try:
+        with open(path, "rb") as fh:
+            crlf = b"\r\n" in fh.read(65536)
+    except OSError:
+        pass
+    if crlf:
+        text = text.replace("\r\n", "\n").replace("\n", "\r\n")
+    with open(path, "wb") as fh:
+        fh.write(text.encode("utf-8"))
+
+
+def write(inst: Instance, which: str, text: str) -> str:
+    if len(text) > MAX_BYTES:
+        raise ValueError("Datei zu gross (max %d Bytes)" % MAX_BYTES)
+    path = path_for(inst, which)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    backup = ""
+    if os.path.exists(path):
+        from . import backups
+        backup = backups.save_config_copy(inst, path)
+    _write_text(path, text)
+    _sync_admin_pw(inst, which)
+    _sync_gus_values(inst, which)
+    return backup
+
+
+def known_for(which: str) -> list[dict]:
+    from .i18n import setting
+    out = []
+    for (f, section, key, label, hint, _typ) in KNOWN:
+        if f != which:
+            continue
+        label, hint = setting(key, label, hint)
+        out.append({"section": section, "key": key, "label": label, "hint": hint})
+    return out
+
+
+def _parse_ini(text: str) -> dict[tuple[str, str], str]:
+    """{ (sektion_klein, schluessel_klein): wert } aus einer INI."""
+    values: dict[tuple[str, str], str] = {}
+    section = ""
+    for line in text.splitlines():
+        raw = line.strip()
+        if not raw or raw.startswith(";") or raw.startswith("#"):
+            continue
+        if raw.startswith("[") and raw.endswith("]"):
+            section = raw[1:-1].strip().lower()
+        elif "=" in raw:
+            key, _, val = raw.partition("=")
+            values[(section, key.strip().lower())] = val.strip()
+    return values
+
+
+# Reiter im Einstellungs-Formular: Schluessel -> Gruppe. Bewusst hier gepflegt,
+# damit die Gruppierung zentral steht und nicht im JavaScript steckt.
+_SRV = {"ServerPassword", "ServerAdminPassword", "MaxPlayers", "RCONEnabled", "RCONPort",
+        "AutoSavePeriodMinutes", "KickIdlePlayersPeriod", "AdminLogging"}
+_PVP = {"ServerPVE", "ServerHardcore", "AllowFlyerCarryPvP", "AllowRaidDinoFeeding",
+        "AllowMultipleAttachedC4", "PreventOfflinePvP", "PreventOfflinePvPInterval",
+        "PreventTribeAlliances", "MaxNumberOfPlayersInTribe", "TribeNameChangeCooldown"}
+_DINO = {"MaxTamedDinos", "MaxPersonalTamedDinos", "AllowAnyoneBabyImprintCuddle",
+         "DisableImprintDinoBuff", "RaidDinoCharacterFoodDrainMultiplier",
+         "DinoCharacterFoodDrainMultiplier", "DinoCountMultiplier"}
+_HUD = {"AllowThirdPersonPlayer", "ShowMapPlayerLocation", "ShowFloatingDamageText", "AllowHitMarkers"}
+_STRUCT_EXTRA = {"AllowCaveBuildingPvE", "AutoDestroyDecayedDinos", "DisableDinoDecayPvE",
+                 "PvEDinoDecayPeriodMultiplier", "bDisableStructurePlacementCollision"}
+_TRANSFER_IN = {"NoTributeDownloads", "CrossARKAllowForeignDinoDownloads"}
+GROUPS = ("srv", "play", "pvp", "struct", "dino", "transfer", "hud", "motd", "game")
+
+
+def group_of(which: str, section: str, key: str) -> str:
+    """Einstellung einem Reiter zuordnen (Reihenfolge der Pruefungen ist wichtig)."""
+    if which == "game":
+        return "game"
+    if section == "MessageOfTheDay":
+        return "motd"
+    if key in _SRV or section == "SessionSettings":
+        return "srv"
+    if key.startswith(("PreventDownload", "PreventUpload")) or key in _TRANSFER_IN:
+        return "transfer"
+    if key in _PVP:
+        return "pvp"
+    if "Structure" in key or key in _STRUCT_EXTRA:
+        return "struct"
+    if key in _DINO:
+        return "dino"
+    if key in _HUD:
+        return "hud"
+    return "play"
+
+
+def read_values(inst: Instance) -> list[dict]:
+    """Alle bekannten Einstellungen mit aktuellem Wert (GUI-Formular)."""
+    from .i18n import setting
+    cache: dict[str, dict[tuple[str, str], str]] = {}
+    out: list[dict] = []
+    for (which, section, key, label, hint, typ) in KNOWN:
+        label, hint = setting(key, label, hint)
+        if which not in cache:
+            cache[which] = _parse_ini(read(inst, which))
+        value = cache[which].get((section.lower(), key.lower()), "")
+        out.append({"file": which, "section": section, "key": key, "label": label,
+                    "hint": hint, "type": typ, "value": value,
+                    "group": group_of(which, section, key)})
+    return out
+
+
+def set_value(inst: Instance, which: str, section: str, key: str, value: str) -> None:
+    """Einzelwert zeilenweise ersetzen/ergaenzen - Kommentare und Reihenfolge bleiben erhalten."""
+    path = path_for(inst, which)
+    if os.path.exists(path):
+        from . import backups
+        backups.save_config_copy(inst, path)
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            lines = fh.read().splitlines()
+    else:
+        lines = ["[%s]" % section]
+
+    target = section.lower()
+    current = ""
+    start = end = -1
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            name = stripped[1:-1].strip().lower()
+            if current == target and end < 0:
+                end = idx
+            current = name
+            if name == target and start < 0:
+                start = idx
+    if start >= 0 and end < 0:
+        end = len(lines)
+    if start < 0:
+        if lines and lines[-1].strip():
+            lines.append("")
+        lines.append("[%s]" % section)
+        lines.append("%s=%s" % (key, value))
+    else:
+        replaced = False
+        for idx in range(start + 1, end):
+            stripped = lines[idx].strip()
+            if stripped.lower().startswith(key.lower() + "=") or stripped.lower().startswith(key.lower() + " ="):
+                lines[idx] = "%s=%s" % (key, value)
+                replaced = True
+                break
+        if not replaced:
+            lines.insert(end, "%s=%s" % (key, value))
+
+    _write_text(path, "\n".join(lines) + "\n")
+    _sync_admin_pw(inst, which)
+    _sync_gus_values(inst, which)
