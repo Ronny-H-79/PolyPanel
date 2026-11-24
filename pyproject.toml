@@ -1,0 +1,39 @@
+[project]
+name = "polypanel"
+dynamic = ["version"]
+description = "Multigame server manager for Linux (ARK, Satisfactory, 7 Days to Die, Space Engineers)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Ronny H.", url = "https://github.com/Ronny-H-79" }]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Topic :: System :: Systems Administration",
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "polypanel.__version__" }
+
+[project.urls]
+Homepage = "https://github.com/Ronny-H-79/PolyPanel"
+Issues = "https://github.com/Ronny-H-79/PolyPanel/issues"
+Changelog = "https://github.com/Ronny-H-79/PolyPanel/blob/master/CHANGELOG.md"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+exclude = ["docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = [
+  "E501",    # Zeilenlaenge: 120 Zeichen sind hier die Grenze, kein Streitfall
+  "B008",    # Default-Argumente mit Aufruf sind gewollt (Pfad-Helfer)
+  "UP031",   # printf-Stil (%) ist hier durchgaengig und bewusst so
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
