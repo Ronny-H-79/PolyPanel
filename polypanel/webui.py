@@ -1,0 +1,4758 @@
+"""Web-UI fuer PolyPanel: Dashboard mit Instanzen + Instanzseiten + JSON-API."""
+from __future__ import annotations
+
+import glob
+import hmac
+import json
+import os
+import re
+import secrets
+import shutil
+import socket
+import ssl
+import threading
+import time
+import urllib.parse
+from html import escape as html_escape
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from . import __version__, bans, catalog, games, i18n, installer, metrics, playerids, registry, runner, supervisor
+from . import backups as bk
+from . import commands as cmdreg
+from . import config as cfgfile
+from . import mods as modlib
+from . import notify as notify_mod
+from . import panellog as plog
+from . import report as report_mod
+from . import snapshots as snap
+from . import whitelist as wl
+from .instance import Instance
+from .paths import TOKEN_PATH
+
+RE_PLAYER = re.compile(r"^\s*(\d+)\.\s*(.+?)\s*,\s*([0-9A-Za-z]{15,32})\s*$")
+INSTALLS: dict[str, dict] = {}
+
+# POST-Pfad -> Methode. Ein Eintrag je Route, ein Verfahren je Fachthema.
+_POST_ROUTES: dict[str, str] = {
+    "/api/asaapi": "_post_asaapi",
+    "/api/backup": "_post_backups",
+    "/api/backup/delete": "_post_backups",
+    "/api/backup/restore": "_post_backups",
+    "/api/ban": "_post_bans",
+    "/api/cluster": "_post_cluster",
+    "/api/command": "_post_server",
+    "/api/config": "_post_config",
+    "/api/files/": "_post_files",
+    "/api/install": "_post_install",
+    "/api/instance/delete": "_post_instance_admin",
+    "/api/instances": "_post_instance_create",
+    "/api/lang": "_post_panel",
+    "/api/mods/add": "_post_mods",
+    "/api/mods/delete-files": "_post_mods",
+    "/api/mods/install": "_post_mods",
+    "/api/mods/key": "_post_mods",
+    "/api/mods/move": "_post_mods",
+    "/api/mods/nexuskey": "_post_mods",
+    "/api/mods/order": "_post_mods",
+    "/api/mods/pin": "_post_mods",
+    "/api/mods/refresh": "_post_mods",
+    "/api/mods/remove": "_post_mods",
+    "/api/mods/set": "_post_mods",
+    "/api/mods/uninstall": "_post_mods",
+    "/api/notify/test": "_post_notify",
+    "/api/panel/restart": "_post_panel",
+    "/api/player/action": "_post_players",
+    "/api/player/give": "_post_players",
+    "/api/rcon": "_post_server",
+    "/api/report": "_post_report",
+    "/api/restart": "_post_server",
+    "/api/schedule": "_post_schedule",
+    "/api/selfupdate": "_post_selfupdate",
+    "/api/settings": "_post_settings",
+    "/api/sftp": "_post_sftp",
+    "/api/snapshot": "_post_snapshots",
+    "/api/snapshot/delete": "_post_snapshots",
+    "/api/snapshot/restore": "_post_snapshots",
+    "/api/start": "_post_server",
+    "/api/stop": "_post_server",
+    "/api/tasks": "_post_schedule",
+    "/api/unban": "_post_bans",
+    "/api/update": "_post_server",
+    "/api/webhook": "_post_notify",
+    "/api/whitelist/add": "_post_whitelist",
+    "/api/whitelist/enable": "_post_whitelist",
+    "/api/whitelist/remove": "_post_whitelist",
+}
+
+# Pfad-Praefixe (z. B. Dateiverwaltung) -> Methode
+_POST_PREFIXE: list[tuple[str, str]] = [
+    ("/api/files/", "_post_files"),
+]
+# Laufende Loeschvorgaenge: Stoppen (bis 90 s) + Dateien entfernen (mehrere GB) dauern Minuten.
+# Der Klick startet deshalb nur einen Hintergrund-Job; die Oberflaeche fragt den Fortschritt ab.
+DELETES: dict[str, dict] = {}
+# Laufende Aktion je Instanz (start/stop/restart/update). Die Oberflaeche sperrt danach
+# die Knoepfe: waehrend stop gar keiner, waehrend start/restart/update nur Stop.
+ACTIONS: dict[str, str] = {}
+
+
+def _setze_token(pfad: str, wert: str) -> bool:
+    """Schreibt den Token, wenn der Pfad beschreibbar ist (sonst still ignorieren)."""
+    try:
+        os.makedirs(os.path.dirname(pfad), exist_ok=True)
+        with open(os.open(pfad, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600), "w") as fh:
+            fh.write(wert)
+        return True
+    except OSError:
+        return False
+
+
+def _token_pfade() -> list[str]:
+    """Alle Orte, an denen ein Token dieser Installation liegen kann.
+
+    Das Panel legt den Token im Home des laufenden Benutzers ab. Lief es einmal als root und
+    einmal als Dienstbenutzer, entstanden zwei verschiedene Token und alte Links waren tot.
+    Deshalb gilt: es gibt genau EINEN Token je Rechner - der aelteste vorhandene gewinnt
+    (das ist der, den der Nutzer schon in seinen Links hat).
+    """
+    pfade = [TOKEN_PATH]
+    for heim in (os.path.expanduser("~"), "/root", "/home/polypanel"):
+        pfade.append(os.path.join(heim, ".config", "polypanel", "token"))
+    pfade.extend(sorted(glob.glob("/home/*/.config/polypanel/token")))
+    return list(dict.fromkeys(pfade))
+
+
+def _lies_token(pfad: str) -> str:
+    try:
+        with open(pfad, encoding="utf-8") as fh:
+            return fh.read().strip()
+    except OSError:
+        return ""
+
+
+def token() -> str:
+    vorhanden = []
+    for pfad in _token_pfade():
+        wert = _lies_token(pfad)
+        if wert:
+            try:
+                vorhanden.append((os.path.getmtime(pfad), wert, pfad))
+            except OSError:
+                vorhanden.append((0.0, wert, pfad))
+    if vorhanden:
+        # aeltester Token gewinnt - das ist der, den vorhandene Links benutzen
+        vorhanden.sort()
+        wert = vorhanden[0][1]
+        for pfad in _token_pfade():
+            if _lies_token(pfad) != wert:
+                _setze_token(pfad, wert)
+        return wert
+    wert = secrets.token_urlsafe(24)
+    _setze_token(TOKEN_PATH, wert)
+    return wert
+
+def _render(template: str) -> str:
+    """Fuß, Sprachkatalog und Sprachcode einsetzen."""
+    from . import __version__
+    return (template
+            .replace("__FOOTER__", FOOTER)
+            .replace("__LANGJSON__", json.dumps(i18n.catalog(), ensure_ascii=False))
+            .replace("__VERSION__", __version__)
+            .replace("__LANG__", i18n.lang()))
+
+
+def _log_step(inst: Instance, text: str) -> None:
+    """Schritte von Start/Stop/Restart mitschreiben.
+
+    Ohne diesen Mitschrieb ist ein fehlgeschlagener Start unsichtbar: der Server bleibt aus und
+    niemand sieht, warum (die Ausnahme lief bisher in einem Thread ins Leere).
+    """
+    try:
+        os.makedirs(inst.directory, exist_ok=True)
+        with open(os.path.join(inst.directory, ".start.log"), "a", encoding="utf-8") as fh:
+            fh.write("%s  %s\n" % (time.strftime("%F %T"), text))
+    except OSError:
+        pass
+    plog.write("[%s] %s" % (getattr(inst, 'name', '?'), text))
+
+
+def rcon_cmd(inst: Instance, cmd: str, timeout: float = 12.0) -> str:
+    with inst.control(timeout=timeout) as rc:
+        return rc.command(cmd, timeout=timeout + 5)
+
+
+def players(inst: Instance) -> list[dict[str, str]]:
+    """Spielerliste der Instanz.
+
+    Spiele mit eigenem Weg (Satisfactory: `QueryServerState`, weil es kein `ListPlayers` gibt)
+    liefern die Namen selbst - deren Antwort hat Vorrang. Nur wenn das Profil `None` meldet,
+    wird die RCON-/Telnet-Ausgabe ausgewertet.
+    """
+    eigene = getattr(inst.profile, "players", None)
+    if callable(eigene):
+        try:
+            namen = eigene(inst)
+        except Exception:      # noqa: BLE001 - Spielerliste darf den Status nie kippen
+            namen = None
+        if namen is not None:
+            return [{"id": str(i), "name": str(n), "steamid": ""} for i, n in enumerate(namen)]
+    try:
+        out = rcon_cmd(inst, getattr(inst.profile, "players_command", "ListPlayers"), timeout=10)
+    except Exception:  # noqa: BLE001
+        return []
+    from .playerparse import parse
+    return parse(out)
+
+
+SHARED_CSS = """
+:root{--bg:#06090e;--fg:#c8f0e0;--dim:#4e6b64;--acc:#25e6a4;--warn:#ffb454;--err:#ff5f6d}
+*{box-sizing:border-box}
+body{margin:0;color:var(--fg);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+min-height:100vh;
+background:
+ linear-gradient(170deg,#05090f 0%,#070d14 55%,#04070b 100%);
+background-attachment:fixed}
+
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+background:radial-gradient(135% 100% at 50% 40%, transparent 58%, rgba(2,6,10,.42) 100%)}
+#bg{position:fixed;inset:0;z-index:0;opacity:1}
+header,main,.cards{position:relative;z-index:2}
+header{padding:16px 24px;border-bottom:1px solid #16302a;display:flex;gap:14px;align-items:center;
+flex-wrap:wrap;background:rgba(7,17,23,.58);backdrop-filter:blur(12px) saturate(120%);
+-webkit-backdrop-filter:blur(12px) saturate(120%);border-bottom-color:rgba(64,255,199,.18)}
+h1{font-size:15px;margin:0;letter-spacing:.18em;text-transform:uppercase;color:var(--acc)}
+a{color:var(--acc);text-decoration:none}
+.badge.warn{border-color:#e67e22;color:#e67e22}
+.badge.ok{border-color:#25e6a4;color:#25e6a4}
+.badge{padding:2px 8px;border:1px solid var(--dim);border-radius:3px;font-size:11px;color:var(--dim)}
+.badge.on{border-color:var(--acc);color:var(--acc)}
+.badge.off{border-color:var(--err);color:var(--err)}
+.badge.warn{border-color:var(--warn);color:var(--warn)}
+main{padding:22px 24px;display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+section{border:1px solid rgba(64,255,199,.14);border-radius:12px;padding:16px 18px;
+background:linear-gradient(180deg,rgba(14,27,35,.62),rgba(7,14,20,.74));
+backdrop-filter:blur(14px) saturate(115%);box-shadow:0 10px 30px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.04)}
+h2{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin:0 0 12px}
+button{background:#0f1a1f;color:var(--fg);border:1px solid #22453c;border-radius:3px;padding:6px 11px;
+font:inherit;font-size:11px;cursor:pointer;letter-spacing:.06em}
+button:hover{border-color:var(--acc);color:var(--acc)}
+button:disabled{opacity:.35;cursor:not-allowed;border-color:#1b3a33;color:var(--dim)}
+button:disabled:hover{border-color:#1b3a33;color:var(--dim)}
+button.primary{border-color:var(--acc);color:var(--acc)}
+button.danger:hover{border-color:var(--err);color:var(--err)}
+/* Aktionsleiste der Instanzkarten: eine Pille, drei farbige Gruppen
+   (rot = anhalten/loeschen, blau = verwalten, gruen = starten). */
+.actbar{display:inline-flex;align-items:stretch;border-radius:999px;overflow:hidden;
+  box-shadow:0 1px 0 rgba(0,0,0,.5);margin-left:auto}
+.actbar .ag{display:inline-flex;align-items:center;padding:0 2px}
+.actbar button{background:transparent;border:0;border-radius:0;padding:7px 9px;color:#fff;
+  display:inline-flex;align-items:center;justify-content:center;line-height:0}
+.actbar button:hover{background:rgba(255,255,255,.18);color:#fff;border:0}
+.actbar button:disabled{opacity:.38;color:#fff}
+.actbar button:disabled:hover{background:transparent}
+.actbar svg{width:15px;height:15px;fill:currentColor;display:block}
+.ag-red{background:#c9372c}
+.ag-blue{background:#2065d1}
+.ag-green{background:#1f9d55}
+.actbar .dot{position:relative}
+.actbar .dot::after{content:"";position:absolute;top:4px;right:4px;width:5px;height:5px;
+  border-radius:50%;background:#ffd166;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+/* Vollansicht einer Datei: Overlay ueber die ganze Seite */
+#dateiFull{display:none;position:fixed;inset:0;z-index:90;background:rgba(3,7,10,.97);
+  padding:18px;flex-direction:column;gap:10px}
+#dateiFull.on{display:flex}
+#dateiFull textarea{flex:1;width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:12.5px;line-height:1.55;background:#04090c;color:var(--fg);
+  border:1px solid rgba(37,230,164,.28);border-radius:8px;padding:12px;resize:none}
+.frow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.frow a{text-decoration:none}
+/* Aktions-Kaestchen in der Dateiliste: eigene Felder statt nackter Symbole */
+a.fa{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;
+  border:1px solid rgba(37,230,164,.25);border-radius:6px;background:rgba(37,230,164,.05);
+  font-size:14px;line-height:1;opacity:.9;text-decoration:none;transition:background .15s,border-color .15s}
+a.fa:hover{opacity:1;border-color:var(--acc);background:rgba(37,230,164,.16)}
+a.fa.dl{color:var(--acc);border-color:rgba(37,230,164,.45)}
+a.fa.danger{color:#f06060;border-color:rgba(240,96,96,.35);background:rgba(240,96,96,.06)}
+a.fa.danger:hover{border-color:#f06060;background:rgba(240,96,96,.18)}
+.plTile{cursor:pointer}
+.plTile:hover b{color:var(--acc)}
+.plModal{display:none;position:fixed;inset:0;background:rgba(3,7,10,.78);z-index:60;
+ align-items:center;justify-content:center;padding:24px}
+.plModal.on{display:flex}
+/* Mengen-Fenster liegt ueber dem Katalog-Fenster */
+#qtyModal{z-index:75}
+#repModal{z-index:78}
+.plBox{background:#08110f;border:1px solid #22453c;border-radius:4px;padding:14px 16px;
+ min-width:min(720px,94vw);max-height:80vh;overflow:auto;box-shadow:0 0 40px rgba(37,230,164,.12)}
+.plBody{margin-top:10px}
+.plTable{width:100%;border-collapse:collapse;font-size:12px}
+.plTable th{text-align:left;color:var(--dim);font-weight:400;padding:4px 6px;border-bottom:1px solid #16302a}
+.plTable td{padding:5px 6px;border-bottom:1px solid #0e211c;vertical-align:middle}
+.plTable td.mono{font-family:ui-monospace,monospace;color:var(--dim);font-size:11px}
+.plAct{text-align:right;white-space:nowrap}
+.plMsg{color:var(--acc);font-size:11.5px;padding:4px 0}
+#log{height:48vh;min-height:280px;max-height:none;resize:vertical;border:1px solid var(--line);
+border-radius:8px;padding:10px 12px;background:rgba(0,0,0,.28)}
+pre{margin:0;max-height:230px;overflow:auto;font-size:11.5px;white-space:pre-wrap;word-break:break-word;
+color:#9fc4b8}
+textarea{width:100%;min-height:250px;background:rgba(12,24,30,.9);border:1px solid #22453c;color:#9fc4b8;
+font:11.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;border-radius:3px;padding:8px}
+input,select{width:100%;background:rgba(12,24,30,.9);border:1px solid #22453c;color:var(--fg);padding:7px 9px;
+font:inherit;border-radius:3px;margin-bottom:6px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:12px}
+.kv span:nth-child(odd){color:var(--dim)}
+.p{border-top:1px solid #12241f;padding:7px 0;display:flex;gap:8px;justify-content:space-between;
+align-items:center;flex-wrap:wrap}
+.p small{color:var(--dim)}
+#out{color:var(--warn);margin-top:8px}
+.tabs{display:flex;gap:6px;padding:12px 24px 0;flex-wrap:wrap;position:relative;z-index:2}
+.tabs button{background:rgba(10,22,28,.85);border:1px solid rgba(64,255,199,.22);
+border-radius:10px;padding:9px 18px;font-size:12.5px;letter-spacing:.07em;font-weight:600;
+color:#a8d8c8;cursor:pointer;transition:color .12s,background .12s,border-color .12s,box-shadow .12s}
+.tabs button:hover{color:#e6fff5;border-color:rgba(64,255,199,.45);background:rgba(18,38,44,.9)}
+.tabs button.on{border-color:var(--acc);color:#04120d;background:linear-gradient(180deg,#4df3bb,#1fd79a);
+box-shadow:0 6px 18px rgba(37,230,164,.28),inset 0 1px 0 rgba(255,255,255,.35)}
+.tabs{background:rgba(6,14,19,.55);backdrop-filter:blur(10px);border-bottom:1px solid rgba(64,255,199,.14);padding-bottom:10px}
+.tab.wide{grid-column:1/-1}
+.tab{display:none}
+.tab.on{display:block}
+.setrow{display:grid;grid-template-columns:1fr 190px;gap:8px;align-items:center;
+padding:6px 0;border-top:1px solid #12241f}
+.setrow label b{font-weight:500;display:block}
+.setrow label small{color:var(--dim);font-size:10.5px}
+.setrow input[type=text],.setrow input[type=number]{margin:0}
+.setrow .bool{display:flex;justify-content:flex-end}
+.setrow input[type=checkbox]{width:auto;transform:scale(1.25);margin:0}
+.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));padding:24px 24px 24px}
+.cardgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start}
+.cardmain{display:flex;flex-direction:column;gap:10px;min-width:0}
+@container (min-width:560px){.cardgrid{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr)}}
+@media (min-width:900px){.card.running{grid-column:span 2}}
+.hdr-icons{margin-left:auto;display:inline-flex;align-items:center;gap:6px}
+.iconlink{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;
+border:1px solid #1d3a32;border-radius:6px;background:#0b1116;transition:filter .15s,border-color .15s}
+.iconlink:hover{filter:brightness(1.18);border-color:#2c5c4c}
+.iconlink svg{width:22px;height:22px;display:block}
+.iconlink.discord svg{fill:#5865F2}
+.iconlink.paypal svg{fill:#003087}
+.sitefoot{position:relative;z-index:2;width:100%;box-sizing:border-box;margin:26px 0 0;padding:16px 24px 22px;
+border-top:1px solid rgba(64,255,199,.14);display:flex;flex-wrap:wrap;gap:8px 20px;
+align-items:center;justify-content:center;font-size:11.5px;letter-spacing:.04em;color:var(--dim)}
+.sitefoot .flinks{display:inline-flex;flex-wrap:wrap;gap:16px;align-items:center}
+.sitefoot a{color:#a8d8c8;text-decoration:none;border-bottom:1px solid rgba(64,255,199,.28);
+padding-bottom:1px;transition:color .12s,border-color .12s}
+.sitefoot a:hover{color:#e6fff5;border-color:var(--acc)}
+/* Satisfactory hat keine Spielerliste ueber die API - Abschnitt ausblenden, Log bleibt */
+.lic{padding:24px}
+.lictext{margin:0;white-space:pre-wrap;max-height:none;font-size:12px;line-height:1.65;color:#b9d6cc}
+.lichead{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;margin:0 0 12px}
+.lichead h2{margin:0}
+.lichead .meta{color:var(--dim);font-size:11.5px}
+.settabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;border-bottom:1px solid #16302a;padding-bottom:8px}
+.settabs button small{opacity:.55;font-size:10px;margin-left:4px}
+.settabs button.on{border-color:var(--acc);color:var(--acc)}
+.setgroup{display:none}
+.setgroup.on{display:block}
+.card{border:1px solid rgba(64,255,199,.16);border-radius:14px;padding:16px 18px;
+background:linear-gradient(180deg,rgba(16,31,40,.66),rgba(7,14,20,.78));
+backdrop-filter:blur(16px) saturate(115%);box-shadow:0 14px 34px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.05);
+display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden;container-type:inline-size}
+.card .bgimg{position:absolute;inset:0;background-size:cover;background-position:center;
+opacity:.62;filter:saturate(.9) contrast(1.05) brightness(.95);z-index:0}
+.card .bgimg::after{content:"";position:absolute;inset:0;
+background:linear-gradient(180deg,rgba(6,9,14,.30) 0%,rgba(6,9,14,.62) 45%,rgba(6,9,14,.88) 100%)}
+.card>*{position:relative;z-index:1}
+.card h3{margin:0;font-size:14px;letter-spacing:.06em}
+.card .meta{color:var(--dim);font-size:11.5px}
+#mods{max-height:430px;overflow-y:auto;padding-right:4px}
+#modhits{max-height:420px;overflow-y:auto;padding-right:6px;margin:6px 0;
+border-top:1px solid #16302a;border-bottom:1px solid #16302a}
+#modhits .p{padding:6px 0;border-bottom:1px solid #10201b}
+#modhits .p:last-child{border-bottom:0}
+/* Beschreibung: drei Zeilen statt harter Zeichengrenze */
+#modhits .mrow{align-items:flex-start}
+#modhits .txt small{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line;line-height:1.35}
+/* Nicht-ARK-Spiele (Empyrion, SE, ...): eigener Aufbau mit <label>, drei Zeilen */
+#modhits-local .setrow label small:not(.badge){display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line;line-height:1.35}
+#modhits-local .setrow .mrow{align-items:flex-start}
+.taskrow{display:flex;gap:5px;row-gap:2px;align-items:center;flex-wrap:wrap;padding:2px 0;border-bottom:1px solid #10201b}
+.taskrow select{width:auto;min-width:120px}
+.taskrow select,.taskrow input{width:auto;padding:3px 6px;font-size:12px}
+.taskrow input[type=time]{width:auto}
+.dayboxes{display:flex;gap:3px}
+.daybox{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--dim);
+background:#0b1418;border:1px solid #16302a;border-radius:3px;padding:4px 7px;white-space:nowrap}
+.daybox input{appearance:none;-webkit-appearance:none;width:13px;height:13px;margin:0;cursor:pointer;
+background:#0a1519;border:1px solid #24554a;border-radius:2px;position:relative;transition:background .12s,border-color .12s}
+.daybox input:checked{background:#2f7d68;border-color:#2f7d68}
+.daybox input:checked::after{content:"";position:absolute;left:3.5px;top:1px;width:4px;height:8px;
+border:solid #04140f;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.daybox input:hover{border-color:#3f8a76}
+.hint{font-size:11px;color:var(--dim);line-height:1.4;margin:4px 0 2px;max-width:62ch}
+#modhitsum{font-size:12.5px;color:var(--acc);font-weight:600;margin:8px 0 2px;min-height:1em}
+.thumb{width:44px;height:44px;border-radius:4px;object-fit:cover;border:1px solid #16302a;flex:0 0 44px}
+.mrow{display:flex;gap:10px;align-items:center}
+.mrow .txt{min-width:0}
+.mrow .txt b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.modal{position:fixed;inset:0;background:rgba(2,5,7,.82);display:none;z-index:50;
+align-items:center;justify-content:center;padding:24px}
+.modal.on{display:flex}
+.mbox{background:#0b1116;border:1px solid #1d3a32;border-radius:8px;max-width:640px;width:100%;
+max-height:80vh;overflow:auto;padding:18px 20px;position:relative}
+.mbox img.big{width:96px;height:96px;border-radius:6px;border:1px solid #16302a;float:left;margin:0 14px 8px 0}
+.mbox h3{margin:0 0 4px;font-size:15px}
+.mbox .desc{white-space:pre-wrap;font-size:12px;color:#9fc4b8;margin-top:10px;clear:both}
+.mbox .close{position:absolute;top:10px;right:12px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:2px 0}
+.stats div{background:#0a1418;border:1px solid #12241f;border-radius:4px;padding:6px 8px}
+.stats b{display:block;font-size:15px;color:var(--fg);font-weight:500}
+.stats small{display:block;color:var(--dim);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase}
+.spark{width:100%;height:38px;display:block}
+.hostbar{display:flex;gap:10px;align-items:center;font-size:11px;color:var(--dim)}
+#toast{position:fixed;top:14px;right:16px;z-index:99;max-width:60vw;padding:9px 13px;border-radius:7px;
+background:#0d1b17;border:1px solid var(--acc);color:var(--fg);font-size:12px;line-height:1.4;
+box-shadow:0 8px 24px rgba(0,0,0,.45);opacity:0;transform:translateY(-6px);transition:opacity .25s,transform .25s;pointer-events:none}
+#toast.on{opacity:1;transform:none}
+#setupfill.indet{background:repeating-linear-gradient(45deg,#2f81f7 0 12px,#56d364 12px 24px);
+animation:instbarpulse 1s linear infinite;background-size:34px 34px}
+#instbarfill.indet{background:repeating-linear-gradient(45deg,#2f81f7 0 12px,#56d364 12px 24px);
+animation:instbarpulse 1s linear infinite;background-size:34px 34px}
+@keyframes instbarpulse{from{background-position:0 0}to{background-position:34px 0}}
+"""
+
+BG_JS = """
+// Sternenfeld: drei Tiefenebenen ziehen langsam, dazu ein zarter Nebel
+const cv=document.getElementById('bg');
+if(cv){
+  const ctx=cv.getContext('2d',{alpha:false});
+  let W=0,H=0,dpr=Math.min(devicePixelRatio||1,2),steren=[],t0=performance.now(),lauf=true;
+  const ruhig=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const nebel=[
+    {h:[40,120,180], x:.22, y:.26, r:.62, a:.16, sx:.031, sy:.043},
+    {h:[110,70,170], x:.78, y:.20, r:.52, a:.13, sx:.026, sy:.037},
+    {h:[30,150,140], x:.62, y:.86, r:.58, a:.11, sx:.021, sy:.029}
+  ];
+
+  function build(){
+    W=cv.width=innerWidth*dpr; H=cv.height=innerHeight*dpr;
+    cv.style.width=innerWidth+'px'; cv.style.height=innerHeight+'px';
+    const n=Math.round((innerWidth*innerHeight)/5200);
+    steren=Array.from({length:n},()=>{
+      const tiefe=Math.random();                       // 0 = fern, 1 = nah
+      return {x:Math.random()*W, y:Math.random()*H, z:tiefe,
+              gros:(0.4+tiefe*1.5)*dpr,                  // Groesse
+              vx:(0.02+tiefe*0.10)*dpr,                 // Drift nach rechts
+              vy:(0.01+tiefe*0.05)*dpr,
+              ph:Math.random()*6.283, tw:0.4+Math.random()*1.6};
+    });
+  }
+  addEventListener('resize',build);
+  document.addEventListener('visibilitychange',()=>{ lauf=!document.hidden; if(lauf) requestAnimationFrame(frame); });
+  build();
+
+  function nebelFleck(n,t){
+    const cx=(n.x + Math.sin(t*n.sx)*0.06)*W;
+    const cy=(n.y + Math.cos(t*n.sy)*0.05)*H;
+    const r=n.r*Math.max(W,H)*0.7;
+    const [rh,rg,rb]=n.h;
+    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,r);
+    g.addColorStop(0,'rgba('+rh+','+rg+','+rb+','+n.a+')');
+    g.addColorStop(1,'rgba('+rh+','+rg+','+rb+',0)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  }
+
+  function frame(now){
+    if(!lauf) return;
+    const t=ruhig?0:(now-t0)/1000;
+    ctx.globalCompositeOperation='source-over';
+    ctx.fillStyle='#04070c'; ctx.fillRect(0,0,W,H);
+    ctx.globalCompositeOperation='lighter';
+    for(const n of nebel) nebelFleck(n,t);
+
+    for(const s of steren){
+      if(!ruhig){ s.x+=s.vx; s.y+=s.vy; }
+      if(s.x>W+4) s.x=-4;
+      if(s.y>H+4) s.y=-4;
+      const funkeln = ruhig ? 0.85 : 0.65 + Math.sin(t*s.tw + s.ph)*0.35;
+      const a=(0.25+s.z*0.65)*funkeln;
+      ctx.fillStyle='rgba(214,240,255,'+a.toFixed(3)+')';
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.gros,0,6.283); ctx.fill();
+      if(s.z>0.88 && !ruhig){                       // wenige grosse Sterne mit Hof
+        const g=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.gros*7);
+        g.addColorStop(0,'rgba(190,235,255,'+(a*0.35).toFixed(3)+')');
+        g.addColorStop(1,'rgba(190,235,255,0)');
+        ctx.fillStyle=g; ctx.fillRect(s.x-s.gros*7,s.y-s.gros*7,s.gros*14,s.gros*14);
+      }
+    }
+    ctx.globalCompositeOperation='source-over';
+    if(!ruhig) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+"""
+
+PAYPAL_URL = ("https://www.paypal.com/donate/?business=ronnyhase%40fn.de"
+              "&item_name=PolyPanel%20Servermanager&currency_code=EUR")
+DISCORD_URL = "https://discord.gg/ark-ase-asa-hilfe"
+
+# ---------------------------------------------------------------- Handy
+# Eigener Block, damit er garantiert nach allen Basisregeln gilt.
+MOBILE_CSS = """
+@media (max-width:720px){
+  header{padding:10px 12px;gap:6px 10px;flex-wrap:wrap;align-items:center}
+  header h1{font-size:15px;line-height:1.2}
+  /* Kopfzeile: eine Zeile, seitlich wischbar statt vier Zeilen untereinander */
+  .hostbar{width:100%;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    gap:8px;font-size:11.5px;align-items:center;padding:2px 0 6px}
+  .hostbar > *{flex:0 0 auto}
+  .hostbar span{white-space:nowrap}
+  .hostbar button{min-height:34px;font-size:12px;padding:6px 9px}
+  .hdr-icons{gap:6px}
+  main{padding:10px;gap:10px;grid-template-columns:1fr}
+  section{padding:12px}
+  .cards{grid-template-columns:1fr;padding:10px;gap:10px}
+  .card{padding:12px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .setrow{grid-template-columns:1fr;gap:4px}
+  .setrow input,.setrow select{width:100%}
+  .kv{grid-template-columns:1fr;gap:0}
+  .kv span:nth-child(odd){margin-top:7px;font-size:11px}
+  button{min-height:40px;font-size:13px;padding:9px 12px}
+  input,select{min-height:40px;font-size:16px}
+  textarea{font-size:13px}
+  .tabs{padding:8px 10px 0;gap:4px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tabs button{white-space:nowrap;min-height:38px;font-size:12px}
+  .actbar button{padding:10px 11px}
+  .actbar svg{width:17px;height:17px}
+  table{font-size:12.5px}
+  .mbox{padding:12px;width:96vw;max-height:90vh;overflow:auto}
+  #dateiFull{padding:8px}
+  #dateiFull textarea{font-size:13px}
+  h2{font-size:10px}
+  /* Grid-Elemente duerfen schrumpfen, sonst schiebt die Tabelle die Seite breit */
+  section,.card,main>section{min-width:0}
+  #dateiListe{max-width:100%;overflow-x:visible}
+  /* Statt seitlich zu scrollen: Name oben, Aktionen darunter */
+  #dateiListe table{min-width:0;display:block}
+  #dateiListe tbody{display:block}
+  #dateiListe tr{display:grid;grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:"name size" "date akt";align-items:center;gap:2px 10px;
+    padding:9px 4px;border-bottom:1px solid rgba(37,230,164,.12)}
+  #dateiListe td{display:block;padding:0 !important;border:0}
+  #dateiListe td.fname{grid-area:name;min-width:0;overflow-wrap:anywhere;font-size:14px}
+  #dateiListe td.fsize{grid-area:size;text-align:right;opacity:.75}
+  #dateiListe td.fdate{grid-area:date;font-size:11px;opacity:.55}
+  #dateiListe td.fakt{grid-area:akt;justify-self:end;display:flex;gap:6px}
+  /* Aktions-Kaestchen fingerfreundlich */
+  a.fa{min-width:36px;height:36px;font-size:16px}
+  /* Log lesbar statt winzig */
+  #log{font-size:12px;line-height:1.5;height:58vh;min-height:320px;padding:8px}
+  pre{font-size:12px}
+  /* Kopfzeilen-Statusabzeichen etwas groesser antippbar */
+  header .badge{min-height:26px;display:inline-flex;align-items:center}
+}
+"""
+
+HEADER_ICONS = """
+<span class="hdr-icons">
+<a class="iconlink discord" href="__DISCORD_URL__" target="_blank" rel="noopener"
+   data-tp="ui.discord" data-ttitle="ui.discord" title="Discord: Ark-ASA-ASE-Hilfe" aria-label="Discord">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg></a>
+<a class="iconlink paypal" href="__PAYPAL_URL__"
+   target="_blank" rel="noopener" data-ttitle="ui.donate" title="Spenden via PayPal" aria-label="PayPal">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.607 4.653H8.941L6.645 19.251H1.82L4.862 0h7.995c3.754 0 6.375 2.294 6.473 5.513-.648-.478-2.105-.86-3.722-.86m6.57 5.546c0 3.41-3.01 6.853-6.958 6.853h-2.493L11.595 24H6.74l1.845-11.538h3.592c4.208 0 7.346-3.634 7.153-6.949a5.24 5.24 0 0 1 2.848 4.686M9.653 5.546h6.408c.907 0 1.942.222 2.363.541-.195 2.741-2.655 5.483-6.441 5.483H8.714Z"/></svg></a>
+</span>
+"""
+HEADER_ICONS = (HEADER_ICONS.replace("__PAYPAL_URL__", PAYPAL_URL)
+                            .replace("__DISCORD_URL__", DISCORD_URL))
+
+# Gemeinsamer Fuß: Copyright, Lizenz-Seite, Spenden- und Community-Link.
+# Der Lizenz-Link bekommt das Token per Skript, damit er auf jeder Seite funktioniert.
+FOOTER = """<footer class="sitefoot">
+<span class="fmeta">PolyPanel __VERSION__ · © 2026 Ronny H. ·
+  <span data-t="foot.rights">MIT-Lizenz</span></span>
+<span class="flinks">
+  <a data-tok="/license" data-t="foot.license" title="Lizenz">Lizenz</a>
+  <a href="__PAYPAL_URL__" target="_blank" rel="noopener" data-t="foot.donate"
+     data-ttitle="ui.donate" title="Spenden via PayPal">PayPal</a>
+  <a href="__DISCORD_URL__" target="_blank" rel="noopener" data-t="foot.discord"
+     data-ttitle="ui.discord" title="Discord: Ark-ASA-ASE-Hilfe">Discord-Community</a>
+</span>
+</footer>
+<script>(function(){var t=new URLSearchParams(location.search).get('token')||'';
+document.querySelectorAll('a[data-tok]').forEach(function(a){
+  a.href=a.dataset.tok+(t?'?token='+encodeURIComponent(t):'');});
+/* Der Fuß steht nach dem Hauptskript: Texte hier noch einmal in der aktiven Sprache setzen. */
+if(typeof applyLang==='function') applyLang();})();</script>"""
+FOOTER = (FOOTER.replace("__PAYPAL_URL__", PAYPAL_URL)
+                .replace("__DISCORD_URL__", DISCORD_URL))
+
+# Meldung an den Betreiber: Baustein + Skript, von Dashboard und Instanzseite benutzt.
+REPORT_MODAL = """<div id="repModal" class="plModal"><div class="plBox" style="min-width:min(560px,94vw)">
+  <div class="row" style="justify-content:space-between">
+    <b data-t="report.title">Fehler im Panel melden</b>
+    <button onclick="closeReport()">×</button>
+  </div>
+  <div style="margin:12px 0 6px"><b data-t="report.what">Was kann das Panel nicht?</b></div>
+  <textarea id="repText" rows="4" style="width:100%" data-tp="report.what_ph"
+            placeholder="z. B. Knopf Start bleibt grau, obwohl der Server aus ist"></textarea>
+  <div style="margin:10px 0 6px"><b data-t="report.steps">Wie kam es dazu? (optional)</b></div>
+  <textarea id="repSteps" rows="2" style="width:100%" data-tp="report.steps_ph"
+            placeholder="z. B. Update gedrückt, danach Seite neu geladen"></textarea>
+  <div class="row" style="margin-top:12px;gap:8px">
+    <button class="primary" onclick="sendReport()" data-t="report.send">Meldung senden</button>
+    <button onclick="closeReport()" data-t="common.cancel">Abbrechen</button>
+    <span class="meta" id="repstate"></span>
+  </div>
+</div></div>"""
+
+REPORT_JS = """<script>
+async function loadRepHook(){
+  // Melden nur anbieten, wenn der Betreiber einen Webhook hinterlegt hat (per Konsole)
+  try{
+    const d=JSON.parse(await api('/api/report'));
+    const b=document.getElementById('repbtn');
+    if(b) b.style.display=d.webhook?'inline-block':'none';
+  }catch(e){}
+}
+function openReport(){
+  document.getElementById('repModal').classList.add('on');
+  const t=document.getElementById('repText'); if(t) t.focus();
+}
+function closeReport(){
+  document.getElementById('repModal').classList.remove('on');
+  const s=document.getElementById('repstate'); if(s) s.textContent='';
+}
+async function sendReport(){
+  const text=(document.getElementById('repText').value||'').trim();
+  const steps=(document.getElementById('repSteps').value||'').trim();
+  const state=document.getElementById('repstate');
+  if(!text){ state.textContent=(L['report.need_text']||''); return; }
+  state.textContent=(L['common.loading']||'...');
+  try{
+    const r=JSON.parse(await api('/api/report',{method:'POST',body:JSON.stringify({text:text,steps:steps})}));
+    if(r.ok){
+      state.textContent=(L['report.sent']||'ok');
+      document.getElementById('repText').value=''; document.getElementById('repSteps').value='';
+      setTimeout(closeReport, 1400);
+    }else{ state.textContent=(r.fehler||'Fehler'); }
+  }catch(e){ state.textContent=String(e); }
+}
+loadRepHook();   // Skript steht hinter dem Hauptskript - der Aufruf dort liefe ins Leere
+</script>"""
+
+DASH = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>PolyPanel</title>
+<style>""" + SHARED_CSS + MOBILE_CSS + """</style></head><body>
+<canvas id="bg"></canvas>
+<header><h1>PolyPanel</h1><span class="badge" id="cnt">…</span>
+<span class="badge" data-t="dash.dashboard">Dashboard</span>
+<span class="hostbar"><span id="hostcpu">CPU –</span><span id="hostram">RAM –</span>
+  <button onclick="polyPanelUpdate()" id="verbtn" style="padding:2px 8px">PolyPanel</button>
+  <button onclick="openChangelog()" id="clogbtn" style="padding:2px 8px"
+    data-t="self.changelog" title="Changelog">Changelog</button>
+  <button onclick="restartPanel()" id="rstpbtn" style="padding:2px 8px"
+    data-t="self.restart" title="Panel neu starten">Panel Neustart</button>
+  <button onclick="openReport()" id="repbtn" style="padding:2px 8px;display:none"
+    data-t="report.open" title="Fehler im Panel melden">Fehler melden</button>
+  <button onclick="toggleLang()" id="langbtn" style="padding:2px 8px">EN</button></span>""" + HEADER_ICONS + """</header>
+<div class="modal" id="modal" onclick="if(event.target.id==='modal')closeModal()">
+  <div class="mbox"><button class="close" onclick="closeModal()">×</button>
+    <div id="mbody">…</div></div>
+</div>
+""" + REPORT_MODAL + """
+<script>
+const GAMESHINT = {
+  ark:            {install: "~50 GB über SteamCMD (Windows-Binary, Wine)", ports: "Spiel 7777 · Query 27016 · RCON 27025", ram: "8–16 GB (ohne Mods)"},
+  arkse:          {install: "~20 GB über SteamCMD (nativ, Linux)",         ports: "Spiel 7777 · Query 7778 · RCON 27020", ram: "6–10 GB (ohne Mods)"},
+  satisfactory:   {install: "~12 GB über SteamCMD (nativ)",                 ports: "Spiel 7777 · Query 15777 · Beacon 15000", ram: "6–12 GB (ohne Mods)"},
+  "7d2d":         {install: "~18 GB über SteamCMD (nativ)",                 ports: "Spiel 26900 · Telnet 8081",        ram: "4–8 GB (ohne Mods)"},
+  spaceengineers: {install: "~8 GB über SteamCMD (Windows-Binary, Wine)",   ports: "Spiel 27016 · Steam 27015",        ram: "4–8 GB (ohne Mods)"},
+  starrupture:    {install: "~20 GB über SteamCMD (Windows-Binary, Wine)",   ports: "Spiel 7777 (UDP)",                 ram: "8–16 GB (ohne Mods)"},
+  empyrion:       {install: "~8 GB über SteamCMD (Windows-Binary, Wine)",    ports: "Spiel 30000 (UDP)",                ram: "8–16 GB (je Playfield mehr)"}
+};
+const GAMEMAPS = __GAMEMAPS__;
+function fillMap(){
+  const g=(document.getElementById('ngame')||{}).value||'ark';
+  const m=document.getElementById('nmap'); if(!m) return;
+  const list=GAMEMAPS[g]||[];
+  m.style.display=list.length?'':'none';
+  m.innerHTML=list.map(function(x){ return '<option value="'+x[0]+'">'+x[1]+'</option>'; }).join('');
+}
+function updateHint(){
+  const g=(document.getElementById('ngame')||{}).value||'ark';
+  const h=GAMESHINT[g]; if(!h) return;
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+  set('hint_install', h.install); set('hint_ports', h.ports); set('hint_ram', h.ram);
+}
+document.addEventListener('DOMContentLoaded', function(){ updateHint(); fillMap(); });
+</script>
+<main>
+  <section><h2 data-t="dash.new_instance">Neue Instanz</h2>
+    <input id="nname" data-tp="dash.name_ph" placeholder="Name">
+    <select id="ngame" onchange="toggleMap()">__GAMES__</select>
+    <select id="nmap"></select>
+    <input id="nport" data-tp="dash.port_ph" placeholder="Port">
+    <input id="nsession" data-tp="dash.session_ph" placeholder="Spieleserver-Name">
+    <div class="row"><button class="primary" onclick="createInst()" data-t="dash.create">Anlegen</button></div>
+    <pre id="out">–</pre>
+  </section>
+  <section><h2 data-t="dash.note">Hinweis</h2>
+    <div class="kv">
+      <span data-t="dash.install_label">Installation</span><span id="hint_install" data-t="dash.install_size">SteamCMD</span>
+      <span data-t="dash.ports_label">Ports</span><span id="hint_ports" data-t="dash.ports">Ports</span>
+      <span data-t="dash.memory_label">Speicher</span><span id="hint_ram" data-t="dash.memory">RAM</span>
+    </div>
+  </section>
+</main>
+<div id="actbanner" style="display:none;margin:10px 0;padding:10px 14px;border-radius:8px;background:#123;border:1px solid #2a6;color:#bfe"></div>
+<div class="cards" id="cards"></div>
+<script>""" + BG_JS + """
+const L=__LANGJSON__;
+// Symbole der Aktionsleiste: weiss auf farbigem Grund, 15 px.
+const ICO = {
+  play:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>',
+  stop:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>',
+  restart:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a7 7 0 1 0 6.7 9h-2.1A5 5 0 1 1 12 7v3l4-4-4-4v3z"/></svg>',
+  update:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v9l3-3 1.4 1.4L12 16l-5.4-5.6L8 9l3 3V3zM5 19h14v2H5z"/></svg>',
+  menu:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zM6 9h12l-1 12H7L6 9z"/></svg>',
+  download:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v9l3-3 1.4 1.4L12 16l-5.4-5.6L8 9l3 3V3zM5 19h14v2H5z"/></svg>',
+  plugin:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3a2 2 0 0 1 4 0v1h3a1 1 0 0 1 1 1v3h1a2 2 0 0 1 0 4h-1v3a1 1 0 0 1-1 1h-3v-1a2 2 0 0 0-4 0v1H6a1 1 0 0 1-1-1v-3H4a2 2 0 0 1 0-4h1V5a1 1 0 0 1 1-1h3z"/></svg>',
+};
+async function toggleLang(){
+  const next = (L.lang === 'de') ? 'en' : 'de';
+  try{ await fetch('/api/lang?set=' + next + '&token=' + encodeURIComponent(T), {method:'POST'}); }
+  catch(e){ alert(L['msg.lang_failed'] + ' ' + e); return; }
+  location.reload();
+}
+function applyLang(){
+  document.querySelectorAll('[data-t]').forEach(e=>{const k=e.dataset.t;if(L[k])e.textContent=L[k];});
+  document.querySelectorAll('[data-tp]').forEach(e=>{const k=e.dataset.tp;if(L[k])e.placeholder=L[k];});
+  const lb=document.getElementById('langbtn'); if(lb) lb.textContent=(L.lang==='de')?'EN':'DE';
+}
+const T=new URLSearchParams(location.search).get('token')||'';
+
+// Klicks nicht verlieren: waehrend der Knopf gedrueckt ist, den DOM nicht neu bauen.
+// Ohne das ersetzt der 3-5-s-Poll die Karten/Listen genau unter dem Mauszeiger und der
+// Klick landet im Nichts - das Symptom "reagiert erst beim zweiten Klick".
+document.addEventListener('pointerdown', () => { window.__pressed = 1; }, true);
+['pointerup', 'pointercancel'].forEach(function (t) {
+  document.addEventListener(t, () => { window.__pressed = 0; }, true);
+});
+window.addEventListener('blur', () => { window.__pressed = 0; });
+
+const api=(p,o)=>fetch(p+(p.includes('?')?'&':'?')+'token='+encodeURIComponent(T),o).then(r=>r.text());
+let DATA=[];
+let LOGTIMER=null, LOGS={};   // Karten-Log: Timer und letzte Zeilen je Instanz
+function fmtUp(s){ if(!s) return '–'; const h=Math.floor(s/3600), m=Math.floor(s%3600/60);
+  return h? h+'h '+m+'m' : m+'m'; }
+function spark(cv, a, b, amax, bmax){
+  const ctx=cv.getContext('2d'), W=cv.width, H=cv.height, P=2;
+  const line=(arr,max,color)=>{ if(!arr||arr.length<2)return;
+    ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=1.4;
+    arr.forEach((v,idx)=>{ const x=P+idx/(arr.length-1)*(W-2*P);
+      const y=H-P-Math.min(1,v/(max||1))*(H-2*P);
+      idx?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+    ctx.stroke(); };
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='rgba(37,230,164,.10)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(0,H-P); ctx.lineTo(W,H-P); ctx.stroke();
+  line(b, bmax, 'rgba(120,170,255,.55)');
+  line(a, amax, 'rgba(37,230,164,.95)');
+}
+async function load(){
+  if(window.__pressed){ setTimeout(load, 400); return; }   // Klick laeuft noch
+  const _b=document.getElementById('actbanner'); if(_b && _b.dataset.done==='1'){ _b.style.display='none'; }
+  const list=JSON.parse(await api('/api/instances'));
+  DATA=list;
+  const _now=Date.now();
+  Object.keys(window.LOCAL_ACT||{}).forEach(n=>{
+    const l=window.LOCAL_ACT[n], s=list.find(x=>x.name===n);
+    if(!s || _now-l.ts>25000 || s.action) delete window.LOCAL_ACT[n];
+  });
+  document.getElementById('cnt').textContent=list.length+' '+L[list.length===1?'dash.instance_single':'dash.instances'];
+  document.getElementById('cards').innerHTML=list.map(i=>`
+    <div class="card${i.running?' running':''}">
+      ${i.map_image?`<div class="bgimg" style="background-image:url('${i.map_image}?token=${encodeURIComponent(T)}')"></div>`:''}
+      <div class="cardgrid"><div class="cardmain">
+      <div class="row" style="justify-content:space-between">
+        <h3>${i.name}</h3>
+        <span class="badge ${i.running?(i.ready?'on':'warn'):'off'}">${i.running?(i.ready?L['status.running']:L['status.starting']):L['status.off']}</span>
+      </div>
+      ${(()=>{
+        // Laufende Aktion als Hinweiszeile (Update, Installation, Neustart ...):
+        // ohne das stand bei einem Update nur "AUS" auf der Karte.
+        const a=i.action||'';
+        const txt={install:L['status.installing'],update:L['status.updating'],start:L['status.starting'],
+                   restart:L['status.restarting'],stop:L['status.stopping'],delete:L['status.deleting'],
+                   asaapi:L['status.asaapi']}[a];
+        return txt?`<div class="meta" style="color:#e8b84b">\u23f3 ${txt}\u2026</div>`:'';
+      })()}
+      <div class="meta">${i.map?i.map+' · ':''}${i.game&&i.game!=="ark"?i.game_label+' · ':''}Port ${i.port}${i.rcon_port?' · RCON '+i.rcon_port:''}</div>
+      <div class="meta">${i.installed?('Build '+i.build+' · '+i.size_gb+' GB'):L['dash.not_installed']}</div>
+      ${i.game==='ark'&&i.api_version?`<div class="meta">AsaApi ${i.api_version}${i.api_update?` <span class="badge warn">\u25b2 ${i.api_update.available}</span>`:''} · <a href="#" onclick="asaApiToggle('${i.name}',${i.asaapi?0:1});return false;">${i.asaapi?L['common.disable']:L['common.enable']}</a></div>`:''}
+      <div class="meta">${i.sftp_enabled
+        ? `SFTP <code>sftp://${i.sftp_user}@${location.hostname}:${i.sftp_port}</code> · <a href="#" onclick="sftpAktion('${i.name}','neu');return false;">neues Passwort</a> · <a href="#" onclick="sftpAktion('${i.name}','aus');return false;">aus</a>`
+        : `<a href="#" onclick="sftpAktion('${i.name}','an');return false;">SFTP einschalten</a>`}</div>
+      ${i.running?`<div class="stats">
+        <div title="${L['dash.cpu_title'].replace('{p}',(i.cpu_pct!==undefined?i.cpu_pct:(i.cpu/(i.cores||navigator.hardwareConcurrency||1))).toFixed(1)).replace('{c}',(i.cpu/100).toFixed(1)).replace('{n}',i.cores||navigator.hardwareConcurrency||1)}"><b>${(i.cpu_pct!==undefined?i.cpu_pct:(i.cpu/(i.cores||navigator.hardwareConcurrency||1))).toFixed(1)}%</b><small>${L['dash.cpu']}</small></div>
+        <div title="Spitze: ${i.ram_peak_gb||0} GB"><b>${i.ram_gb.toFixed(1)}G</b><small>${L['dash.ram']}</small></div>
+        <div class="plTile" onclick="showPlayers('${i.name}')" title="${L['dash.players_hint']}"><b>${i.players}</b><small>${L['dash.players']}</small></div>
+        <div><b>${fmtUp(i.uptime)}</b><small>${L['dash.uptime']}</small></div>
+      </div><canvas class="spark" width="300" height="38"></canvas>`:''}
+      <div class="row">
+        ${(()=>{
+          const la=(window.LOCAL_ACT||{})[i.name];
+          const a=i.action || (la&&la.what) || '';
+          // Waehrend Stop ist alles gesperrt. Waehrend Start/Restart/Update (und solange die
+          // Instanz hochfaehrt) bleibt nur Stop bedienbar - zum Abbrechen.
+          // Loeschen laeuft wie Start/Restart/Update: nur Stop bleibt bedienbar
+          const startingNow = (a==='start'||a==='restart'||a==='update'||a==='delete'||a==='asaapi') || (i.running && !i.ready);
+          const stoppingNow = (a==='stop');
+          const off = ' disabled';
+          // Eine Pille, drei Gruppen - wie in einem Dateimanager:
+          // rot = anhalten/loeschen, blau = verwalten, gruen = starten.
+          const menu = (dis)=>`<a href="/i/${i.name}?token=${encodeURIComponent(T)}" title="${L['common.menu']}"><button${dis} aria-label="${L['common.menu']}">${ICO.menu}</button></a>`;
+          const bStart = (dis)=>`<button onclick="act('${i.name}','start')"${dis} title="${L['common.start']}" aria-label="${L['common.start']}">${ICO.play}</button>`;
+          const bRestart=(dis)=>`<button onclick="act('${i.name}','restart')"${dis} title="${L['common.restart']}" aria-label="${L['common.restart']}">${ICO.restart}</button>`;
+          const bUpdate = (dis)=>`<button onclick="updInst('${i.name}')"${dis} title="${L['common.update']}" aria-label="${L['common.update']}">${ICO.update}</button>`;
+          const bApi    = (dis)=>{
+            // AsaApi gibt es nur fuer ARK; der Knopf erscheint nur, wenn er etwas zu tun hat
+            // (AsaApi fehlt oder es liegt ein Update vor).
+            if(i.game!=='ark') return '';
+            const _u=i.api_update, _have=i.api_version||'';
+            if(_have && !_u) return '';
+            const _tip = _u ? L['card.asaapi_new'].replace('{v}', _u.available) : L['card.asaapi_hint'];
+            return `<button class="${_u?'dot':''}" onclick="apiInst('${i.name}')"${dis} title="${_tip}" aria-label="${L['card.asaapi']}">${ICO.plugin}</button>`;
+          };
+          const bStop   = (dis)=>`<button onclick="act('${i.name}','stop')"${dis} title="${L['common.stop']}" aria-label="${L['common.stop']}">${ICO.stop}</button>`;
+          const bDel    = (dis)=>`<button onclick="delInst('${i.name}',${i.size_gb||0})"${dis} title="${L['common.delete']}" aria-label="${L['common.delete']}">${ICO.trash}</button>`;
+          if(!i.installed)
+            return `<div class="actbar">
+                      <span class="ag ag-blue">${menu('')}</span>
+                      <span class="ag ag-green"><button class="primary" onclick="install('${i.name}')"${startingNow||stoppingNow?off:''} title="${L['dash.install']}" aria-label="${L['dash.install']}">${ICO.download}</button></span>
+                      <span class="ag ag-red">${bDel(startingNow||stoppingNow?off:'')}</span>
+                    </div>
+                    ${i.game==='ark'?`<div class="meta" style="flex-basis:100%;margin-top:6px">${L['dash.install_asaapi']}</div>`:''}`;
+          // Menue bleibt immer bedienbar - von dort kommt man an Log, Konfig und alles weitere.
+          const bar = (startDis, restartDis, updDis, stopDis, delDis)=>
+            `<div class="actbar">
+               <span class="ag ag-red">${bStop(stopDis)}${bDel(delDis)}</span>
+               <span class="ag ag-blue">${menu('')}${bUpdate(updDis)}${bApi(updDis)}</span>
+               <span class="ag ag-green">${bStart(startDis)}${bRestart(restartDis)}</span>
+             </div>`;
+          if(stoppingNow)
+            return bar(off, off, off, off, off);
+          if(startingNow)
+            return bar(off, off, off, '', off);
+          // Update ist bewusst auch bei gestoppter Instanz bedienbar: genau dann
+          // lassen sich die Serverdateien tauschen.
+          return bar(i.running?off:'', i.running?'':off, '', i.running?'':off, '');
+        })()}
+      </div>
+      </div>
+      </div>
+    </div>`).join('');
+  const canvases=[...document.querySelectorAll('.spark')];
+  canvases.forEach(cv=>{
+    const name=cv.closest('.card').querySelector('h3').textContent.trim();
+    const d=DATA.find(x=>x.name===name); if(!d)return;
+    const rmax=Math.max(1,...(d.ram_hist||[0]));
+    // CPU als Anteil des Servers (0-100), damit die Achse immer bei 100 % endet
+    const chist=d.cpu_hist_pct||(d.cpu_hist||[]).map(v=>v/(d.cores||1));
+    spark(cv, chist, d.ram_hist||[], 100, rmax*1.15);
+  });
+  // Kein Logfenster auf der Startseite: bei vielen Instanzen wird die Uebersicht sonst
+  // unuebersichtlich und jede Karte pollt zusaetzlich. Das Log steht auf der Instanzseite.
+}
+async function loadHost(){
+  if(window.__pressed){ setTimeout(loadHost, 400); return; }   // Klick laeuft noch
+  try{ const h=JSON.parse(await api('/api/host'));
+    document.getElementById('hostcpu').textContent='CPU '+h.cpu.toFixed(1)+'%';
+    document.getElementById('hostram').textContent='RAM '+h.ram_used_gb+'/'+h.ram_total_gb+' GB ('+h.ram_pct+'%)';
+  }catch(e){}
+}
+async function sftpAktion(name,action){
+  // SFTP ein-/ausschalten oder neues Passwort holen; Passwort gleich in die Zwischenablage
+  try{
+    const r=await api('/api/sftp?name='+encodeURIComponent(name)+'&action='+encodeURIComponent(action),{method:'POST'});
+    if(r && r.password){
+      banner('SFTP '+r.user+' · Port '+r.port+' · Passwort: '+r.password, '#39d98a');
+      try{ await navigator.clipboard.writeText(r.password); }catch(e){}
+    } else if(r && r.info){
+      banner(r.info, '#39d98a');
+    }
+    load();
+  }catch(e){
+    banner('SFTP: '+e, '#f04040');
+  }
+}
+
+async function act(name,what){
+  const btns=[...document.querySelectorAll('button')].filter(b=>{
+    const oc=b.getAttribute('onclick')||''; return oc.includes("'"+name+"'") && oc.includes("'"+what+"'");
+  });
+  const TXT={stop:L['act.stopping'], start:L['act.starting'], restart:L['act.restarting']};
+  const alt=TXT[what]||L['act.working'];
+  btns.forEach(b=>{ b.disabled=true; b.dataset.old=b.textContent; b.textContent='…'; });
+  const banner=document.getElementById('actbanner');
+  if(banner){ banner.style.display=''; banner.textContent=alt.replace('{n}',name); }
+  try{
+    await api('/api/'+what+'?name='+encodeURIComponent(name),{method:'POST'});
+  }catch(e){
+    if(banner){ banner.textContent='Fehler: '+e; }
+    btns.forEach(b=>{ b.disabled=false; b.textContent=b.dataset.old||b.textContent; });
+    return;
+  }
+  if(what==='stop'){
+    const t0=Date.now();
+    while(Date.now()-t0 < 70000){
+      await new Promise(r=>setTimeout(r,1500));
+      let st=null;
+      try{ st=JSON.parse(await api('/api/status?name='+encodeURIComponent(name))); }catch(e){}
+      if(st && !st.running){
+        if(banner){ banner.textContent=L['act.stopped'].replace('{n}',name); setTimeout(()=>{banner.style.display='none';},2500); }
+        load(); return;
+      }
+      if(banner) banner.textContent=alt.replace('{n}',name)+' ('+Math.round((Date.now()-t0)/1000)+' s)';
+    }
+    if(banner) banner.textContent=L['act.stop_timeout'].replace('{n}',name);
+    load(); return;
+  }
+  // Start/Restart: warten bis der Server wirklich laeuft
+  if(what==='start'||what==='restart'){
+    const t0=Date.now();
+    while(Date.now()-t0 < 90000){
+      await new Promise(r=>setTimeout(r,1500));
+      let st=null;
+      try{ st=JSON.parse(await api('/api/status?name='+encodeURIComponent(name))); }catch(e){}
+      if(st && st.running){
+        if(banner){ banner.textContent=L['act.running'].replace('{n}',name); setTimeout(()=>{banner.style.display='none';},2500); }
+        load(); return;
+      }
+      if(banner) banner.textContent=alt.replace('{n}',name)+' ('+Math.round((Date.now()-t0)/1000)+' s)';
+    }
+    if(banner){
+      banner.textContent=alt.replace('{n}',name)+' - '+(L['act.slow']||'keine Rückmeldung');
+      setTimeout(()=>{ banner.style.display='none'; }, 6000);
+    }
+    load();
+    return;
+  }
+  setTimeout(load,1500);
+}
+
+
+async function updInst(name){
+  if(!confirm(L['msg.confirm_update'])) return;
+  window.LOCAL_ACT = window.LOCAL_ACT || {};
+  window.LOCAL_ACT[name]={what:'update',ts:Date.now()};
+  load();
+  try{
+    await api('/api/update?name='+encodeURIComponent(name), {method:'POST'});
+    alert(L['msg.update_started']);
+    setTimeout(load, 1500);
+  }catch(e){ alert(String(e)); }
+}
+async function apiInst(name){
+  // AsaApi samt Plugins installieren; vorhandene Plugins und der Offsets-Cache bleiben.
+  if(!confirm(L['msg.confirm_asaapi'])) return;
+  window.LOCAL_ACT = window.LOCAL_ACT || {};
+  window.LOCAL_ACT[name]={what:'asaapi',ts:Date.now()};
+  load();
+  try{
+    await api('/api/asaapi?name='+encodeURIComponent(name), {method:'POST'});
+    alert(L['msg.asaapi_started']);
+    setTimeout(load, 1500);
+  }catch(e){ alert(String(e)); }
+}
+async function delInst(name, sizeGb){
+  if(!confirm(L['msg.confirm_instance_delete'].replace('{n}', name))) return;
+  // ohne Installation gibt es keine Serverdaten - dann faellt die Rueckfrage weg
+  let files = sizeGb ? 0 : 1;
+  if(sizeGb && confirm(L['msg.confirm_instance_files'].replace('{n}', name).replace('{size}', sizeGb))){
+    files = 1;
+  }
+  const msg = document.getElementById('instmsg');
+  const zeige = (t)=>{ if(msg) msg.textContent=t; };
+  // sofort sperren: bis der Job fertig ist, bleibt die Karte gesperrt
+  window.LOCAL_ACT = window.LOCAL_ACT || {};
+  window.LOCAL_ACT[name]={what:'delete',ts:Date.now()};
+  load();
+  zeige(L['msg.delete_stopping']||'Server wird gestoppt …');
+  try{
+    await api('/api/instance/delete?name='+encodeURIComponent(name)+'&files='+files, {method:'POST'});
+    // Loeschen laeuft im Hintergrund: Stoppen kann bis 90 s dauern, Dateien sind mehrere GB.
+    for(let i=0;i<240;i++){
+      await new Promise(r=>setTimeout(r,1500));
+      let p=null;
+      try{ p=JSON.parse(await api('/api/delete/progress?name='+encodeURIComponent(name))); }catch(e){ break; }
+      if(!p) break;
+      if(p.error){ zeige(name+': '+p.error); break; }
+      if(p.running){
+        zeige(p.phase==='stop' ? (L['msg.delete_stopping']||'Server wird gestoppt …')
+             : p.phase==='files' ? (L['msg.delete_files']||'Serverdateien werden gelöscht …')
+             : (L['msg.delete_config']||'Eintrag wird entfernt …'));
+        continue;
+      }
+      const frei = p.freed_gb>=1 ? (Math.round(p.freed_gb).toLocaleString('de-DE')+' GB')
+                 : (p.freed_mb ? (p.freed_mb.toLocaleString('de-DE')+' MB') : '');
+      zeige(frei ? (frei+' freigegeben · '+name+' entfernt') : (name+' entfernt'));
+      if(p.hint) alert(p.hint);
+      break;
+    }
+  }catch(e){ alert(String(e)); }
+  delete window.LOCAL_ACT[name];
+  load();
+}
+function toggleMap(){
+  if(typeof fillMap==='function') fillMap();
+  if(typeof updateHint==='function') updateHint();
+}
+async function createInst(){
+  const name=document.getElementById('nname').value.trim();
+  if(!name){alert('Name fehlt');return;}
+  const q=new URLSearchParams({name:name,game:document.getElementById('ngame').value,
+    map:document.getElementById('nmap').value,
+    port:document.getElementById('nport').value,session:document.getElementById('nsession').value}).toString();
+  const antwort=await api('/api/instances?'+q,{method:'POST'});
+  document.getElementById('out').textContent=antwort;
+  // Kein Extra-Fenster: die neue Karte erscheint in der Uebersicht, den Start
+  // der Installation loest der Nutzer selbst ueber "Installieren" aus.
+  setTimeout(load,600);
+}
+async function install(name){
+  // Installation anstossen und die Instanzseite oeffnen: dort laeuft der Fortschritt
+  // in einem eigenen Fenster (Balken, Hinweistext, Log-Auszug, Abbrechen).
+  const antwort = await api('/api/install?name='+encodeURIComponent(name),{method:'POST'});
+  const o=document.getElementById('out'); if(o) o.textContent=antwort;
+  // Fortschritt im selben Tab oeffnen, kein zusaetzliches Fenster.
+  setTimeout(()=>{ location.href='/i/'+encodeURIComponent(name)+'?token='+encodeURIComponent(T); }, 800);
+}
+
+async function checkPolyPanel(){
+  try{ _polyPanelInfo=JSON.parse(await api('/api/selfupdate')); }catch(e){ return; }
+  const b=document.getElementById('verbtn');
+  if(!b||!_polyPanelInfo||!_polyPanelInfo.ok) return;
+  if(!_polyPanelInfo.update){
+    b.textContent='PolyPanel '+_polyPanelInfo.installed+' · '+L['self.current_build']; b.className='';
+    b.disabled=true; b.style.cursor='default'; b.style.opacity='.7';
+    b.title=L['self.up_to_date'];
+    return;
+  }
+  else if(_polyPanelInfo.available && _polyPanelInfo.available!==_polyPanelInfo.installed){
+    b.textContent='PolyPanel update: '+_polyPanelInfo.installed+' → '+_polyPanelInfo.available;
+    b.className='badge on';
+  } else {
+    // gleiche Version, nur neuer Commit: nur ein Hinweis, nicht klickbar
+    b.textContent='PolyPanel '+_polyPanelInfo.installed+' · '+L['self.new_build'];
+    b.className='badge';
+    b.disabled=true; b.style.cursor='default'; b.style.opacity='.7';
+    b.title=L['self.build_only'];
+    return;
+  }
+  b.disabled=false; b.style.cursor=''; b.style.opacity='';
+
+  b.title = _polyPanelInfo.update ? L['self.click_update'] : L['self.up_to_date'];
+}
+
+function closeModal(){ const m=document.getElementById('modal'); if(m) m.classList.remove('on'); }
+function _links(html){
+  let out='', i=0;
+  while(true){
+    const a=html.indexOf('[', i), b=html.indexOf('](', a+1), c=html.indexOf(')', b+2);
+    if(a<0||b<0||c<0){ out+=html.slice(i); break; }
+    const label=html.slice(a+1,b);
+    if(b-a>80 || label.indexOf('<')>=0){ out+=html.slice(i,a+1); i=a+1; continue; }
+    out+=html.slice(i,a);
+    out+='<a href="'+html.slice(b+2,c)+'" target="_blank">'+html.slice(a+1,b)+'</a>';
+    i=c+1;
+  }
+  return out;
+}
+function _mdToHtml(text){
+  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const out=[];
+  for(const raw of text.split(String.fromCharCode(10))){
+    const line=raw.split(String.fromCharCode(13)).join('');
+    if(line.startsWith('### ')) out.push('<h4 style="margin:10px 0 4px">'+esc(line.slice(4))+'</h4>');
+    else if(line.startsWith('## ')) out.push('<h3 style="margin:14px 0 6px;color:var(--acc)">'+esc(line.slice(3))+'</h3>');
+    else if(line.startsWith('# ')) out.push('<h3 style="margin:0 0 8px">'+esc(line.slice(2))+'</h3>');
+    else if(line.startsWith('  - ')||line.startsWith('    - ')) out.push('<div class="meta" style="padding-left:26px">• '+esc(line.trim().slice(2))+'</div>');
+    else if(line.startsWith('- ')) out.push('<div style="margin:3px 0 3px 12px">• '+esc(line.slice(2))+'</div>');
+    else if(line.trim()==='') out.push('<div style="height:4px"></div>');
+    else out.push('<div class="meta">'+esc(line)+'</div>');
+  }
+  let html=out.join('');
+  const bold=html.split('**');
+  html=bold.map((part,i)=> (i%2) ? '<b>'+part+'</b>' : part).join('');
+  const code=html.split('`');
+  html=code.map((part,i)=> (i%2) ? '<code>'+part+'</code>' : part).join('');
+  html=_links(html);
+  return html;
+}
+async function openChangelog(){
+  const box=document.getElementById('mbody');
+  box.innerHTML='<div class="meta">'+L['common.loading']+'</div>';
+  document.getElementById('modal').classList.add('on');
+  let d;
+  try{ d=JSON.parse(await api('/api/changelog?lang='+encodeURIComponent(L.lang||'de'))); }
+  catch(e){ box.innerHTML='<div class="meta">'+L['mods.search_failed']+'</div>'; return; }
+  if(!d.ok){ box.innerHTML='<div class="meta">'+(d.error||'')+'</div>'; return; }
+  box.innerHTML='<div style="max-height:64vh;overflow:auto;padding-right:6px">'+_mdToHtml(d.text)+'</div>'+
+    (d.url?('<div style="margin-top:10px"><a href="'+d.url+'" target="_blank">'+L['self.on_github']+'</a></div>'):'');
+}
+async function restartPanel(){
+  if(!confirm(L['self.restart_ask']||'Panel neu starten?')) return;
+  const b=document.getElementById('rstpbtn');
+  if(b){ b.disabled=true; b.textContent='…'; }
+  try{ await api('/api/panel/restart',{method:'POST'}); }
+  catch(e){ /* Verbindung reisst beim Neustart ab - das ist normal */ }
+  const o=document.getElementById('out');
+  if(o) o.textContent=(L['self.restarting']||'Panel startet neu …');
+  const start=Date.now();
+  const fertig=async function(){
+    if(Date.now()-start>90000){ location.reload(); return; }
+    try{
+      const r=await fetch('/api/host?token='+encodeURIComponent(T),{cache:'no-store'});
+      if(r.ok){ location.reload(); return; }
+    }catch(e){}
+    setTimeout(fertig,1500);
+  };
+  setTimeout(fertig,2500);
+}
+
+async function polyPanelUpdate(){
+  if(!_polyPanelInfo){ await checkPolyPanel(); }
+  if(!_polyPanelInfo || !_polyPanelInfo.ok) return;
+  if(!_polyPanelInfo.update){ alert(L['self.up_to_date']); return; }
+  let notes='';
+  try{ const n=JSON.parse(await api('/api/selfupdate/notes?v='+encodeURIComponent(_polyPanelInfo.available)));
+       if(n.ok && n.text) notes=String.fromCharCode(10,10)+n.text.slice(0,900); }catch(e){}
+  if(!confirm(L['self.confirm'].replace('{v}', _polyPanelInfo.available)+notes)) return;
+  const b=document.getElementById('verbtn');
+  b.textContent='…';
+  let res=null;
+  try{ res=JSON.parse(await api('/api/selfupdate',{method:'POST'})); }
+  catch(e){ alert(L['self.failed']+' '+(e&&e.message?e.message:'')); await checkPolyPanel(); return; }
+  if(res && res.ok===false){
+    alert(L['self.failed']+' '+(res.error||''));
+    await checkPolyPanel();
+    return;
+  }
+  alert(L['self.done']);
+  setTimeout(()=>location.reload(), 4000);
+}
+applyLang(); load(); loadHost(); checkPolyPanel(); setInterval(load,3000); setInterval(loadHost,3000);
+</script>""" + REPORT_JS + """
+<div id="plModal" class="plModal"><div class="plBox">
+  <div class="row" style="justify-content:space-between">
+    <b id="plTitle">Spieler</b>
+    <button onclick="closePlayers()">×</button>
+  </div>
+  <div id="plBody" class="plBody">…</div>
+</div></div>
+<script>
+function closePlayers(){ document.getElementById('plModal').classList.remove('on'); }
+function plRow(inst, pl){
+  // Anfuehrungszeichen mit maskieren: der Name landet in einem data-Attribut.
+  const n = String(pl.name).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                           .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const id = String(pl.steamid);
+  // Aktionen ueber data-Attribute: keine verschachtelten Quotes im HTML
+  return '<tr><td>'+n+'</td><td class="mono">'+id+'</td><td class="plAct">'+
+    '<button data-inst="'+inst+'" data-eos="'+id+'" data-act="kick">'+L['dash.kick']+'</button>'+
+    '<button class="danger" data-inst="'+inst+'" data-eos="'+id+'" data-act="ban">'+L['dash.ban']+'</button>'+
+    '<button data-inst="'+inst+'" data-eos="'+id+'" data-act="unban">'+L['dash.unban']+'</button>'+
+    '</td></tr>';
+}
+async function showPlayers(inst){
+  const box=document.getElementById('plModal'), body=document.getElementById('plBody');
+  document.getElementById('plTitle').textContent=L['dash.players']+' · '+inst;
+  body.innerHTML='…'; box.classList.add('on');
+  let list=[];
+  try{ list=JSON.parse(await api('/api/players?name='+encodeURIComponent(inst))); }
+  catch(e){ body.textContent=String(e); return; }
+  if(!list.length){ body.innerHTML='<span style="color:var(--dim)">– '+L['inst.no_players']+' –</span>'; return; }
+  body.innerHTML='<table class="plTable"><thead><tr><th>'+L['dash.players']+'</th><th>'+L['dash.eos_id']+'</th><th></th></tr></thead><tbody>'+
+    list.map(function(pl){ return plRow(inst, pl); }).join('')+'</tbody></table>';
+}
+async function plAct(inst, eos, action){
+  if(action==='ban' && !confirm(L['dash.ban_confirm'].replace('{id}', eos))) return;
+  try{
+    const r=await api('/api/player/action?name='+encodeURIComponent(inst)+'&steamid='+encodeURIComponent(eos)+'&action='+action,{method:'POST'});
+    document.getElementById('plBody').insertAdjacentHTML('afterbegin','<div class="plMsg">'+action+': '+(r||'ok')+'</div>');
+    setTimeout(function(){ showPlayers(inst); }, 1200);
+  }catch(e){ alert(String(e)); }
+}
+document.addEventListener('click', function(ev){
+  const b=ev.target.closest('button[data-act]');
+  if(b) plAct(b.dataset.inst, b.dataset.eos, b.dataset.act);
+});
+</script>
+__FOOTER__
+</body></html>"""
+
+INST = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>PolyPanel · __NAME__</title>
+<style>""" + SHARED_CSS + """
+#dateiBalken{height:8px;border-radius:4px;background:#1b2430;overflow:hidden;margin:10px 0 4px;display:none}
+#dateiBalkenFuell{height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#3b82f6);transition:width .15s linear}
+body:not([data-game="ark"]) .ark-only{display:none !important}
+body:not([data-game="ark"]):not([data-game="arkse"]) .arkcmd{display:none !important}
+body:not([data-game="ark"]):not([data-game="arkse"]) .tab-mods > *:not(h2):not(#mods-nonark):not(#mods-installed){display:none !important}
+body[data-game="ark"] #mods-nonark{display:none !important}
+/* Spiele ohne Mod-Unterstuetzung: Reiter komplett ausblenden (z. B. StarRupture) */
+body[data-game="starrupture"] [data-tab="mods"]{display:none !important}
+body[data-game="starrupture"] .tab-mods{display:none !important}
+body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{display:none !important}
+""" + MOBILE_CSS + """
+</style></head><body data-game="__GAME__">
+<canvas id="bg"></canvas>
+<div class="modal" id="modal" onclick="if(event.target.id==='modal')closeModal()">
+  <div class="mbox">
+    <button class="close" onclick="closeModal()">×</button>
+    <div id="mbody">…</div>
+  </div>
+</div>
+<header>
+  <a href="/?token=__TOK__" style="font-size:15px;letter-spacing:.18em;color:var(--acc)">PolyPanel</a>
+  <a href="/?token=__TOK__" style="margin-left:6px"><button data-t="common.back_dashboard">← Dashboard</button></a>
+  <span class="badge" id="st">…</span><span class="badge" id="rd">…</span>
+  <span class="badge">__NAME__</span><span class="badge" id="upd" role="button" tabindex="0">UPDATE ?</span>
+  <button onclick="toggleLang()" id="langbtn" style="padding:2px 8px">EN</button>""" + HEADER_ICONS + """
+</header>
+<div class="tabs">
+  <button class="on" data-tab="overview" onclick="showTab('overview',this)" data-t="tabs.overview">Übersicht</button>
+  <button data-tab="settings" onclick="showTab('settings',this)" data-t="tabs.settings">Einstellungen</button>
+  <button data-tab="mods" onclick="showTab('mods',this)" data-t="tabs.mods">Mods</button>
+  <button data-tab="files" onclick="showTab('files',this)" data-t="tabs.files">Dateien</button>
+  <button data-tab="server" onclick="showTab('server',this)" data-t="tabs.manage">Verwaltung</button>
+</div>
+<main>
+
+  <section class="tab tab-files" id="filessec">
+    <h2 data-t="files.title">Dateien</h2>
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
+      <button onclick="dateien(DATEI_PFAD)" data-t="files.reload">Aktualisieren</button>
+      <button onclick="document.getElementById('dateiUpload').click()" data-t="files.upload">Hochladen</button>
+      <button onclick="document.getElementById('dateiOrdner').click()" data-t="files.uploaddir">Ordner hochladen</button>
+      <button onclick="dMkdir()" data-t="files.mkdir">Neuer Ordner</button>
+      <input type="file" id="dateiUpload" multiple style="display:none" onchange="dUpload(this)">
+      <input type="file" id="dateiOrdner" webkitdirectory directory multiple style="display:none" onchange="dUpload(this)">
+      <span class="meta" id="dateiStatus"></span>
+    </div>
+    <div class="meta" id="dateiKrumen" style="margin:12px 0 6px"></div>
+    <div id="dateiBalken"><div id="dateiBalkenFuell"></div></div>
+    <div id="dateiListe" data-drop="1"><div class="meta">…</div></div>
+
+    <div id="dateiViewer" style="display:none;margin-top:16px">
+      <div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <b id="dateiViewerName"></b>
+        <span>
+          <button onclick="dSave()" data-t="files.save">Speichern</button>
+          <button onclick="dClose()" data-t="files.close">Schliessen</button>
+        </span>
+      </div>
+      <textarea id="dateiInhalt" spellcheck="false"
+        style="width:100%;height:340px;margin-top:8px;font-family:ui-monospace,monospace;font-size:12px;
+               background:rgba(0,0,0,.35);color:inherit;border:1px solid rgba(64,255,199,.2);border-radius:8px;padding:10px"></textarea>
+    </div>
+
+    <h2 style="margin-top:26px" data-t="sftp.title">SFTP-Zugang</h2>
+    <div id="sftpbox"><div class="meta">…</div></div>
+    <div class="row" style="margin-top:10px;flex-wrap:wrap;gap:8px">
+      <button id="sftpToggle" onclick="sftpAktion(NAME,'an')">SFTP einschalten</button>
+      <button id="sftpNew" onclick="sftpAktion(NAME,'neu')" style="display:none">Neues Passwort</button>
+      <button id="sftpCopy" onclick="sftpCopy()" style="display:none" data-t="sftp.copy">Adresse kopieren</button>
+    </div>
+    <div class="meta" id="sftphint" style="margin-top:10px"></div>
+  </section>
+
+  <section class="tab tab-overview on wide" id="setupsec" style="display:none">
+    <h2 data-t="inst.setup">Installation</h2>
+    <div id="setupbar" style="height:12px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden;margin-bottom:6px">
+      <div id="setupfill" style="height:100%;width:0%;background:linear-gradient(90deg,#2f81f7,#56d364);transition:width .6s"></div>
+    </div>
+
+    <div id="setuphint" style="color:var(--dim);font-size:12px;margin-bottom:8px">…</div>
+    <pre id="setuplog" style="max-height:240px;overflow:auto">…</pre>
+    <div class="row" style="margin-top:8px">
+      <button class="danger" onclick="cancelInstall()" data-t="inst.cancel">Installation abbrechen</button>
+    </div>
+  </section>
+
+  <section class="tab tab-overview on wide" id="logsec"><h2 data-t="inst.log">Server-Log</h2><pre id="log">…</pre></section>
+
+  <section class="tab tab-overview on"><h2 data-t="inst.commands">Befehle</h2>
+    <div id="cmds" class="arkcmd"></div>
+    <input id="cmd" data-tp="inst.rcon_free" placeholder="RCON"
+      onkeydown="if(event.key==='Enter')rcon()" style="margin-top:10px">
+    <div class="row"><button onclick="rcon()" data-t="common.send">Senden</button></div>
+    <pre id="out">–</pre>
+  </section>
+
+  <section class="tab tab-overview on" id="secPlayers"><h2 data-t="inst.players">Spieler</h2>
+    <div class="row" style="margin-bottom:8px">
+      <button onclick="unbanOpen()" data-t="inst.unban">Entbannen</button>
+      <small style="color:var(--dim)" data-t="inst.unban_hint">EOS-ID eines gesperrten Spielers eingeben</small>
+    </div>
+    <div id="players">…</div></section>
+
+  <section class="tab tab-overview on"><h2 data-t="inst.bans">Gesperrte Spieler</h2>
+    <div style="color:var(--dim);font-size:11px;line-height:1.45;margin:-4px 0 8px" data-t="inst.bans_hint">Hier stehen nur Spieler, die über dieses Panel gesperrt wurden - ARK liefert die Ban-Liste nicht über RCON. Spieler, die außerhalb gesperrt wurden, über das EOS-ID-Feld entbannen.</div>
+    <div id="bans"><span style="color:var(--dim)">–</span></div>
+  </section>
+
+  <section class="tab tab-server ark-only"><h2 data-t="wl.title">Whitelist</h2>
+    <div class="row" style="margin-bottom:8px">
+      <button id="wlbtn" onclick="toggleWl()">Whitelist …</button>
+      <span class="meta" id="wlcount"></span>
+    </div>
+    <input id="pid" data-tp="wl.id_ph" placeholder="ID" onkeydown="if(event.key==='Enter')addWl()">
+    <div class="row">
+      <button onclick="addWl()" data-t="wl.add">Auf Whitelist</button>
+    </div>
+    <div class="meta" style="margin:10px 0 2px">Whitelist</div>
+    <div id="wllist">…</div>
+    <pre id="wlmsg">–</pre>
+  </section>
+
+  <section class="tab tab-mods"><h2 data-t="tabs.mods">Mods</h2>
+    <div id="mods-installed">
+      <div class="row" style="align-items:center;margin:0 0 6px">
+        <b data-t="mods.installed">Installierte Mods</b>
+        <span class="meta" id="mods-installed-count"></span>
+        <span class="meta" id="mods-installed-path">…</span>
+        <button onclick="loadInstalledMods()" data-t="common.refresh">Aktualisieren</button>
+      </div>
+      <div id="mods-installed-list">…</div>
+    </div>
+    <div id="mods-nonark" style="display:none">
+      <p class="hint" data-t="mods.local_hint">Dieses Spiel wird nicht über CurseForge verwaltet. Mods legst du direkt im Ordner ab – PolyPanel zeigt dir, was dort liegt.</p>
+      <p class="hint" data-t="mods.search_how">So funktioniert die Suche: sie filtert die 50 meistgeladenen Mods (Nexus) und passende GitHub-Repos nach deinem Begriff – kurze Wörter genügen, z. B. „ui", „trader", „vehicle". Eine echte Volltextsuche bietet nur die Nexus-Webseite.</p>
+      <div class="row" style="margin:10px 0">
+        <input id="modq" data-tp="mods.search_ph" placeholder="Mod suchen" style="flex:1"
+          oninput="suggestLocalMods()" onkeydown="if(event.key==='Enter'){clearTimeout(_modTimer);searchLocalMods()}" autocomplete="off">
+        <button onclick="searchLocalMods()" data-t="mods.search">Suchen</button>
+        <button onclick="loadLocalMods()" data-t="common.refresh">Aktualisieren</button>
+      </div>
+      <div id="modhits-local"></div>
+      <div id="nexusbox" style="display:none;margin-top:14px">
+        <div class="setrow"><label><b>NexusMods-API-Key</b>
+          <small><span data-t="mods.nexus_hint">Persönlicher Key - ganz unten auf dieser Seite:</span>
+            <a href="https://www.nexusmods.com/settings/api-keys" target="_blank" rel="noopener">nexusmods.com/settings/api-keys</a></small></label>
+          <input id="nexuskey" type="password" placeholder="…"></div>
+        <div class="row" style="align-items:center">
+          <button onclick="saveNexusKey()" data-t="common.save">Speichern</button>
+          <span id="nexusstate" class="badge">…</span>
+        </div>
+      </div>
+    </div>
+    <div class="setrow ark-only" style="margin:10px 0 0">
+      <label><input type="checkbox" id="asaapion" onchange="setAsaApi(this.checked)" style="width:auto;margin-right:6px">
+        <b data-t="mods.asaapi">AsaApi aktiv (Plugins im Spiel)</b>
+        <small><span data-t="mods.asaapi_state" id="asaapistate"></span></small></label>
+    </div>
+    <div class="setrow ark-only" style="margin:10px 0 0">
+      <label><b data-t="mods.ids">Mod-IDs (Komma-getrennt)</b></label>
+      <input id="modids" data-tp="mods.ids_ph" placeholder="947033, 1234567" autocomplete="off"
+             onkeydown="if(event.key==='Enter')saveModIds()">
+    </div>
+    <div class="row ark-only"><button onclick="saveModIds()" data-t="common.save">Speichern</button>
+      <span class="meta" id="modidsmsg"></span></div>
+    <div id="mods">…</div>
+    <div class="row" style="margin-top:8px">
+      <input id="modid" data-tp="mods.search_ph" placeholder="Mod suchen oder ID eingeben"
+        oninput="suggestMods()" onkeydown="if(event.key==='Enter')searchMods()"
+        autocomplete="off" style="flex:1">
+      <button onclick="searchMods()" data-t="mods.search">Suchen</button>
+      <button onclick="addMod()" data-t="common.add">Hinzufügen</button>
+    </div>
+    <div class="row"><span class="meta" id="keystate"></span></div>
+    <div class="hint" data-t="mods.search_hint">Die CurseForge-API liefert höchstens 50 Treffer pro Abfrage.
+      Für mehr Ergebnisse den Begriff eingrenzen.</div>
+    <div id="modhitsum"></div>
+    <div id="modhits"></div>
+    <div class="row"><span class="meta" id="modsize"></span></div>
+    <div class="setrow" style="margin-top:10px">
+      <label><b data-t="mods.key">CurseForge-API-Key</b>
+        <small><span data-t="mods.key_hint">optional - ohne Key ist die Suche unzuverlaessig</span>
+          <a href="https://console.curseforge.com" target="_blank" rel="noopener">console.curseforge.com</a></small></label>
+      <input id="cfkey" type="password" placeholder="…">
+    </div>
+    <div class="row"><button onclick="saveKey()" data-t="common.save">Speichern</button>
+      <span class="meta" id="cfkeymsg"></span></div>
+    <pre id="modout" style="margin-top:8px">–</pre>
+  </section>
+
+  <section class="tab tab-settings ark-only"><h2 data-t="cl.title">Cluster</h2>
+    <div class="meta" data-t="cl.hint">Mehrere Karten teilen sich Spieler, Dinos und Gegenstände, wenn sie dieselbe
+      Cluster-ID und dasselbe Verzeichnis benutzen. Ohne eigene Angabe gilt: ID = Instanzname,
+      Verzeichnis = &lt;instanz&gt;/clusters (also kein Teilen).</div>
+    <div class="setrow" style="margin-top:8px">
+      <label><b data-t="cl.id">Cluster-ID</b><small data-t="cl.id_hint">identisch auf allen Karten, die geteilt werden sollen</small></label>
+      <input id="clid" placeholder="z. B. Drachenbande">
+    </div>
+    <div class="setrow">
+      <label><b data-t="cl.dir">Cluster-Verzeichnis</b><small data-t="cl.dir_hint">gemeinsamer Pfad für alle Karten, leer = nur diese Instanz</small></label>
+      <input id="cldir" placeholder="z. B. /home/ronny/arkcluster">
+    </div>
+    <div class="setrow">
+      <label><b data-t="cl.filter">Übertragungen ohne Filterprüfung</b><small data-t="cl.filter_hint">an = -NoTransferFromFiltering wird gesetzt (übliche Einstellung für Cluster)</small></label>
+      <div class="bool"><input type="checkbox" id="clfilt" checked></div>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <button class="primary" onclick="saveCluster()" data-t="common.save">Speichern</button>
+      <span class="meta" id="clmsg"></span>
+    </div>
+  </section>
+
+  <section class="tab tab-settings"><h2 data-t="set.gui">Einstellungen (GUI)</h2>
+    <div id="settings">lädt …</div>
+    <div class="row" style="margin-top:10px">
+      <button class="primary" onclick="saveSettings()" data-t="set.save_changes">Änderungen speichern</button>
+      <span class="meta" id="setmsg"></span>
+    </div>
+  </section>
+
+  <section class="tab tab-settings ark-only"><h2 data-t="set.raw">INI direkt bearbeiten</h2>
+    <select id="cfgfile" onchange="loadCfg()">
+      <option value="gus">GameUserSettings.ini</option>
+      <option value="game">Game.ini</option>
+    </select>
+    <textarea id="cfgtext"></textarea>
+    <div class="row" style="margin-top:6px"><button onclick="saveCfg()" data-t="common.save">Speichern</button>
+      <span class="meta" id="cfgmsg"></span></div>
+  </section>
+
+  <section class="tab tab-server"><h2 data-t="snap.title">Instanz-Snapshot (Rollback)</h2>
+    <div class="meta" data-t="snap.hint_text">Komplette Kopie der Serverdateien inklusive Mods – für den Fall, dass ein ARK-Update
+      die Installation zerschießt. Ein Welt-Backup hilft dort nicht, weil SteamCMD immer die neue
+      Programmversion liefert. Platzbedarf: ca. 12 GB pro Snapshot.</div>
+    <div id="snaps" style="margin-top:10px">…</div>
+    <div class="row" style="margin-top:8px">
+      <button class="primary" onclick="makeSnap()" data-t="snap.create">Snapshot erstellen</button>
+      <span class="meta" id="snapmsg"></span>
+    </div>
+    <div class="setrow"><label><b data-t="snap.times">Snapshot-Uhrzeiten</b>
+      <small data-t="snap.times_hint">hint</small></label>
+      <input id="snapTimes" type="text" placeholder="04:00"></div>
+    <div class="setrow" style="margin-top:10px"><label><b data-t="snap.keep">Auto-Snapshots behalten</b>
+      <small data-t="snap.keep_hint">hint</small></label>
+      <input id="snapKeep" type="number" min="1" max="40" placeholder="3"></div>
+  </section>
+
+  <section class="tab tab-server"><h2 data-t="notify.title">Benachrichtigungen (Discord)</h2>
+    <div class="meta" data-t="notify.hint">Webhook-Adresse aus Discord (Servereinstellungen → Integrationen → Webhooks).
+      Meldungen: Absturz, Hänger-Neustart, neues Server-Update, Backup-Fehler.</div>
+    <div class="setrow" style="margin-top:8px">
+      <label><b data-t="notify.url">Webhook-URL</b><small data-t="notify.url_hint">leer = keine Meldungen</small></label>
+      <input id="hookurl" data-tp="notify.url_ph" placeholder="https://discord.com/api/webhooks/…">
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="primary" onclick="saveHook()" data-t="common.save">Speichern</button>
+      <button onclick="testHook()" data-t="notify.test">Test senden</button>
+      <span class="meta" id="hookmsg"></span>
+    </div>
+  </section>
+
+  <section class="tab tab-server wide"><h2 data-t="sched.title">Zeitplan</h2>
+    <div id="tasklist"></div>
+    <div class="row" style="margin:6px 0 12px">
+      <button onclick="addTask()" data-t="sched.add">Aufgabe hinzufügen</button>
+      <button class="primary" onclick="saveTasks()" data-t="common.save">Speichern</button>
+      <span class="meta" id="taskmsg"></span>
+    </div>
+    <div class="meta" data-t="sched.legend" style="margin:0 0 10px">Uhrzeit 05:00, Tage leer = täglich.
+      Aktionen laufen im Supervisor; Neustart nutzt die Vorwarnung unten.</div>
+    <div class="setrow"><label><b data-t="sched.restart_times">Neustart-Uhrzeiten (alt)</b>
+      <small data-t="sched.restart_hint">hint</small></label>
+      <input id="schedRestart" type="text" placeholder="05:00,17:00"></div>
+    <div class="setrow"><label><b data-t="sched.warn">Vorwarnung vor Neustart</b>
+      <small data-t="sched.warn_hint">hint</small></label>
+      <input id="schedWarn" type="number" placeholder="5"></div>
+    <div class="setrow"><label><b data-t="sched.keep">Backups behalten</b>
+      <small data-t="sched.keep_hint">hint</small></label>
+      <input id="schedKeep" type="number" placeholder="10"></div>
+    <div class="row" style="margin-top:10px"><button onclick="saveSchedule()" data-t="common.save">Speichern</button></div>
+    <pre id="schedmsg">–</pre>
+  </section>
+
+
+</main>
+    <div id="dateiFull" role="dialog" aria-modal="true">
+      <div class="row" style="justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <b id="dateiFullName"></b>
+        <span class="frow">
+          <button class="primary" onclick="dSaveFull()" data-t="files.save">Speichern</button>
+          <button onclick="dDownload(DATEI_FULL)">Herunterladen</button>
+          <button onclick="dFullClose()" data-t="files.close">Schliessen</button>
+        </span>
+      </div>
+      <textarea id="dateiFullText" spellcheck="false"></textarea>
+      <div class="meta" id="dateiFullMsg"></div>
+    </div>
+<script>""" + BG_JS + """
+const NAME='__NAME__';
+// ---- Installationsfenster: Fortschritt, Hinweis und Log-Auszug
+const SETUP_HINTS={downloading:'setup.download',verifying:'setup.verify',committing:'setup.commit',preallocating:'setup.prealloc'};
+async function cancelInstall(){
+  if(!confirm(L['inst.cancel_ask']||'Installation wirklich abbrechen?')) return;
+  try{ await api('/api/install/cancel?name='+encodeURIComponent(NAME),{method:'POST'}); }catch(e){}
+  setTimeout(function(){ location.reload(); },900);
+}
+async function setupPoll(){
+  const box=document.getElementById('setupsec');
+  if(!box) return;
+  let p=null;
+  try{ p=JSON.parse(await api('/api/install/progress?name='+encodeURIComponent(NAME))); }catch(e){ return; }
+  if(!p) return;
+  if(p.done && !p.running){
+    if(window._setupSichtbar){
+      document.getElementById('setupfill').style.width='100%';
+      document.getElementById('setupfill').classList.remove('indet');
+      document.getElementById('setuphint').textContent=L['setup.done']||'Installation abgeschlossen.';
+      window._setupSichtbar=0;
+      setTimeout(function(){ location.reload(); },2200);
+    }
+    return;
+  }
+  if(!p.running && !p.percent) return;
+  box.style.display='';
+  window._setupSichtbar=1;
+  // Installationsfenster nach vorn holen: sonst verdeckt der zuletzt gemerkte Reiter
+  // (z. B. "Einstellungen" aus localStorage) den Fortschritt - der Klick auf "Installieren"
+  // landet dann scheinbar in den Einstellungen, waehrend im Hintergrund installiert wird.
+  const aktiv=document.querySelector('.tabs button.on');
+  if(!aktiv || aktiv.dataset.tab!=='overview'){
+    const uebersicht=document.querySelector('.tabs button[data-tab="overview"]');
+    if(uebersicht) showTab('overview', uebersicht);
+  }
+  const fill=document.getElementById('setupfill'), hint=document.getElementById('setuphint');
+  const ph=p.phase||'';
+  let text='';
+  if(p.percent!==null && p.percent!==undefined){
+    fill.classList.remove('indet');
+    fill.style.width=Math.max(2,Math.min(100,p.percent))+'%';
+    const schritt=(p.step&&p.steps)?('Schritt '+p.step+'/'+p.steps+' · '):'';
+    const tempo=(p.speed&&p.speed>0.1)?(' · '+Number(p.speed).toFixed(1)+' MB/s'):'';
+    text=schritt+(L[SETUP_HINTS[ph]]||L['setup.download']||'Serverdateien werden geladen')+' - '+Number(p.percent).toFixed(1)+' %'+tempo;
+  }else{
+    fill.classList.add('indet'); fill.style.width='100%';
+    const sek=(p.elapsed===null||p.elapsed===undefined)?null:Number(p.elapsed);
+    const dauer=sek===null?'':(sek<60?(' - '+sek+' s'):(' - '+Math.floor(sek/60)+' min '+(sek%60)+' s'));
+    const basis=(ph.indexOf('SE:')===0)?(L['setup.runtime']||'Laufzeit wird eingerichtet (Wine/.NET), 10-20 Minuten'):ph;
+    text=basis+dauer;
+  }
+  hint.textContent=text;
+  try{
+    const lg=await api('/api/install/log?name='+encodeURIComponent(NAME));
+    const nl=String.fromCharCode(10);
+    const zeilen=String(lg).split(nl).filter(function(z){return z.trim();}).slice(-30);
+    document.getElementById('setuplog').textContent=zeilen.join(nl);
+  }catch(e){}
+}
+setTimeout(function(){ setupPoll(); setInterval(setupPoll, 2000); }, 300);
+
+
+const L=__LANGJSON__;
+async function toggleLang(){
+  const next = (L.lang === 'de') ? 'en' : 'de';
+  try{ await fetch('/api/lang?set=' + next + '&token=' + encodeURIComponent(T), {method:'POST'}); }
+  catch(e){ alert(L['msg.lang_failed'] + ' ' + e); return; }
+  location.reload();
+}
+function applyLang(){
+  document.querySelectorAll('[data-t]').forEach(e=>{const k=e.dataset.t;if(L[k])e.textContent=L[k];});
+  document.querySelectorAll('[data-tp]').forEach(e=>{const k=e.dataset.tp;if(L[k])e.placeholder=L[k];});
+  const lb=document.getElementById('langbtn'); if(lb) lb.textContent=(L.lang==='de')?'EN':'DE';
+}
+const T=new URLSearchParams(location.search).get('token')||'';
+
+// Klicks nicht verlieren: waehrend der Knopf gedrueckt ist, den DOM nicht neu bauen.
+// Ohne das ersetzt der 3-5-s-Poll die Karten/Listen genau unter dem Mauszeiger und der
+// Klick landet im Nichts - das Symptom "reagiert erst beim zweiten Klick".
+document.addEventListener('pointerdown', () => { window.__pressed = 1; }, true);
+['pointerup', 'pointercancel'].forEach(function (t) {
+  document.addEventListener(t, () => { window.__pressed = 0; }, true);
+});
+window.addEventListener('blur', () => { window.__pressed = 0; });
+
+const api=(p,o)=>fetch(p+(p.includes('?')?'&':'?')+'token='+encodeURIComponent(T)+'&name='+NAME,o).then(r=>r.text());
+
+let DATEI_PFAD='';
+
+function dGroesse(n){
+  if(n===undefined||n===null) return '';
+  const u=['B','KB','MB','GB','TB']; let i=0; let v=n;
+  while(v>=1024 && i<u.length-1){ v/=1024; i++; }
+  return (i? v.toFixed(1):v)+' '+u[i];
+}
+function dEsc(t){ return String(t).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function dateien(pfad){
+  try{ dClose(); }catch(e){}
+  DATEI_PFAD = (pfad||'').replace(/^\\/+|\\/+$/g,'');
+  let d={};
+  try{ d = JSON.parse(await api('/api/files?path='+encodeURIComponent(DATEI_PFAD))); }
+  catch(e){ const s=document.getElementById('dateiStatus'); if(s) s.textContent='Fehler: '+e; return; }
+  const teile = DATEI_PFAD ? DATEI_PFAD.split('/') : [];
+  let kr = `<a href="#" onclick="dateien('')">/</a>`;
+  teile.forEach((t,i)=>{ const pfad = dEsc(teile.slice(0,i+1).join('/'));
+    kr += ` <span style="opacity:.5">›</span> <a href="#" onclick="dateien('${pfad}')">${dEsc(t)}</a>`; });
+  document.getElementById('dateiKrumen').innerHTML = kr;
+
+  const dlUrl = (pfad)=>'/api/files/download?token='+encodeURIComponent(T)
+      +'&name='+encodeURIComponent(NAME)+'&path='+encodeURIComponent(pfad);
+  const zeilen = (d.eintraege||[]).map(e=>{
+    const icon = e.ordner ? '📁' : '📄';
+    const name = e.ordner
+      ? `<a href="#" onclick="dateien('${dEsc(e.pfad)}');return false;">${icon} ${dEsc(e.name)}</a>`
+      : `<a href="#" onclick="dOpen('${dEsc(e.pfad)}');return false;" title="${L['files.preview']}">${icon} ${dEsc(e.name)}</a>`;
+    const datum = e.zeit ? new Date(e.zeit*1000).toLocaleString() : '';
+    // Aktionsspalte: echter Link zum Herunterladen (Browser speichert), Vollansicht, Umbenennen, Loeschen
+    const aktionen = e.ordner
+      ? `<a href="#" class="fa" onclick="dRename('${dEsc(e.pfad)}','${dEsc(e.name)}');return false;" title="${L['files.rename']}">✎</a>
+         <a href="#" class="fa danger" onclick="dDelete('${dEsc(e.pfad)}','${dEsc(e.name)}');return false;" title="${L['files.delete']}">✖</a>`
+      : `<a href="${dlUrl(e.pfad)}" class="fa dl" title="${L['files.download']}" download>⬇</a>
+         <a href="#" class="fa" onclick="dFull('${dEsc(e.pfad)}');return false;" title="${L['files.fullview']}">⤢</a>
+         <a href="#" class="fa" onclick="dRename('${dEsc(e.pfad)}','${dEsc(e.name)}');return false;" title="${L['files.rename']}">✎</a>
+         <a href="#" class="fa danger" onclick="dDelete('${dEsc(e.pfad)}','${dEsc(e.name)}');return false;" title="${L['files.delete']}">✖</a>`;
+    return `<tr>
+      <td class="fname" style="padding:5px 8px">${name}</td>
+      <td class="fsize" style="padding:5px 8px;text-align:right;white-space:nowrap;opacity:.8">${e.ordner?'':dGroesse(e.groesse)}</td>
+      <td class="fdate" style="padding:5px 8px;white-space:nowrap;opacity:.6">${datum}</td>
+      <td class="fakt frow" style="padding:5px 8px;white-space:nowrap">${aktionen}</td></tr>`;
+  }).join('');
+  document.getElementById('dateiListe').innerHTML = (d.eintraege||[]).length
+    ? `<table style="width:100%;border-collapse:collapse;font-size:13px">${zeilen}</table>`
+    : '<div class="meta">Ordner ist leer.</div>';
+  const st=document.getElementById('dateiStatus'); if(st) st.textContent='';
+}
+
+async function dUpload(input){
+  const st=document.getElementById('dateiStatus');
+  const liste=[];
+  for(const f of input.files){
+    const rel=(f.webkitRelativePath||'').split(String.fromCharCode(92)).join('/');
+    liste.push({datei:f, rel:rel});
+  }
+  await dSende(liste);
+  input.value='';
+  dateien(DATEI_PFAD);
+}
+
+/* Einzeldatei oder ganzer Ordner: je Datei ein Upload, Zielordner aus dem relativen Pfad. */
+function dPut(datei, ziel, name, onp){
+  return new Promise((ok,fehler)=>{
+    const x=new XMLHttpRequest();
+    x.open('POST','/api/files/upload?token='+encodeURIComponent(T)+'&name='+encodeURIComponent(NAME)
+      +'&path='+encodeURIComponent(ziel)+'&file='+encodeURIComponent(name));
+    x.upload.onprogress=e=>{ if(onp) onp(e.lengthComputable?e.loaded:0); };
+    x.onload=()=>{ if(x.status>=200&&x.status<300){ ok(x.responseText||''); }
+                   else { fehler(new Error((x.responseText||('HTTP '+x.status)).slice(0,140))); } };
+    x.onerror=()=>fehler(new Error('Netzwerkfehler'));
+    x.onabort=()=>fehler(new Error('abgebrochen'));
+    x.send(datei);
+  });
+}
+
+async function dSende(liste){
+  const st=document.getElementById('dateiStatus');
+  const balken=document.getElementById('dateiBalken');
+  const fuell=document.getElementById('dateiBalkenFuell');
+  if(!liste.length) return;
+  const gesamtBytes=liste.reduce((s,e)=>s+(e.datei.size||0),0);
+  const setzePct=p=>{ if(!fuell) return; fuell.style.width=Math.max(0,Math.min(100,p))+'%'; };
+  if(balken) balken.style.display='';
+  setzePct(0);
+  let ok=0, versendet=0; const fehler=[];
+  for(let i=0;i<liste.length;i++){
+    const datei=liste[i].datei;
+    const teile=(liste[i].rel||datei.name).split('/').filter(Boolean);
+    const name=teile.pop()||datei.name;
+    const unter=teile.join('/');
+    const ziel=[DATEI_PFAD, unter].filter(Boolean).join('/');
+    const beschriftung=liste[i].rel||name;
+    if(st) st.textContent='lade '+(i+1)+'/'+liste.length+': '+beschriftung;
+    try{
+      await dPut(datei, ziel, name, geladen=>{
+        const pct = gesamtBytes
+          ? Math.round((versendet+Math.min(geladen,datei.size||0))/gesamtBytes*100)
+          : Math.round(i/liste.length*100);
+        setzePct(pct);
+        if(st) st.textContent='lade '+(i+1)+'/'+liste.length+' ('+pct+'%): '+beschriftung;
+      });
+      ok++;
+    }catch(e){ fehler.push(beschriftung+': '+e.message); }
+    versendet += (datei.size||0);
+    setzePct(gesamtBytes ? versendet/gesamtBytes*100 : (i+1)/liste.length*100);
+  }
+  if(!fehler.length) setzePct(100);
+  if(st) st.textContent = fehler.length
+    ? ok+' von '+liste.length+' übertragen, '+fehler.length+' Fehler: '+fehler.slice(0,3).join(' · ')
+    : ok+' Datei(en) übertragen';
+  if(balken && !fehler.length) setTimeout(()=>{ balken.style.display='none'; setzePct(0); }, 2500);
+}
+
+/* Ordner per Drag & Drop einsammeln (webkitGetAsEntry kann Ordner lesen). */
+function dSammle(entry, pfad, ziel){
+  return new Promise(res=>{
+    try{
+      if(entry.isFile){
+        entry.file(f=>{ ziel.push({datei:f, rel:(pfad?pfad+'/':'')+entry.name}); res(); }, ()=>res());
+      } else if(entry.isDirectory){
+        const leser=entry.createReader(); const alle=[];
+        const weiter=()=>leser.readEntries(async es=>{
+          if(!es.length){
+            for(const e2 of alle) await dSammle(e2,(pfad?pfad+'/':'')+entry.name, ziel);
+            res(); return;
+          }
+          alle.push(...es); weiter();
+        }, ()=>res());
+        weiter();
+      } else res();
+    }catch(e){ res(); }
+  });
+}
+
+function dDropInit(){
+  const box=document.getElementById('dateiListe'); if(!box||box.dataset.dropReady) return;
+  box.dataset.dropReady='1';
+  box.addEventListener('dragover',e=>{e.preventDefault(); box.style.outline='2px dashed #22d3ee';});
+  box.addEventListener('dragleave',()=>{box.style.outline='';});
+  box.addEventListener('drop',async e=>{
+    e.preventDefault(); box.style.outline='';
+    const items=e.dataTransfer.items; const liste=[];
+    if(items&&items.length&&items[0].webkitGetAsEntry){
+      const eintraege=[];
+      for(const it of items){ const en=it.webkitGetAsEntry&&it.webkitGetAsEntry(); if(en) eintraege.push(en); }
+      for(const en of eintraege) await dSammle(en,'',liste);
+    } else {
+      for(const f of e.dataTransfer.files) liste.push({datei:f, rel:f.name});
+    }
+    await dSende(liste);
+    dateien(DATEI_PFAD);
+  });
+}
+
+async function dMkdir(){
+  const n = prompt('Name des neuen Ordners:'); if(!n) return;
+  try{
+    const r = await api('/api/files/mkdir?path='+encodeURIComponent(DATEI_PFAD)+'&file='+encodeURIComponent(n), {method:'POST'});
+    const d = JSON.parse(r); if(!d.ok) toast(r);
+  }catch(e){ toast('Ordner: '+e); }
+  dateien(DATEI_PFAD);
+}
+
+async function dDelete(pfad, name){
+  if(!confirm(name+' wirklich loeschen?')) return;
+  try{
+    const r = await api('/api/files/delete?path='+encodeURIComponent(pfad), {method:'POST'});
+    const d = JSON.parse(r); if(d.ok) toast('geloescht: '+name); else toast(r);
+  }catch(e){ toast('Loeschen: '+e); }
+  dateien(DATEI_PFAD);
+}
+
+async function dRename(pfad, name){
+  const n = prompt('Neuer Name:', name); if(!n || n===name) return;
+  try{
+    const r = await api('/api/files/rename?path='+encodeURIComponent(pfad)+'&to='+encodeURIComponent(n), {method:'POST'});
+    const d = JSON.parse(r); if(!d.ok) toast(r);
+  }catch(e){ toast('Umbenennen: '+e); }
+  dateien(DATEI_PFAD);
+}
+
+let DATEI_OFFEN='';
+
+async function dOpen(pfad){
+  const st=document.getElementById('dateiStatus');
+  try{
+    const r = await fetch('/api/files/view?token='+encodeURIComponent(T)+'&name='+encodeURIComponent(NAME)
+      +'&path='+encodeURIComponent(pfad));
+    if(!r.ok) throw new Error(await r.text());
+    const d = await r.json();
+    DATEI_OFFEN = d.pfad;
+    document.getElementById('dateiViewerName').textContent = d.pfad+' ('+dGroesse(d.groesse)+')';
+    document.getElementById('dateiInhalt').value = d.text;
+    document.getElementById('dateiViewer').style.display='';
+    if(st) st.textContent='';
+  }catch(e){ if(st) st.textContent='Nicht lesbar: '+e; }
+}
+
+async function dSave(){
+  if(!DATEI_OFFEN) return;
+  const st=document.getElementById('dateiStatus');
+  try{
+    const r = await fetch('/api/files/save?token='+encodeURIComponent(T)+'&name='+encodeURIComponent(NAME)
+      +'&path='+encodeURIComponent(DATEI_OFFEN),
+      {method:'POST', body: document.getElementById('dateiInhalt').value});
+    if(!r.ok) throw new Error(await r.text());
+    if(st) st.textContent='gespeichert: '+DATEI_OFFEN+' (Sicherung als .bak)';
+    dateien(DATEI_PFAD);
+  }catch(e){ if(st) st.textContent='Speichern fehlgeschlagen: '+e; }
+}
+
+function dClose(){
+  DATEI_OFFEN='';
+  document.getElementById('dateiViewer').style.display='none';
+  document.getElementById('dateiInhalt').value='';
+}
+
+// ---- Vollansicht ------------------------------------------------------
+let DATEI_FULL='';
+async function dFull(pfad){
+  const st=document.getElementById('dateiStatus');
+  try{
+    const r = await fetch('/api/files/view?token='+encodeURIComponent(T)+'&name='+encodeURIComponent(NAME)
+      +'&path='+encodeURIComponent(pfad));
+    if(!r.ok) throw new Error(await r.text());
+    const d = await r.json();
+    DATEI_FULL = d.pfad;
+    document.getElementById('dateiFullName').textContent = d.pfad+' ('+dGroesse(d.groesse)+')';
+    document.getElementById('dateiFullText').value = d.text;
+    document.getElementById('dateiFullMsg').textContent='';
+    document.getElementById('dateiFull').classList.add('on');
+    document.getElementById('dateiFullText').focus();
+  }catch(e){ if(st) st.textContent='Nicht lesbar: '+e; }
+}
+function dFullClose(){
+  document.getElementById('dateiFull').classList.remove('on');
+  document.getElementById('dateiFullText').value='';
+  DATEI_FULL='';
+}
+async function dSaveFull(){
+  if(!DATEI_FULL) return;
+  const m=document.getElementById('dateiFullMsg');
+  if(m) m.textContent='speichert …';
+  try{
+    const r = await fetch('/api/files/save?token='+encodeURIComponent(T)+'&name='+encodeURIComponent(NAME)
+      +'&path='+encodeURIComponent(DATEI_FULL),
+      {method:'POST', body: document.getElementById('dateiFullText').value});
+    if(!r.ok) throw new Error(await r.text());
+    if(m) m.textContent='gespeichert: '+DATEI_FULL;
+    dateien(DATEI_PFAD);
+  }catch(e){ if(m) m.textContent='Speichern fehlgeschlagen: '+e; }
+}
+function dDownload(pfad){
+  if(!pfad) return;
+  location.href='/api/files/download?token='+encodeURIComponent(T)
+    +'&name='+encodeURIComponent(NAME)+'&path='+encodeURIComponent(pfad);
+}
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Escape') return;
+  const f=document.getElementById('dateiFull');
+  if(f && f.classList.contains('on')){ dFullClose(); e.preventDefault(); }
+});
+
+async function renderSftp(){
+  const box=document.getElementById('sftpbox'); if(!box) return;
+  let s={};
+  try{ s=JSON.parse(await api('/api/sftp?action=status',{method:'POST'})); }catch(e){}
+  const an=!!s.enabled;
+  const tgl=document.getElementById('sftpToggle');
+  if(tgl){
+    tgl.textContent = an ? (L['sftp.disable']||'SFTP ausschalten') : (L['sftp.enable']||'SFTP einschalten');
+    tgl.setAttribute('onclick', "sftpAktion(NAME,'"+(an?'aus':'an')+"')");
+  }
+  const neu=document.getElementById('sftpNew');  if(neu)  neu.style.display  = an?'':'none';
+  const cp=document.getElementById('sftpCopy');   if(cp)   cp.style.display   = an?'':'none';
+  const hint=document.getElementById('sftphint');
+  if(hint) hint.textContent = an ? (L['sftp.hint']||'') : (s.verfuegbar===false ? (L['sftp.nolib']||'') : '');
+  const host=location.hostname;
+  window.SFTP_ADDR = an ? ('sftp://'+s.user+'@'+host+':'+s.port) : '';
+  box.innerHTML = an ? `
+    <div class="meta"><b>${L['sftp.user']||'Benutzer'}:</b> ${s.user} &middot; <b>${L['sftp.port']||'Port'}:</b> ${s.port}</div>
+    <div class="meta"><b>${L['sftp.pass']||'Passwort'}:</b> <code>${s.password||'-'}</code></div>
+    <div class="meta"><b>Adresse:</b> <code>${window.SFTP_ADDR}</code></div>`
+    : `<div class="meta">${L['sftp.off']||'SFTP ist aus.'}</div>`;
+}
+
+async function sftpAktion(name,action){
+  try{
+    const roh=await api('/api/sftp?name='+encodeURIComponent(name)+'&action='+encodeURIComponent(action),{method:'POST'});
+    let r={}; try{ r=JSON.parse(roh); }catch(e){}
+    if(r&&r.info) toast(r.info);
+    if(r&&r.password){ try{ await navigator.clipboard.writeText(r.password); }catch(e){} }
+    renderSftp();
+  }catch(e){ toast('SFTP: '+e); }
+}
+
+function sftpCopy(){
+  const a=window.SFTP_ADDR; if(!a) return;
+  navigator.clipboard.writeText(a).then(()=>toast('Adresse kopiert'),()=>toast(a));
+}
+
+async function refresh(){
+  if(window.__pressed){ setTimeout(refresh, 400); return; }   // Klick laeuft noch
+  try{
+    const s=JSON.parse(await api('/api/status'));
+    const st=document.getElementById('st'); st.textContent=s.running?L['status.running']:L['status.off'];
+    st.className='badge '+(s.running?'on':'off');
+    const rd=document.getElementById('rd'); rd.textContent=s.ready?L['status.ready']:L['status.starting'];
+    rd.className='badge '+(s.ready?'on':'');
+    const infoEl=document.getElementById('info');
+    if(infoEl){ const rows=[['PID',s.pid??'–'],['RCON',s.rcon??'–']];
+      infoEl.innerHTML=rows.map(([k,v])=>`<span>${k}</span><span>${v}</span>`).join(''); }
+  }catch(e){}
+  try{ const _l=document.getElementById('log'); _l.textContent=await api('/api/logs?n=150');
+       const _end=()=>{_l.scrollTop=_l.scrollHeight;};
+       _end(); requestAnimationFrame(()=>{_end(); setTimeout(_end,60);}); }catch(e){}
+  try{
+    const NO_WHITELIST=(document.body.dataset.game==='7d2d');
+    const pl=JSON.parse(await api('/api/players'));
+    window.PNAMES={}; pl.forEach(function(x){ window.PNAMES[x.steamid]=x.name; });
+    loadBans();
+    document.getElementById('players').innerHTML=pl.length?pl.map(p=>{
+      // Ohne Spieler-ID (Satisfactory nennt nur Namen) keine Aktionen anbieten:
+      // kick/ban brauchen dort andere Befehle als RCON sie kennt.
+      const knoepfe = !p.steamid ? '' :
+       `<span class="row">
+         <button onclick="pa('${p.steamid}','kick')">${L['inst.kick']}</button>
+         <button class="danger" onclick="pa('${p.steamid}','ban')">${L['inst.ban']}</button>
+         ${NO_WHITELIST?'':`<button onclick="pa('${p.steamid}','whitelist')">${L['inst.whitelist']}</button>`}
+         <button onclick="give('${p.steamid}')">${L['inst.item']}</button>
+       </span>`;
+      return `<div class="p"><span><b>${p.name}</b>${p.steamid?'<br><small>'+p.steamid+'</small>':''}</span>${knoepfe}</div>`;
+    }).join('')
+      :'<span style="color:var(--dim)">– '+L['inst.no_players']+' –</span>';
+  }catch(e){}
+}
+window.LOCAL_ACT = window.LOCAL_ACT || {};
+async function act(name,what){
+  window.LOCAL_ACT[name]={what:what,ts:Date.now()};   // sofort sperren, nicht erst nach dem Refresh
+  load();
+  try{ await api('/api/'+what+'?name='+name,{method:'POST'}); }
+  catch(e){ alert((L['inst.action_failed']||'Aktion fehlgeschlagen:')+'\\n\\n'+(e&&e.message?e.message:e)); return; }
+  setTimeout(refresh,1200);
+}
+async function updCheck(){
+  try{ const u=JSON.parse(await api('/api/update'+(window.__updForce?'?refresh=1':''))); window.__updForce=false; const b=document.getElementById('upd');
+    if(u.installed==null || u.available==null){
+      b.style.display=''; b.className='badge';
+      b.textContent=L['status.update_unknown'];
+      b.title=(u.reason==='not_installed')?L['status.reason_not_installed']:L['status.reason_steam_unreachable'];
+      b.style.cursor='pointer';
+      b.onclick=()=>{window.__updForce=true;updCheck();};
+      b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();window.__updForce=true;updCheck();}};
+      return;
+    }
+    b.style.display='';
+    if(u.up_to_date){
+      // Build ist aktuell: Klick prüft erneut
+      b.textContent=L['status.current']+' '+u.installed; b.className='badge on';
+      b.title=L['status.hint_current']; b.style.cursor='pointer';
+      b.onclick=()=>{window.__updForce=true;updCheck();}; b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();updCheck();}};
+    } else {
+      // Update verfuegbar: Klick startet es (mit Rueckfrage) - auch hier auf der Instanzseite
+      b.textContent=L['status.update_available']+' '+u.installed+'→'+u.available; b.className='badge off';
+      b.title=L['status.hint_update']; b.style.cursor='pointer';
+      b.onclick=doUpdate; b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();doUpdate();}};
+    }
+  }catch(e){}
+}
+const JOIN_NL=String.fromCharCode(10);
+let UPDATE_POLL=null;
+async function updateProgress(){
+  try{
+    const s=JSON.parse(await api('/api/update/progress'));
+    const out=document.getElementById('out');
+    if(out && s.log && s.log.length){ out.textContent=s.log.join(JOIN_NL); }
+    if(!s.active){
+      if(UPDATE_POLL){ clearInterval(UPDATE_POLL); UPDATE_POLL=null; setTimeout(refresh,1500); }
+    }
+  }catch(e){}
+}
+async function doUpdate(){
+  if(!confirm(L['msg.confirm_update']))return;
+  const out=document.getElementById('out');
+  if(out) out.textContent=L['msg.update_started'];
+  if(!UPDATE_POLL) UPDATE_POLL=setInterval(updateProgress, 2000);
+  let res;
+  try{ res=await api('/api/update',{method:'POST'}); }
+  catch(e){ if(out) out.textContent=L['msg.update_failed']+' '+(e&&e.message?e.message:''); }
+  if(typeof res==='string' && out) out.textContent=res;
+  updateProgress();
+  setTimeout(refresh, 3000);
+}
+async function rcon(){ const c=document.getElementById('cmd').value.trim(); if(!c)return;
+  document.getElementById('out').textContent=await api('/api/rcon?cmd='+encodeURIComponent(c),{method:'POST'}); }
+let CMDS=null;
+async function loadCmds(){ if(CMDS)return CMDS; CMDS=JSON.parse(await api('/api/commands')); return CMDS; }
+async function renderCmds(){
+  const list=await loadCmds(); const groups={};
+  list.forEach(c=>{(groups[c.group]=groups[c.group]||[]).push(c);});
+  document.getElementById('cmds').innerHTML=Object.entries(groups).map(([g,items])=>
+    `<div style="margin-bottom:8px"><div style="color:var(--dim);font-size:10px;letter-spacing:.14em;
+      text-transform:uppercase;margin:6px 0 4px">${g}</div>
+     <div class="row">${items.map(c=>
+       `<button class="${c.danger?'danger':''}" title="${c.note||''}"
+          onclick="runCmd('${c.id}')">${c.label}</button>`).join('')}</div></div>`).join('');
+}
+async function runCmd(id){
+  const c=(await loadCmds()).find(x=>x.id===id); if(!c)return;
+  const params=new URLSearchParams({id:id});
+  for(const [name,question,def] of c.args){
+    const v=prompt(question,def); if(v===null)return; params.set(name,v);
+  }
+  if(c.confirm&&!confirm((c.note||c.label)+String.fromCharCode(10,10)+'Wirklich ausfuehren?'))return;
+  document.getElementById('out').textContent='…';
+  document.getElementById('out').textContent=await api('/api/command?'+params.toString(),{method:'POST'});
+  setTimeout(refresh,1500);
+}
+function modRow(m, active, idx, anz){
+  const label = m.state==='valid' ? L['mods.loaded'] : (m.state==='cooked' ? L['mods.old_engine'] : L['mods.unknown']);
+  const sub = `${m.id}${active?' · '+label+(m.issue?' · '+(L['mods.issue_'+m.issue]||m.issue):''):' · '+L['mods.on_disk']}`;
+  const thumb = m.thumbnail
+    ? `<img class="thumb" src="${m.thumbnail}" alt="" loading="lazy">`
+    : '<div class="thumb"></div>';
+  const pin = (active && m.pinned) ? '<span class="badge">📌</span> ' : '';
+  const moveUp = (active && idx>0) ? `<button title="${L['mods.move_up']}" onclick="modMove('${m.id}',-1)">▲</button>` : '';
+  const moveDn = (active && idx<anz-1) ? `<button title="${L['mods.move_down']}" onclick="modMove('${m.id}',1)">▼</button>` : '';
+  const pinBtn = active
+    ? `<button title="${m.pinned?L['mods.unpin']:L['mods.pin']}" onclick="modPin('${m.id}',${m.pinned?'0':'1'})">${m.pinned?'📌':'📍'}</button>`
+    : '';
+  const actions = active
+    ? `${moveUp}${moveDn}${pinBtn}
+       <button onclick="modInfo('${m.id}')">${L['common.info']}</button>
+       <button onclick="delModFiles('${m.id}')">${L['common.delete']}</button>
+       <button class="danger" onclick="delMod('${m.id}')">${L['common.disable']}</button>`
+    : `<button onclick="modInfo('${m.id}')">Info</button>
+       <button class="primary" onclick="enableMod('${m.id}')">${L['common.enable']}</button>
+       <button class="danger" onclick="delModFiles('${m.id}')">${L['common.delete']}</button>`;
+  return `<div class="p" ${active?`data-modid="${m.id}" draggable="true"`:''}><span class="mrow">${thumb}
+      <span class="txt"><b>${pin}${m.title||m.name||('Mod '+m.id)}</b>${m.outdated?' <span class="badge warn">'+L['mods.outdated']+'</span>':''}
+      <small>${sub}${m.outdated&&m.age_days!=null?(' · '+L['mods.updated_ago']+' '+m.age_days+' '+L['mods.days']):''}${m.summary?(' · '+m.summary):''}</small></span></span>
+    <span class="row">${actions}</span></div>`;
+}
+async function modMove(id, delta){
+  try{ await api('/api/mods/move?id='+id+'&delta='+delta,{method:'POST'}); }catch(e){}
+  loadMods();
+}
+async function modPin(id, on){
+  try{ await api('/api/mods/pin?id='+id+'&on='+on,{method:'POST'}); }catch(e){}
+  loadMods();
+}
+let DRAG_ID=null;
+function bindModDrag(){
+  const box=document.getElementById('mods');
+  if(!box) return;
+  box.querySelectorAll('[data-modid]').forEach(el=>{
+    el.addEventListener('dragstart', e=>{
+      DRAG_ID=el.dataset.modid;
+      el.style.opacity='.45';
+      try{ e.dataTransfer.setData('text/plain', DRAG_ID); e.dataTransfer.effectAllowed='move'; }catch(_){}
+    });
+    el.addEventListener('dragend', ()=>{ el.style.opacity=''; });
+    el.addEventListener('dragover', e=>{ e.preventDefault(); el.style.outline='1px dashed #22d3ee'; });
+    el.addEventListener('dragleave', ()=>{ el.style.outline=''; });
+    el.addEventListener('drop', async e=>{
+      e.preventDefault(); el.style.outline='';
+      const von = DRAG_ID || (e.dataTransfer && e.dataTransfer.getData('text/plain'));
+      const nach = el.dataset.modid;
+      if(!von || von===nach) return;
+      // aktuelle Reihenfolge aus der DOM-Liste holen und umsortieren
+      const ids = Array.from(box.querySelectorAll('[data-modid]')).map(x=>x.dataset.modid);
+      const a = ids.indexOf(String(von)), b = ids.indexOf(String(nach));
+      if(a<0||b<0) return;
+      ids.splice(b,0,ids.splice(a,1)[0]);
+      try{ await api('/api/mods/order?ids='+encodeURIComponent(ids.join(',')),{method:'POST'}); }catch(_){}
+      loadMods();
+    });
+  });
+}
+async function modInfo(id){
+  document.getElementById('mbody').innerHTML='lädt …';
+  document.getElementById('modal').classList.add('on');
+  const m=JSON.parse(await api('/api/mod/meta?id='+id));
+  const img=m.thumbnail?`<img class="big" src="${m.thumbnail}" alt="">`:'';
+  const cats=(m.categories||[]).join(', ');
+  document.getElementById('mbody').innerHTML=`${img}
+    <h3>${m.title||('Mod '+id)}</h3>
+    <div class="meta">${id}${m.downloads?(' · '+m.downloads.toLocaleString('de-DE')+' Downloads'):''}${cats?(' · '+cats):''}</div>
+    <div class="desc">${(m.description||m.summary||L['mods.no_desc']).replace(/</g,'&lt;')}</div>
+    ${m.url?`<div style="margin-top:12px"><a href="${m.url}" target="_blank">Auf CurseForge öffnen</a></div>`:''}`;
+}
+function closeModal(){ document.getElementById('modal').classList.remove('on'); }
+function showTab(name, btn){
+  document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('on', el.classList.contains('tab-'+name)));
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));
+  if(btn) btn.classList.add('on');
+  try{ localStorage.setItem('PolyPanel.tab', name); if(history.replaceState) history.replaceState(null,'','#'+name); }catch(e){}
+  if(name==='files'){ try{ dateien(DATEI_PFAD); renderSftp(); dDropInit(); }catch(e){} }
+  if(name==='mods'){
+    if(!['ark','arkse'].includes(document.body.dataset.game)) loadInstalledMods();   // ARK hat seine Liste darunter
+    if(document.body.dataset.game!=='ark'){
+      const pane=document.getElementById('mods-nonark');
+      if(pane) pane.style.display='';
+      loadLocalMods();
+      const nb=document.getElementById('nexusbox');
+      if(nb) nb.style.display = (document.body.dataset.game==='7d2d') ? '' : 'none';
+    }
+  }
+  if(name==='overview'){ const l=document.getElementById('log');
+    if(l){ requestAnimationFrame(()=>{ l.scrollTop=l.scrollHeight; }); } }
+}
+function restoreTab(){
+  let t='';
+  try{ t = (location.hash||'').replace('#','') || localStorage.getItem('PolyPanel.tab') || ''; }catch(e){}
+  const known=['overview','settings','mods','files','server'];
+  if(!known.includes(t)) t='overview';
+  const b=document.querySelector('.tabs button[data-tab="'+t+'"]');
+  if(b) showTab(t, b); else showTab('overview', document.querySelector('.tabs button'));
+}
+window.addEventListener('hashchange', ()=>{
+  const t=(location.hash||'').replace('#','');
+  if(['overview','settings','mods','files','server'].includes(t)){
+    const b=document.querySelector('.tabs button[data-tab="'+t+'"]');
+    if(b) showTab(t, b);
+  }
+});
+let SETTINGS=[];
+let TASKS=[];
+const TASK_ACTS=['restart','start','stop','update','backup','saveworld','dinowipe','broadcast','rcon'];
+const TASK_DAYS=[1,2,3,4,5,6,7];
+function renderTasks(){
+  const box=document.getElementById('tasklist'); if(!box) return;
+  if(!TASKS.length){ box.innerHTML='<div class="meta" data-empty="1">'+(L['sched.empty']||'-')+'</div>'; return; }
+  box.innerHTML=TASKS.map((t,i)=>{
+    const needArg=(t.action==='broadcast'||t.action==='rcon');
+    const days=TASK_DAYS.map(d=>`<label class="daybox" title="${L['sched.day'+d]||d}">
+        <input type="checkbox" data-i="${i}" data-day="${d}" ${(t.days||[]).includes(d)?'checked':''}>${L['sched.d'+d]||d}</label>`).join('');
+    return `<div class="taskrow" data-i="${i}">
+      <select data-i="${i}" data-f="action">${TASK_ACTS.map(a=>
+        `<option value="${a}" ${t.action===a?'selected':''}>${L['sched.a.'+a]||a}</option>`).join('')}</select>
+      <input type="time" data-i="${i}" data-f="time" value="${t.time||'05:00'}">
+      <span class="dayboxes">${days}</span>
+      <input data-i="${i}" data-f="arg" placeholder="${L['sched.arg_ph']||''}"
+             value="${(t.arg||'').replace(/"/g,'&quot;')}" ${needArg?'':'disabled'} style="flex:1;min-width:80px">
+      <label class="daybox"><input type="checkbox" data-i="${i}" data-f="on" ${t.on!==false?'checked':''}>${L['sched.on']||'an'}</label>
+      <button class="danger" onclick="delTask(${i})">×</button>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('[data-f]').forEach(el=>{
+    const ev=(el.type==='checkbox'||el.tagName==='SELECT')?'change':'input';
+    el.addEventListener(ev,()=>collectTasks());
+  });
+  box.querySelectorAll('[data-day]').forEach(el=>el.addEventListener('change',()=>collectTasks()));
+}
+function collectTasks(){
+  const box=document.getElementById('tasklist');
+  box.querySelectorAll('.taskrow').forEach(row=>{
+    const i=Number(row.dataset.i); if(!TASKS[i]) return;
+    row.querySelectorAll('[data-f]').forEach(el=>{
+      const f=el.dataset.f;
+      if(el.type==='checkbox') TASKS[i][f]=el.checked;
+      else TASKS[i][f]=el.value;
+    });
+    TASKS[i].days=[...row.querySelectorAll('[data-day]')].filter(c=>c.checked).map(c=>Number(c.dataset.day));
+  });
+  // Argumentfeld je nach Aktion freischalten
+  box.querySelectorAll('.taskrow').forEach(row=>{
+    const i=Number(row.dataset.i), sel=row.querySelector('[data-f="action"]'), arg=row.querySelector('[data-f="arg"]');
+    if(sel&&arg) arg.disabled=!(sel.value==='broadcast'||sel.value==='rcon');
+  });
+}
+function addTask(){ collectTasks(); TASKS.push({id:'t'+Date.now(),action:'restart',time:'05:00',days:[],arg:'',on:true}); renderTasks(); }
+function delTask(i){ collectTasks(); TASKS.splice(i,1); renderTasks(); }
+async function saveTasks(){
+  collectTasks();
+  const msg=document.getElementById('taskmsg');
+  try{
+    const r=await fetch('/api/tasks?name='+encodeURIComponent(NAME)+'&token='+encodeURIComponent(T),
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tasks:TASKS})});
+    const d=JSON.parse(await r.text());
+    TASKS=d.tasks||TASKS; renderTasks();
+    msg.textContent=L['sched.saved']||'ok';
+  }catch(e){ msg.textContent=String(e); }
+}
+async function loadCluster(){
+  try{
+    const c=JSON.parse(await api('/api/cluster'));
+    const id=document.getElementById('clid'), dir=document.getElementById('cldir'), f=document.getElementById('clfilt');
+    // Vorgabewerte stehen direkt im Feld, damit man den Pfad sieht und nur aendern muss
+    if(id){ id.value = c.cluster_id || ''; id.placeholder = c.cluster_id || ''; }
+    if(dir){ dir.value = c.cluster_dir || ''; dir.placeholder = c.cluster_dir || ''; }
+    if(f) f.checked = !!c.transfer_filtering;
+  }catch(e){}
+}
+async function saveCluster(){
+  const id=document.getElementById('clid').value.trim();
+  const dir=document.getElementById('cldir').value.trim();
+  const f=document.getElementById('clfilt').checked ? '1' : '0';
+  const msg=document.getElementById('clmsg');
+  try{
+    msg.textContent = await api('/api/cluster?cluster_id='+encodeURIComponent(id)+
+      '&cluster_dir='+encodeURIComponent(dir)+'&transfer_filtering='+f, {method:'POST'});
+    loadCluster();
+  }catch(e){ msg.textContent=String(e); }
+}
+const SETGROUP_ORDER=['srv','play','pvp','struct','dino','transfer','hud','motd','game',
+               'blutmond','regeln','server','netz','welt','spieler','weitere'];
+function _setField(v){
+  const i=SETTINGS.indexOf(v);
+  let field;
+  if(v.type==='bool'){
+    const on=(v.value||'').toLowerCase()==='true';
+    field=`<div class="bool"><input type="checkbox" data-i="${i}" ${on?'checked':''}></div>`;
+  } else if(v.type==='select'){
+    const lab=v.labels||{};
+    const opts=(v.choices||[]).map(o=>`<option value="${String(o).replace(/"/g,'&quot;')}"`
+      + (String(v.value)===String(o)?' selected':'')+`>${lab[o]||o}</option>`).join('');
+    field=`<select data-i="${i}">${opts}</select>`;
+  } else if(v.type==='password'){
+    field=`<input type="password" autocomplete="new-password" data-i="${i}" value="${(v.value||'').replace(/"/g,'&quot;')}"
+             placeholder="leer = kein Passwort">`;
+  } else if(v.type==='longtext'){
+    field=`<textarea data-i="${i}" rows="4" style="width:100%;resize:vertical"
+             >${(v.value||'').replace(/\\n/g,String.fromCharCode(10)).replace(/</g,'&lt;')}</textarea>`;
+  } else {
+    const t=(v.type==='int'||v.type==='float')?'number':'text';
+    field=`<input type="${t}" data-i="${i}" value="${(v.value||'').replace(/"/g,'&quot;')}"
+             placeholder="${v.type==='bool'?'True/False':''}">`;
+  }
+  return `<div class="setrow"><label><b>${v.label}</b><small>${v.key}${v.hint?(' · '+v.hint):''}</small></label>${field}</div>`;
+}
+function showSetGroup(g){
+  document.querySelectorAll('#settings .setgroup').forEach(el=>el.classList.toggle('on', el.dataset.g===g));
+  document.querySelectorAll('#settabs button').forEach(b=>b.classList.toggle('on', b.dataset.g===g));
+  try{ localStorage.setItem('PolyPanel.setgroup', g); }catch(e){}
+}
+
+
+async function saveNexusKey(){
+  const el=document.getElementById('nexuskey');
+  if(!el) return;
+  try{
+    const msg=await api('/api/mods/nexuskey?key='+encodeURIComponent(el.value),{method:'POST'});
+    el.value=''; alert(msg);
+  }catch(e){ alert('Fehler: '+e); }
+}
+
+async function loadInstalledMods(){
+  const liste=document.getElementById('mods-installed-list');
+  const pfad=document.getElementById('mods-installed-path');
+  const anz=document.getElementById('mods-installed-count');
+  if(!liste) return;
+  try{
+    const d=JSON.parse(await api('/api/mods/installed'));
+    if(pfad) pfad.textContent=d.path||'-';
+    const e=d.entries||[];
+    if(anz) anz.textContent = e.length ? ('· '+e.length) : '';
+    const ids = d.workshop_ids || [];
+    const idsBlock = ids.length
+      ? '<div class="setrow"><label><b>'+(L['mods.workshop_ids']||'Eingetragene Workshop-Mods')+'</b>'
+        + '<small>'+ids.join(', ')+'</small></label>'
+        + '<span class="meta">'+(L['mods.workshop_note']||'geladen beim nächsten Start')+'</span></div>'
+      : '';
+    if(!e.length){
+      liste.innerHTML = idsBlock || '<p class="hint">'+(L['mods.local_empty']||'keine Mods im Ordner')+'</p>';
+      return;
+    }
+    liste.innerHTML = idsBlock + e.map(function(m){
+      const schluessel = m.key || m.name;
+      return '<div class="row" style="align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)">'
+        + '<div style="flex:1"><b>'+m.name+'</b><br><small style="color:var(--dim)">'+(m.size_mb||0)+' MB'
+        + (m.active===false ? ' · '+(L['mods.inactive']||'inakt.') : '')
+        + (m.source==='curseforge' ? ' · CurseForge' : '')+'</small></div>'
+        + '<button class="danger" data-mod="'+schluessel+'">'+(L['mods.uninstall']||'Deinstallieren')+'</button>'
+        + '</div>';
+    }).join('');
+    liste.querySelectorAll('button[data-mod]').forEach(function(b){
+      b.onclick=function(){ uninstallMod(b.dataset.mod); };
+    });
+  }catch(err){ liste.textContent='Fehler: '+err; }
+}
+async function uninstallMod(key){
+  const kurz = String(key).split('/').pop();
+  const frage = (L['mods.uninstall_ask']||'Mod löschen: %s?').replace('%s', kurz);
+  if(!confirm(frage)) return;
+  const msg = await api('/api/mods/uninstall?id='+encodeURIComponent(key),{method:'POST'});
+  alert(msg);
+  loadInstalledMods();
+}
+async function loadLocalMods(){
+  const spiel = document.body.dataset.game;
+  const variante = ['arkse','spaceengineers'].includes(spiel) ? 'steam'
+                 : (spiel === 'satisfactory' ? 'ficsit' : '');
+  [['mods.local_hint','mods.local_hint_'+variante],['mods.search_how','mods.search_how_'+variante]].forEach(function(paar){
+    if(!variante) return;
+    const el=document.querySelector('[data-t="'+paar[0]+'"]'); if(!el) return;
+    const key = paar[1];
+    el.dataset.t = key; if(L[key]) el.textContent = L[key];
+  });
+  try{
+    const d=JSON.parse(await api('/api/mods/local'));
+    const st=document.getElementById('nexusstate');
+    if(st && d.nexus_key!==null && d.nexus_key!==undefined){
+      st.textContent = d.nexus_key ? (L['mods.api_on']||'API aktiv') : (L['mods.api_off']||'kein Key');
+      st.className = 'badge ' + (d.nexus_key ? 'on' : 'off');
+    }
+  }catch(e){}
+  loadInstalledMods();
+}
+
+
+let _modTimer=null, _modSeq=0;
+function suggestLocalMods(){          // Vorschlaege beim Tippen, ohne Enter
+  clearTimeout(_modTimer);
+  const box=document.getElementById('modhits-local');
+  const q=((document.getElementById('modq')||{}).value||'').trim();
+  if(q.length<2){ _modSeq++; if(box) box.innerHTML=''; return; }
+  _modTimer=setTimeout(searchLocalMods, 450);
+}
+async function searchLocalMods(){
+  const box=document.getElementById('modhits-local');
+  const q=(document.getElementById('modq')||{}).value||'';
+  if(!box) return;
+  if(!q.trim()){ box.innerHTML=''; return; }
+  const seq=++_modSeq;
+  box.innerHTML='<p class="hint">…</p>';
+  try{
+    const d=JSON.parse(await api('/api/mods/search?q='+encodeURIComponent(q)));
+    if(seq!==_modSeq) return;                     // veraltete Antwort verwerfen
+    if(!d.results || !d.results.length){
+      box.innerHTML = (d.search_url
+        ? '<div class="hint">'+(d.note||'')+'<br><a href="'+d.search_url+'" target="_blank" rel="noopener">'
+          + (L['mods.open_site']||'Suche auf der Webseite öffnen') +'</a></div>'
+        : '<p class="hint">'+(d.error||L['mods.none_active']||'keine Treffer')+'</p>');
+      return;
+    }
+    box.innerHTML=d.results.map(function(m,i){
+      const quelle = m.source==='nexus' ? '<small class="badge" style="margin-left:6px">Nexus</small>'
+        : (m.source==='github' ? '<small class="badge" style="margin-left:6px">GitHub</small>'
+        : (m.source==='steam' ? '<small class="badge" style="margin-left:6px">Steam</small>' : ''));
+      const fertig = m.installed ? '<small class="badge on" style="margin-left:6px">'+(L['mods.already']||'eingetragen')+'</small>' : '';
+      const zahlen = m.downloads ? (m.downloads.toLocaleString('de-DE')+' '+(L['mods.subs']||'Abonnenten')+' · ') : '';
+      const bild = m.thumbnail ? '<img class="thumb" src="'+m.thumbnail+'" alt="" loading="lazy">' : '<div class="thumb"></div>';
+      return '<div class="setrow"><span class="mrow">'+bild+'<label><b>'+m.name+'</b>'+quelle+fertig+'<small>'+zahlen+(m.description||'')+'</small></label></span>'
+        + (m.installable && m.id
+            ? '<span style="display:flex;gap:6px"><button class="modinstall" data-id="'+m.id+'"'
+              + (m.installed?' disabled style="opacity:.5"':'')+'>'+(m.installed?(L['mods.already']||'eingetragen'):(L['mods.install']||'Installieren'))+'</button>'
+              + (m.url?'<a href="'+m.url+'" target="_blank" rel="noopener"><button type="button">↗</button></a>':'')+'</span></div>'
+            : (m.url
+              ? '<a href="'+m.url+'" target="_blank" rel="noopener"><button type="button">'+(L['mods.open_site']||'Öffnen')+'</button></a></div>'
+              : '<button class="modinstall" data-id="'+m.id+'">'+(L['mods.install']||'Installieren')+'</button></div>'));
+    }).join('');
+    box.querySelectorAll('.modinstall').forEach(function(b){
+      b.onclick=function(){ installLocalMod(b.dataset.id); };
+    });
+  }catch(e){ box.textContent='Fehler: '+e; }
+}
+async function installLocalMod(id){
+  const box=document.getElementById('modhits-local');
+  if(box) box.innerHTML='<p class="hint">'+(L['mods.installing']||'wird installiert …')+'</p>';
+  try{
+    const msg=await api('/api/mods/install?id='+encodeURIComponent(id),{method:'POST'});
+    if(box) box.innerHTML='<p class="hint">'+msg+'</p>';
+    loadLocalMods();
+  }catch(e){ if(box) box.textContent='Fehler: '+e; }
+}
+
+function filterSettings(q){
+  q=(q||'').trim().toLowerCase();
+  const groups=[...document.querySelectorAll('#settings .setgroup')];
+  if(!q){ showSetGroup(window.__setGroup||(groups[0]&&groups[0].dataset.g)); return; }
+  groups.forEach(g=>{
+    g.classList.add('on');
+    let sichtbar=0;
+    g.querySelectorAll('.setrow').forEach(r=>{
+      const treffer=r.textContent.toLowerCase().includes(q);
+      r.style.display=treffer?'':'none';
+      if(treffer) sichtbar++;
+    });
+    g.querySelectorAll('.meta').forEach(m=>{
+      let n=m.nextElementSibling, hat=false;
+      while(n && !n.classList.contains('meta')){
+        if(n.classList.contains('setrow') && n.style.display!=='none'){ hat=true; break; }
+        n=n.nextElementSibling;
+      }
+      m.style.display=hat?'':'none';
+    });
+    g.style.display=sichtbar?'':'none';
+  });
+}
+async function loadSettings(){
+  SETTINGS=JSON.parse(await api('/api/settings'));
+
+  const byGroup={};
+  SETTINGS.forEach(v=>{ const g=v.group||'play'; (byGroup[g]=byGroup[g]||[]).push(v); });
+  const present=SETGROUP_ORDER.filter(g=>byGroup[g]);
+  const tabs=present.map(g=>{
+    const n=byGroup[g].length;
+    return `<button data-g="${g}" onclick="showSetGroup('${g}')">${L['setg.'+g]||g} <small>${n}</small></button>`;
+  }).join('');
+  const blocks=present.map(g=>{
+    const bySect={};
+    byGroup[g].forEach(v=>{ (bySect[v.file+'|'+v.section]=bySect[v.file+'|'+v.section]||[]).push(v); });
+    const inner=Object.entries(bySect).map(([k,list])=>{
+      const p=k.split('|'), g=document.body.dataset.game;
+      const file=p[0]==='live'?'live · sofort wirksam (setgamepref)':p[0]==='gus'?'GameUserSettings.ini':(p[0]==='opts'?'gameoptions.yaml':
+        (p[0]==='admins'?'adminconfig.yaml':
+        (p[0]==='instance'?(g==='7d2d'?'serverconfig.xml':(g==='arkse'?'Startzeile / Instanz':
+          (g==='empyrion'?'dedicated.yaml':'ServerSettings.ini'))):'Game.ini')));
+      return `<div class="meta" style="margin:10px 0 2px;opacity:.75">${file} · ${p[1]}</div>`+
+        list.map(_setField).join('');
+    }).join('');
+    return `<div class="setgroup" data-g="${g}">${inner}</div>`;
+  }).join('');
+  document.getElementById('settings').innerHTML=
+    `<input id="setsearch" type="search" oninput="filterSettings(this.value)" placeholder="${L['set.search']||'Einstellungen durchsuchen'}" style="width:100%;margin:0 0 10px;padding:7px 10px;box-sizing:border-box">`+
+    `<div class="settabs" id="settabs">${tabs}</div>`+blocks;
+  let g=''; try{ g=localStorage.getItem('PolyPanel.setgroup')||''; }catch(e){}
+  if(!byGroup[g]) g=present[0]||'play';
+  showSetGroup(g);
+}
+function toast(text){
+  let t=document.getElementById('toast');
+  if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); }
+  t.textContent=String(text||'');
+  t.classList.add('on');
+  clearTimeout(window._toastTimer);
+  window._toastTimer=setTimeout(function(){ t.classList.remove('on'); }, 4000);
+}
+function banner(text,farbe){
+  // Feste Leiste oben: bei 250 Feldern steht die Meldung am Seitenende sonst ausserhalb
+  // des Bildschirms und der Klick wirkt wirkungslos.
+  let b=document.getElementById('savebanner');
+  if(!b){
+    b=document.createElement('div'); b.id='savebanner';
+    b.style.cssText='position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:1000;'
+      +'padding:10px 18px;border-radius:8px;background:#0d1a12;border:1px solid #39d98a;'
+      +'color:#e8f5ee;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.5);max-width:80vw';
+    document.body.appendChild(b);
+  }
+  b.style.borderColor=farbe||'#39d98a';
+  b.textContent=String(text||'');
+  b.style.display='block';
+  clearTimeout(window._bannerTimer);
+  window._bannerTimer=setTimeout(function(){ b.style.display='none'; }, 6000);
+}
+async function saveSettings(){
+  const payload=[];
+  document.querySelectorAll('#settings input, #settings textarea, #settings select').forEach(el=>{
+    // Felder ohne Zuordnung (Suchfeld, Dateiauswahl) haben kein data-i - ohne diesen
+    // Sprung wirft hier ein TypeError und das Speichern passiert NIE (kein Request, keine Meldung).
+    const i=Number(el.dataset.i);
+    const v=Number.isInteger(i)?SETTINGS[i]:null;
+    if(!v || !v.key) return;
+    let value;
+    if(el.type==='checkbox') value=el.checked?'true':'false';
+    else if(el.tagName==='TEXTAREA') value=el.value.split(String.fromCharCode(13)).join('').split(String.fromCharCode(10)).join(String.fromCharCode(92)+'n').trim();
+    else value=el.value.trim();
+    // Auch leere Werte senden, wenn vorher etwas drinstand: nur so laesst sich ein
+    // Passwort entfernen. Unveraenderte leere Felder bleiben weiter aussen vor.
+    if(value!==v.value && (value!=='' || String(v.value||'')!=='')){
+      payload.push({file:v.file,section:v.section,key:v.key,value:value});
+    }
+  });
+  if(!payload.length){
+    // Diagnose: auch der leere Fall geht an den Server, damit im Log steht, ob der Klick ankommt
+    try{ await fetch('/api/settings?name='+NAME+'&token='+encodeURIComponent(T),
+      {method:'POST',headers:{'Content-Type':'application/json'},body:'[]'}); }catch(e){}
+    const m=L['set.no_changes']||'keine Änderungen';
+    banner(m,'#8a8a8a');
+    document.getElementById('setmsg').textContent=m; toast(m); return;
+  }
+  const r=await fetch('/api/settings?name='+NAME+'&token='+encodeURIComponent(T),
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const meldung=await r.text();
+  banner(meldung, /^\\d+ Einstellung/.test(meldung)?'#39d98a':'#f0a020');
+  document.getElementById('setmsg').textContent=meldung;
+  // Rueckmeldung auch oben einblenden: bei 250 Einstellungen steht die Zeile sonst
+  // ausserhalb des sichtbaren Bereichs und es wirkt, als sei nichts gespeichert worden.
+  toast(meldung);
+  loadSettings(); loadCfg();
+}
+async function loadWl(){
+  const w=JSON.parse(await api('/api/whitelist'));
+  const btn=document.getElementById('wlbtn');
+  btn.textContent='Whitelist '+(w.enabled?L['wl.on']:L['wl.off']);
+  btn.className=w.enabled?'primary':'';
+  document.getElementById('wlcount').textContent=w.players.length+' '+L['wl.entries']+' · '+(w.exists?L['wl.file_present']:L['wl.file_missing']);
+  document.getElementById('wllist').innerHTML=w.players.length?w.players.map(p=>
+    `<div class="p"><span><b>${p}</b></span>
+      <span class="row"><button onclick="delWl('${p}')">${L['common.remove']}</button></span></div>`).join('')
+    :'<span style="color:var(--dim)">– '+(L['common.empty'])+' –</span>';
+}
+async function toggleWl(){
+  const w=JSON.parse(await api('/api/whitelist'));
+  document.getElementById('wlmsg').textContent=await api('/api/whitelist/enable?on='+(w.enabled?0:1),{method:'POST'});
+  loadWl();
+}
+async function addWl(){
+  const id=document.getElementById('pid').value.trim(); if(!id)return;
+  document.getElementById('wlmsg').textContent=await api('/api/whitelist/add?id='+encodeURIComponent(id),{method:'POST'});
+  document.getElementById('pid').value=''; loadWl();
+}
+async function delWl(id){
+  document.getElementById('wlmsg').textContent=await api('/api/whitelist/remove?id='+encodeURIComponent(id),{method:'POST'});
+  loadWl();
+}
+
+async function loadMods(){
+  try{
+    const d=JSON.parse(await api('/api/mods'));
+    document.getElementById('modsize').textContent=d.size_mb?(d.size_mb>=1024?(d.size_mb/1024).toFixed(1)+' GB':d.size_mb+' MB')+' '+L['mods.size_on_disk']:'';
+    const active=(d.active||[]), inactive=(d.inactive||[]);
+    const feld=document.getElementById('modids');
+    if(feld && document.activeElement!==feld){
+      feld.value=active.map(m=>m.id).join(', ');
+    }
+    document.getElementById('mods').innerHTML =
+      `<div class="meta" style="margin:6px 0 2px">${L['mods.active']} (${active.length})</div>` +
+      (active.length?active.map((m,i)=>modRow(m,true,i,active.length)).join(''):'<span style="color:var(--dim)">– '+L['mods.none_active']+' –</span>') +
+      `<div class="meta" style="margin:14px 0 2px">${L['mods.inactive']} (${inactive.length})</div>` +
+      (inactive.length?inactive.map(m=>modRow(m,false)).join(''):'<span style="color:var(--dim)">– '+L['mods.none_inactive']+' –</span>');
+    bindModDrag();
+    if((d.missing_meta||[]).length && !META_BUSY){
+      META_BUSY=true;
+      api('/api/mods/refresh',{method:'POST'}).then(()=>{META_BUSY=false; loadMods();}).catch(()=>{META_BUSY=false;});
+    }
+    loadAsaApiState();
+  }catch(e){}
+}
+let META_BUSY=false;
+async function asaApiToggle(name, an){
+  // AsaApi ein-/ausschalten (Karte): betrifft nur die Startdatei, nicht die Dateien selbst
+  try{
+    const r=await api('/api/asaapi?name='+encodeURIComponent(name)+'&enabled='+(an?'1':'0'),{method:'POST'});
+    if(r) alert(r);
+    load();
+  }catch(e){ alert(String(e)); }
+}
+async function setAsaApi(an){
+  // AsaApi ein-/ausschalten: betrifft die Startdatei (AsaApiLoader.exe vs ArkAscendedServer.exe)
+  const msg=document.getElementById('modidsmsg');
+  try{
+    const r=await api('/api/asaapi?name='+encodeURIComponent(NAME)+'&enabled='+(an?'1':'0'),{method:'POST'});
+    if(msg) msg.textContent=r;
+    loadAsaApiState();
+  }catch(e){ if(msg) msg.textContent='Fehler: '+e; }
+}
+async function loadAsaApiState(){
+  if(document.body.dataset.game!=='ark') return;
+  try{
+    const s=JSON.parse(await api('/api/asaapi/state?name='+encodeURIComponent(NAME)));
+    const cb=document.getElementById('asaapion');
+    if(cb) cb.checked=!!s.enabled;
+    const st=document.getElementById('asaapistate');
+    if(st) st.textContent = s.version ? ('v'+s.version+(s.enabled?'':' · aus')) : (s.enabled?'':'nicht installiert');
+  }catch(e){}
+}
+async function saveModIds(){
+  // Die ganze Mod-Liste in einem Feld, Komma/Leerzeichen/Zeilenumbruch getrennt
+  const feld=document.getElementById('modids');
+  const msg=document.getElementById('modidsmsg');
+  try{
+    const r=await api('/api/mods/set?ids='+encodeURIComponent((feld.value||'').trim()),{method:'POST'});
+    if(msg) msg.textContent=r;
+    loadMods();
+  }catch(e){ if(msg) msg.textContent='Fehler: '+e; }
+}
+async function enableMod(id){
+  document.getElementById('modout').textContent=await api('/api/mods/add?id='+id,{method:'POST'});
+  loadMods();
+}
+
+
+let _suggTimer=null;
+function suggestMods(){
+  clearTimeout(_suggTimer);
+  const q=document.getElementById('modid').value.trim();
+  const box=document.getElementById('modhits');
+  if(q.length<2){ box.innerHTML=''; return; }
+  _suggTimer=setTimeout(async()=>{
+    let data;
+    try{ data=JSON.parse(await api('/api/mods/suggest?q='+encodeURIComponent(q))); }
+    catch(e){ return; }
+    const hits=(data.results||[]).slice(0,8);
+    const sum=document.getElementById('modhitsum');
+    if(sum) sum.textContent=hits.length? (hits.length+' '+L['mods.suggestions']) : '';
+    if(!hits.length){
+      box.innerHTML = (data.needs_key && q.length>=2)
+        ? '<div class="meta">'+(L['mods.suggest_needs_key']||'Vorschläge beim Tippen brauchen einen CurseForge-API-Key.')+
+          ' · <a href="https://console.curseforge.com" target="_blank" rel="noopener">'+L['mods.key']+'</a></div>'
+        : '<div class="meta">'+L['mods.search_empty']+
+          (data.needs_key?(' · <a href="https://console.curseforge.com" target="_blank">'+L['mods.key']+'</a>'):'')+'</div>';
+      return;
+    }
+    box.innerHTML=hits.map(m=>`<div class="p" style="cursor:pointer" onclick="addModId('${m.id}')">
+        <span class="mrow">
+          ${m.thumbnail?`<img class="thumb" src="${m.thumbnail}" alt="" loading="lazy">`:'<div class="thumb"></div>'}
+          <span class="txt"><b>${m.title||('Mod '+m.id)}</b>
+          <small>${m.id}${m.downloads?(' · '+m.downloads.toLocaleString('de-DE')):''}${m.summary?(' · '+m.summary):''}</small></span>
+        </span>
+        <span class="row"><span class="badge">+</span></span></div>`).join('');
+  }, 350);
+}
+async function searchMods(){
+  const q=document.getElementById('modid').value.trim();
+  const box=document.getElementById('modhits');
+  const _sum=document.getElementById('modhitsum');
+  if(!q){ box.innerHTML=''; if(_sum) _sum.textContent=''; return; }
+  box.innerHTML='<div class="meta">'+L['common.loading']+'</div>';
+  let data;
+  try{ data=JSON.parse(await api('/api/mods/search?q='+encodeURIComponent(q))); }
+  catch(e){ box.innerHTML='<div class="meta">'+L['mods.search_failed']+'</div>'; return; }
+  const hits=(data.results||[]);
+  if(!hits.length){
+    box.innerHTML='<div class="meta">'+L['mods.search_empty']+
+      (data.needs_key?(' · <a href="https://console.curseforge.com" target="_blank">'+L['mods.key']+'</a>'):'')+'</div>';
+    return;
+  }
+  const sum=document.getElementById('modhitsum');
+  if(sum){ const tot=data.total||hits.length;
+    sum.textContent=((tot>hits.length)
+      ? (hits.length+' / '+tot.toLocaleString('de-DE')+' '+L['mods.hits'])
+      : (tot.toLocaleString('de-DE')+' '+L['mods.hits']))
+      + ((tot>hits.length)?(' · '+L['mods.limit_note']):''); }
+  box.innerHTML=hits.map(m=>`<div class="p"><span class="mrow">
+      ${m.thumbnail?`<img class="thumb" src="${m.thumbnail}" alt="" loading="lazy">`:'<div class="thumb"></div>'}
+      <span class="txt"><b>${m.title||('Mod '+m.id)}</b>
+      <small>${m.id}${m.downloads?(' · '+m.downloads.toLocaleString('de-DE')+' Downloads'):''}${m.summary?(' · '+m.summary):''}</small></span></span>
+      <span class="row"><button class="primary" onclick="addModId('${m.id}')">${L['mods.add_hit']}</button></span></div>`).join('');
+}
+async function addModId(id){
+  const out=document.getElementById('modout');
+  out.textContent=await api('/api/mods/add?id='+encodeURIComponent(id),{method:'POST'});
+  loadMods();
+}
+async function loadKeyState(){
+  const el=document.getElementById('keystate'); if(!el) return;
+  try{
+    const d=JSON.parse(await api('/api/mods/key'));
+    el.textContent = d.has_key ? (L['mods.key_on']+(d.masked?(' · '+d.masked):'')) : L['mods.key_off'];
+    el.style.color = d.has_key ? 'var(--ok,#3ecf8e)' : '';
+  }catch(e){ el.textContent=''; }
+}
+async function saveKey(){
+  const v=document.getElementById('cfkey').value.trim();
+  try{ await api('/api/mods/key?key='+encodeURIComponent(v),{method:'POST'});
+       document.getElementById('cfkeymsg').textContent=L['notify.saved'];
+       document.getElementById('cfkey').value=''; loadKeyState(); }
+  catch(e){ document.getElementById('cfkeymsg').textContent=L['notify.failed']; }
+}
+async function addMod(){
+  const id=document.getElementById('modid').value.trim(); if(!/^[0-9]+$/.test(id)){alert('nur Zahlen');return;}
+  document.getElementById('modout').textContent=await api('/api/mods/add?id='+id,{method:'POST'});
+  document.getElementById('modid').value=''; loadMods();
+}
+async function delMod(id){
+  if(!confirm('Mod '+id+' aus der Liste entfernen?'))return;
+  document.getElementById('modout').textContent=await api('/api/mods/remove?id='+id,{method:'POST'});
+  loadMods();
+}
+async function delModFiles(id){
+  if(!confirm('Heruntergeladene Dateien von Mod '+id+' loeschen?'))return;
+  document.getElementById('modout').textContent=await api('/api/mods/delete-files?id='+id,{method:'POST'});
+  loadMods();
+}
+async function loadCfg(){
+  const f=document.getElementById('cfgfile').value;
+  document.getElementById('cfgtext').value=await api('/api/config?file='+f);
+  document.getElementById('cfgmsg').textContent='';
+}
+async function saveCfg(){
+  const f=document.getElementById('cfgfile').value;
+  const t=document.getElementById('cfgtext').value;
+  const r=await fetch('/api/config?file='+f+'&name='+NAME+'&token='+encodeURIComponent(T),
+    {method:'POST',body:t});
+  document.getElementById('cfgmsg').textContent=await r.text();
+}
+async function loadSnaps(){
+  try{
+    const list=JSON.parse(await api('/api/snapshots'));
+    document.getElementById('snaps').innerHTML=list.length?list.map(x=>
+      `<div class="p"><span><b>${x.mtime}</b><br><small>${x.name} · ${x.size_gb} GB</small></span>
+       <span class="row">
+         <button onclick="restoreSnap('${x.name}')">${L['snap.restore']}</button>
+         <button class="danger" onclick="delSnap('${x.name}')">${L['common.delete']}</button>
+       </span></div>`).join(''):'<span style="color:var(--dim)">– '+(L['snap.none'])+' –</span>';
+  }catch(e){}
+}
+async function makeSnap(){
+  document.getElementById('snapmsg').textContent='kopiert … (kann 1–2 Minuten dauern)';
+  document.getElementById('snapmsg').textContent=await api('/api/snapshot',{method:'POST'});
+  loadSnaps();
+}
+async function restoreSnap(name){
+  if(!confirm(L['msg.confirm_snapshot']))return;
+  document.getElementById('snapmsg').textContent='spielt zurück …';
+  document.getElementById('snapmsg').textContent=await api('/api/snapshot/restore?file='+encodeURIComponent(name),{method:'POST'});
+  setTimeout(refresh,3000);
+}
+async function delSnap(name){
+  if(!confirm('Snapshot '+name+' löschen?'))return;
+  document.getElementById('snapmsg').textContent=await api('/api/snapshot/delete?file='+encodeURIComponent(name),{method:'POST'});
+  loadSnaps();
+}
+async function loadBackups(){
+  const box=document.getElementById('backups');
+  if(!box) return;                       // Backup-Box wurde entfernt
+  try{
+    const list=JSON.parse(await api('/api/backups'));
+    box.innerHTML=list.length?list.slice(0,8).map(b=>
+      `<div class="p"><span><b>${b.mtime} · ${L['bk.kind_'+({manuell:'manual',geplant:'auto','vor Restore':'pre_restore','vor Update':'pre_update','aelter':'old','älter':'old'}[b.kind]||'old')]}</b><br><small>${b.file} · ${b.size_mb} MB</small></span>
+       <span class="row">
+         <button onclick="restoreBk('${b.file}')">${L['bk.restore']}</button>
+         <button class="danger" onclick="delBk('${b.file}')">${L['common.delete']}</button>
+       </span></div>`).join(''):'<span style="color:var(--dim)">– '+L['bk.none']+' –</span>';
+  }catch(e){}
+}
+async function makeBackup(){
+  const msg=document.getElementById('bkmsg'); if(msg) msg.textContent='sichert …';
+  const res=await api('/api/backup',{method:'POST'});
+  if(msg) msg.textContent=res;
+  loadBackups();
+}
+async function restoreBk(f){
+  if(!confirm(L['msg.confirm_restore']))return;
+  const m=document.getElementById('bkmsg'); if(m) m.textContent='spielt ein …';
+  const r=await api('/api/backup/restore?file='+encodeURIComponent(f),{method:'POST'});
+  if(m) m.textContent=r;
+  setTimeout(refresh,3000);
+}
+async function delBk(f){
+  if(!confirm('Backup '+f+' löschen?'))return;
+  document.getElementById('bkmsg').textContent=await api('/api/backup/delete?file='+encodeURIComponent(f),{method:'POST'});
+  loadBackups();
+}
+
+async function loadHooks(){
+  try{ const d=JSON.parse(await api('/api/webhook')); document.getElementById('hookurl').value=d.url||''; }catch(e){}
+}
+async function saveHook(){
+  const url=document.getElementById('hookurl').value.trim();
+  try{ await api('/api/webhook?url='+encodeURIComponent(url),{method:'POST'});
+       document.getElementById('hookmsg').textContent=L['notify.saved']; }
+  catch(e){ document.getElementById('hookmsg').textContent=L['notify.failed']; }
+}
+async function testHook(){
+  const url=document.getElementById('hookurl').value.trim();
+  const msg=document.getElementById('hookmsg');
+  msg.textContent='…';
+  try{ const r=JSON.parse(await api('/api/notify/test?url='+encodeURIComponent(url),{method:'POST'}));
+       msg.textContent = r.ok ? L['notify.test_ok'] : (L['notify.test_fail']+': '+r.error); }
+  catch(e){ msg.textContent=L['notify.test_fail']; }
+}
+async function loadSchedule(){
+  const s=JSON.parse(await api('/api/schedule'));
+  document.getElementById('schedRestart').value=(s.restart_times||[]).join(',');
+  TASKS=(s.tasks||[]).map(t=>Object.assign({days:[]},t));
+  renderTasks();
+  document.getElementById('schedWarn').value=s.warn_minutes;
+  document.getElementById('schedKeep').value=s.backups_keep;
+  const sk=document.getElementById('snapKeep'); if(sk) sk.value=(s.snapshot_keep!==undefined?s.snapshot_keep:3);
+  const st=document.getElementById('snapTimes'); if(st) st.value=(s.snapshot_times||[]).join(',');
+}
+async function saveSchedule(){
+  const p=new URLSearchParams({restart:document.getElementById('schedRestart').value,
+    warn:document.getElementById('schedWarn').value,
+    keep:document.getElementById('schedKeep').value,
+    snapkeep:(document.getElementById('snapKeep')||{}).value||'',
+    snaptimes:(document.getElementById('snapTimes')||{}).value||''});
+  document.getElementById('schedmsg').textContent=await api('/api/schedule?'+p.toString(),{method:'POST'});
+}
+async function pa(sid,action){ const pname=(window.PNAMES||{})[sid]||'';
+  if(!confirm(action+' für '+(pname||sid)+'?'))return;
+  const url='/api/player/action?steamid='+encodeURIComponent(sid)+'&action='+action+
+            (pname?('&pname='+encodeURIComponent(pname)):'');
+  document.getElementById('out').textContent=await api(url,{method:'POST'});
+  setTimeout(refresh,1500); setTimeout(loadBans,1600); }
+async function give(sid){ catOpen(sid); }
+let QTY_PENDING=null;
+function qtyClose(){ document.getElementById('qtyModal').classList.remove('on'); QTY_PENDING=null; }
+function qtyOpen(bp, label){
+  QTY_PENDING={bp:bp, label:label||'Gegenstand'};
+  document.getElementById('qtyTitle').textContent='Menge für '+QTY_PENDING.label;
+  document.getElementById('qtyVal').value='1';
+  document.getElementById('qtyModal').classList.add('on');
+  setTimeout(function(){ const el=document.getElementById('qtyVal'); if(el){ el.focus(); el.select(); } }, 50);
+}
+async function qtyOk(){
+  if(!QTY_PENDING) return;
+  const menge=String(document.getElementById('qtyVal').value||'').trim();
+  if(!menge || menge==='0'){ alert('Bitte eine Menge größer 0 eingeben.'); return; }
+  const auftrag=QTY_PENDING;
+  qtyClose();
+  try{
+    const r=await api('/api/player/give?name='+encodeURIComponent(NAME)+
+                      '&steamid='+encodeURIComponent(CAT_SID)+
+                      '&bp='+encodeURIComponent(auftrag.bp)+
+                      '&qty='+encodeURIComponent(menge)+
+                      '&pname='+encodeURIComponent(CAT_NAME), {method:'POST'});
+    document.getElementById('catList').insertAdjacentHTML('afterbegin',
+      '<div class="plMsg">'+auftrag.label+': '+String(r||'ok')+' · x'+menge+'</div>');
+  }catch(e){ alert(String(e)); }
+}
+async function giveDirect(sid){
+  // Eigener Blueprint: eigene Rueckfragen (Name + Menge), kein Mengen-Fenster dazwischen
+  const bp=prompt('Blueprint',"PrimalItemResource_Stone_C"); if(!bp) return;
+  const menge=prompt('Menge','10'); if(menge===null) return;
+  const q=String(menge||'10').trim();
+  try{
+    const r=await api('/api/player/give?name='+encodeURIComponent(NAME)+
+                      '&steamid='+encodeURIComponent(sid)+
+                      '&bp='+encodeURIComponent(bp)+'&qty='+encodeURIComponent(q)+
+                      '&pname='+encodeURIComponent(CAT_NAME),{method:'POST'});
+    document.getElementById('catList').insertAdjacentHTML('afterbegin',
+      '<div class="plMsg">'+String(r||'ok')+' · x'+q+'</div>');
+  }catch(e){ alert(String(e)); }
+}
+applyLang(); restoreTab(); setTimeout(restoreTab, 250); refresh(); updCheck(); renderCmds(); loadMods(); loadKeyState(); loadCfg(); loadWl(); loadSettings(); loadCluster(); loadSnaps(); loadBackups(); loadSchedule(); loadHooks();
+setInterval(refresh,5000); setInterval(updCheck,300000);
+</script>""" + FOOTER + """
+<div id="unbanModal" class="plModal"><div class="plBox" style="min-width:min(520px,94vw)">
+  <div class="row" style="justify-content:space-between">
+    <b data-t="inst.unban">Entbannen</b>
+    <button onclick="document.getElementById('unbanModal').classList.remove('on')">×</button>
+  </div>
+  <div style="margin:10px 0;color:var(--dim);font-size:11.5px" data-t="inst.unban_hint">EOS-ID eines gesperrten Spielers eingeben</div>
+  <div class="row" style="gap:8px">
+    <input id="unbanId" data-tp="inst.unban_id" placeholder="EOS-ID (32 Zeichen Hex)" style="flex:1;min-width:0">
+    <button onclick="unbanDo()" data-t="inst.unban">Entbannen</button>
+  </div>
+  <div id="unbanOut" class="plMsg"></div>
+</div></div>
+<div id="qtyModal" class="plModal"><div class="plBox" style="min-width:min(430px,92vw)">
+  <div class="row" style="justify-content:space-between">
+    <b id="qtyTitle">Menge</b>
+    <button onclick="qtyClose()">×</button>
+  </div>
+  <div style="margin:12px 0;color:var(--dim);font-size:11.5px">Wie viele sollen es sein?</div>
+  <div class="row" style="gap:8px;align-items:center">
+    <input id="qtyVal" type="number" value="1" min="1" step="1" style="flex:1;min-width:0"
+           onkeydown="if(event.key==='Enter')qtyOk()">
+    <button onclick="qtyOk()">Geben</button>
+    <button onclick="qtyClose()">Abbrechen</button>
+  </div>
+</div></div>
+<div id="catModal" class="plModal"><div class="plBox">
+  <div class="row" style="justify-content:space-between">
+    <b id="catTitle">Item geben</b>
+    <button onclick="closeCat()">×</button>
+  </div>
+  <div class="row" style="margin:10px 0;gap:8px">
+    <input id="catQ" placeholder="Suchen (z. B. Metall, Axt, Riot) …" oninput="catSearch()" style="flex:1;min-width:0">
+    <button onclick="giveDirect(CAT_SID)" class="arkOnly">eigener Blueprint</button>
+    <button onclick="idDebug()" title="zeigt, wo nach Spieler-IDs gesucht wird" class="arkOnly">ID-Diagnose</button>
+  </div>
+  <div id="catList" class="plBody">…</div>
+</div></div>
+<script>
+async function loadBans(){
+  const box=document.getElementById('bans');
+  if(!box) return;
+  let list=[];
+  try{ list=JSON.parse(await api('/api/bans')); }catch(e){ return; }
+  if(!list.length){ box.innerHTML='<span style="color:var(--dim)">– '+L['inst.no_bans']+' –</span>'; return; }
+  box.innerHTML=list.map(function(b){
+    const n=b.name?String(b.name).replace(/</g,'&lt;'):'–';
+    return '<div class="p"><span><b>'+n+'</b><br><small class="mono">'+b.eos+'</small></span>'+
+           '<span class="row"><small style="color:var(--dim)">'+(b.zeit||'')+'</small>'+
+           '<button data-unban="'+b.eos+'">'+L['inst.unban']+'</button></span></div>';
+  }).join('');
+}
+document.addEventListener('click', async function(ev){
+  const b=ev.target.closest('button[data-unban]');
+  if(!b) return;
+  const id=b.dataset.unban;
+  if(!confirm(L['inst.confirm_unban'].replace('{id}', id))) return;
+  try{ await api('/api/player/action?steamid='+encodeURIComponent(id)+'&action=unban',{method:'POST'}); }
+  catch(e){ alert(String(e)); }
+  loadBans();
+});
+function unbanOpen(){
+  document.getElementById('unbanId').value='';
+  document.getElementById('unbanOut').textContent='';
+  document.getElementById('unbanModal').classList.add('on');
+  setTimeout(function(){ const el=document.getElementById('unbanId'); if(el) el.focus(); }, 50);
+}
+async function unbanDo(){
+  const id=document.getElementById('unbanId').value.trim();
+  const out=document.getElementById('unbanOut');
+  if(!id){ out.textContent='EOS-ID fehlt'; return; }
+  try{
+    const r=await api('/api/player/action?steamid='+encodeURIComponent(id)+'&action=unban',{method:'POST'});
+    out.textContent='unban: '+String(r||'ok');
+  }catch(e){ out.textContent='Fehler: '+String(e); }
+}
+let CAT_SID='', CAT_NAME='';
+function closeCat(){ document.getElementById('catModal').classList.remove('on'); }
+function catSpiel(){
+  // 7D2D kennt keine Blueprints: eigene Knoepfe ausblenden, Platzhalter anpassen
+  const d7=(document.body.dataset.game==='7d2d');
+  document.querySelectorAll('#catModal .arkOnly').forEach(function(b){ b.style.display=d7?'none':''; });
+  const q=document.getElementById('catQ');
+  if(q) q.placeholder=d7?'Suchen (z. B. Pistole, Munition, Eisen) …':'Suchen (z. B. Metall, Axt, Riot) …';
+}
+async function catOpen(sid){
+  catSpiel();
+  CAT_SID=sid;
+  CAT_NAME=(window.PNAMES||{})[sid]||'';
+  document.getElementById('catQ').value='';
+  document.getElementById('catModal').classList.add('on');
+  catSearch();
+  setTimeout(function(){ const el=document.getElementById('catQ'); if(el) el.focus(); }, 50);
+}
+async function idDebug(){
+  const box=document.getElementById('catList');
+  const NL=String.fromCharCode(10);
+  try{
+    const d=JSON.parse(await api('/api/playerids/debug'));
+    const kopf=['Instanzordner: '+d.basis, 'existiert: '+d.existiert];
+    const saves=((d.profile||[]).concat(d.sav_dateien||[])).map(function(s){ return '  '+s; });
+    const savs=(d.sav_dateien||[]).map(function(s){ return '  '+s; });
+    const rest=['zugeordnete Spieler: '+d.id_karte, 'Inhalt oben: '+(d.oben||[]).join(', ')];
+    let zeilen=kopf.concat(saves.length?['Profile/Saves:'].concat(saves):['Profile/Saves: keine'],
+                           savs.length?['.sav-Dateien ('+savs.length+'):'].concat(savs):['.sav-Dateien: keine'],
+                           rest);
+    if(d.ordner){ Object.keys(d.ordner).forEach(function(k){ zeilen=zeilen.concat([k+': '+(d.ordner[k]||[]).join(', ')]); }); }
+    box.innerHTML='<pre style="white-space:pre-wrap;font-size:11px">'+zeilen.join(NL)+'</pre>';
+  }catch(e){ box.textContent='Fehler: '+String(e); }
+}
+async function catSearch(){
+  const q=document.getElementById('catQ').value||'';
+  let list=[];
+  try{ list=JSON.parse(await api('/api/catalog?q='+encodeURIComponent(q)+'&name='+encodeURIComponent(NAME))); }catch(e){ return; }
+  const box=document.getElementById('catList');
+  if(!list.length){ box.innerHTML='<span style="color:var(--dim)">nichts gefunden - über ‚eigener Blueprint“ geht es trotzdem</span>'; return; }
+  box.innerHTML=list.map(function(e){
+    return '<div class="p"><span><b>'+e.label+'</b><br><small>'+e.name+'</small></span>'+
+           '<span class="row"><button data-bp="'+e.bp+'" data-label="'+e.label+'">geben</button></span></div>';
+  }).join('');
+}
+document.addEventListener('click', function(ev){
+  const b=ev.target.closest('button[data-bp]');
+  if(!b || !CAT_SID) return;
+  // Menge in einem eigenen Fenster abfragen, nicht sofort senden
+  qtyOpen(b.dataset.bp, b.dataset.label);
+});
+</script>
+</body></html>"""
+
+LICENSE_PAGE = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>PolyPanel · __TITLE__</title>
+<style>""" + SHARED_CSS + MOBILE_CSS + """</style></head><body>
+<canvas id="bg"></canvas>
+<header><h1>PolyPanel</h1><span class="badge" data-t="license.title">__TITLE__</span>
+<span class="hostbar"><a href="/?token=__TOK__"><button>← Dashboard</button></a></span>""" + HEADER_ICONS + """</header>
+<main>
+  <section class="lic">
+    <div class="lichead"><h2>__TITLE__</h2>
+      <span class="meta">__SHORT__</span></div>
+    <pre class="lictext">__TEXT__</pre>
+    <p class="meta" style="margin:14px 0 0;color:var(--dim);font-size:11.5px">__HINT__</p>
+  </section>
+</main>""" + FOOTER + """
+<script>const L=__LANGJSON__;
+function applyLang(){document.querySelectorAll('[data-t]').forEach(function(e){
+  var k=e.dataset.t; if(L[k]) e.textContent=L[k]; });}
+applyLang();</script>
+<script>""" + BG_JS + """</script>
+</body></html>"""
+
+
+def license_text() -> str:
+    """Lizenztext in der aktiven Sprache aus der Datei LICENSE neben dem Paket."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for path in (os.path.join(root, "LICENSE"),
+                 os.path.expanduser("~/.local/share/PolyPanel/LICENSE")):
+        if not os.path.isfile(path):
+            continue
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            raw = fh.read().strip()
+        parts = raw.split("\n---\n")
+        if len(parts) >= 2:
+            return (parts[0] if i18n.lang() == "de" else parts[1]).strip()
+        return raw
+    return ("Copyright (c) 2026 Ronny H. (https://github.com/Ronny-H-79)\n\n"
+            + i18n.t("license.short"))
+
+
+def license_page(tok: str) -> str:
+    title = i18n.t("license.title")
+    return _render(LICENSE_PAGE
+                   .replace("__TITLE__", title)
+                   .replace("__SHORT__", i18n.t("license.short"))
+                   .replace("__HINT__", i18n.t("license.hint"))
+                   .replace("__TEXT__", html_escape(license_text()))
+                   .replace("__TOK__", urllib.parse.quote(tok)))
+
+
+PLAYER_ACTIONS = {
+    "kick": "KickPlayer %s",
+    "ban": "BanPlayer %s",
+    "unban": "UnbanPlayer %s",
+    "whitelist": "AllowPlayerToJoinNoCheck %s",
+    "unwhitelist": "DisallowPlayerToJoinNoCheck %s",
+}
+
+
+_PROGRESS_RE = re.compile(r"progress:\s*([0-9]+(?:\.[0-9]+)?)")
+# Reihenfolge der SteamCMD-Phasen (0 = Vorbereitung), damit die Oberflaeche "Schritt 2/3" zeigen kann
+_PHASE_STEP = {"preallocating": 1, "downloading": 1, "verifying install": 2, "verifying": 2,
+               "committing": 3}
+_STATE_RE = re.compile(r"Update state \(0x[0-9a-f]+\)\s*([a-z ]+?)(?:,|$)")
+_BYTES_RE = re.compile(r"progress: [0-9.]+ \(([0-9]+) / ([0-9]+)\)")
+
+
+def install_progress(inst) -> dict[str, object]:
+    """Fortschritt der laufenden Installation aus .install.log lesen.
+
+    SteamCMD schreibt Zeilen wie
+    ``Update state (0x61) downloading, progress: 42.31 (123 / 456)``.
+    Daraus wird Prozentwert und Phase gezogen, damit die Oberflaeche einen Balken zeigen kann.
+    """
+    log_path = os.path.join(inst.directory, ".install.log")
+    daten: dict[str, object] = {"running": inst.name in INSTALLS, "percent": None,
+                                "phase": "", "done": False}
+    try:
+        with open(log_path, encoding="utf-8", errors="replace") as fh:
+            zeilen = fh.readlines()[-400:]
+    except OSError:
+        return daten
+    for zeile in reversed(zeilen):
+        if "== Installation abgeschlossen ==" in zeile:
+            daten["done"] = True
+            daten["percent"] = 100.0
+            daten["phase"] = "done"
+            return daten
+        # Laufzeit-Einrichtung (Wine/.NET): kein Prozentwert, nur die Phase anzeigen
+        if zeile.startswith("Laufzeit: "):
+            daten["phase"] = zeile.strip()[len("Laufzeit: "):][:80]
+            daten["percent"] = None
+            eintrag = INSTALLS.get(inst.name)
+            start = (eintrag or {}).get("runtime_started")
+            if eintrag is not None and start is None:
+                # erster Poll waehrend der Laufzeit: Uhr ab jetzt mitlaufen lassen
+                eintrag["runtime_started"] = time.time()
+                start = eintrag["runtime_started"]
+            daten["elapsed"] = int(time.time() - start) if start else None
+            # Die Laufzeit-Einrichtung hat keinen echten Prozentwert - der Balken kriecht
+            # stattdessen in ~15 Minuten auf 95 %, damit man sieht, dass es weitergeht.
+            if daten["elapsed"] is not None:
+                daten["percent"] = round(min(95.0, max(2.0, daten["elapsed"] / 900.0 * 95.0)), 1)
+            return daten
+        if "Success! App" in zeile or "Installation beendet" in zeile:
+            daten["done"] = True
+            daten["percent"] = 100.0
+            daten["phase"] = "done"
+            return daten
+        m = _PROGRESS_RE.search(zeile)
+        if m:
+            wert = float(m.group(1))
+            phase = (_STATE_RE.search(zeile).group(1).strip() if _STATE_RE.search(zeile) else "downloading")
+            # Der Balken zeigt den GESAMT-Fortschritt (Download -> Pruefen -> Abschluss), nicht
+            # nur die aktuelle Phase: SteamCMD faengt bei jedem Phasenwechsel wieder bei 0 an,
+            # sonst springt der Balken von 100 % zurueck auf 3 % ("geht und dann wieder zurueck").
+            schritt = _PHASE_STEP.get(phase, 1)
+            eintrag = INSTALLS.get(inst.name)
+            if eintrag is not None:
+                if eintrag.get("cur_phase") != phase:
+                    eintrag["cur_phase"] = phase
+                    eintrag["phase_max"] = 0.0
+                wert = max(wert, float(eintrag.get("phase_max", 0.0)))
+                wert = min(wert, 100.0)
+                eintrag["phase_max"] = wert
+            gesamt = ((schritt - 1) + wert / 100.0) / 3.0 * 100.0
+            if eintrag is not None:
+                gesamt = max(gesamt, float(eintrag.get("max_percent", 0.0)))   # nie rueckwaerts
+                eintrag["max_percent"] = gesamt
+            daten["percent"] = round(min(gesamt, 99.0), 1)
+            # Download-Geschwindigkeit aus den Byte-Zahlen der steamcmd-Zeile ableiten
+            mb = _BYTES_RE.search(zeile)
+            if mb and eintrag is not None:
+                jetzt, geladen = time.time(), float(mb.group(1))
+                vorher, vbytes = eintrag.get("sp_ts"), eintrag.get("sp_bytes")
+                if vorher and jetzt > vorher and geladen >= float(vbytes or 0):
+                    aktuell = (geladen - float(vbytes or 0)) / (jetzt - vorher) / 1048576.0
+                    alt = float(eintrag.get("speed") or 0.0)
+                    # glaetten, damit die Anzeige nicht springt; Ausreisser nach oben kappen
+                    eintrag["speed"] = min(aktuell if not alt else alt * 0.6 + aktuell * 0.4, 5000.0)
+                eintrag["sp_ts"], eintrag["sp_bytes"] = jetzt, geladen
+                daten["speed"] = round(float(eintrag.get("speed") or 0.0), 1)
+            daten["phase"] = phase
+            daten["step"] = schritt
+            daten["steps"] = 3
+            return daten
+        s = _STATE_RE.search(zeile)
+        if s and not daten["phase"]:
+            daten["phase"] = s.group(1).strip()
+    return daten
+
+
+def _start_install(inst: Instance) -> None:
+    """Installation im Hintergrund ueber den gemeinsamen Installer."""
+    from . import installer
+    INSTALLS[inst.name] = {"log": os.path.join(inst.directory, ".install.log"),
+                           "started": time.time(), "max_percent": 0.0}
+
+    def run() -> None:
+        try:
+            result = installer.install_server(inst)
+            # Dienst gleich mit anlegen: Ueberwachung und Autostart ohne Handarbeit
+            if result.get("ok"):
+                from . import units
+                # ABER: nach der Installation bleibt der Server AUS. Ein frisch installierter
+                # Server hat nie gelaufen - der Supervisor deutet "Prozess weg" als Absturz und
+                # faehrt ihn sofort hoch. Deshalb vor dem Dienststart als "gestoppt" markieren;
+                # ein Start ueber das Panel loescht den Marker (runner.start -> clear_stopped).
+                runner.mark_stopped(inst)
+                u = units.install(inst)
+                try:
+                    with open(os.path.join(inst.directory, ".install.log"), "a") as fh:
+                        fh.write("Server bleibt gestoppt - Start nur ueber 'Start' im Panel\n")
+                except OSError:
+                    pass
+                try:
+                    with open(os.path.join(inst.directory, ".install.log"), "a") as fh:
+                        if u.get("ok"):
+                            fh.write("Dienst eingerichtet: %s (%s)\n"
+                                     % (u["path"], "System" if u["system"] else "Benutzer"))
+                        else:
+                            fh.write("Dienst konnte nicht eingerichtet werden: %s\n"
+                                     % (u.get("error") or u.get("message")))
+                except OSError:
+                    pass
+        except Exception as exc:  # noqa: BLE001
+            try:
+                with open(os.path.join(inst.directory, ".install.log"), "a") as fh:
+                    fh.write("Fehler: %s\n" % exc)
+            except OSError:
+                pass
+        finally:
+            try:
+                with open(os.path.join(inst.directory, ".install.log"), "a") as fh:
+                    fh.write("== Installation abgeschlossen ==\n")
+            except OSError:
+                pass
+            INSTALLS.pop(inst.name, None)
+
+    threading.Thread(target=run, daemon=True).start()
+
+
+
+def _translate_hits(data: dict, field: str, limit: int = 24) -> dict:
+    """Mod-Beschreibungen uebersetzen und lesbar umbrechen - fuer alle Anbieter.
+
+    Der Umbruch sass vorher nur im Steam-Workshop-Pfad; Nexus-, GitHub- und
+    CurseForge-Treffer liefen weiter als eine Zeile. Deshalb passiert beides hier
+    zentral fuer jede Suche.
+    """
+    treffer = data.get("results") or []
+    if i18n.lang() == "de":
+        try:
+            from . import translate
+            translate.translate_items(treffer, field, limit=limit)
+        except Exception:                   # noqa: BLE001 - Suche darf nie scheitern
+            pass
+    try:
+        from .games.steam_workshop import umbrueche
+        for it in treffer:
+            wert = it.get(field)
+            if isinstance(wert, str) and wert and "\n" not in wert:
+                it[field] = umbrueche(wert)
+    except Exception:                       # noqa: BLE001
+        pass
+    return data
+
+
+def _delete_start(inst, files: bool) -> dict:
+    """Loeschen im Hintergrund starten: Stoppen und Dateien entfernen dauern Minuten.
+
+    Der Klick soll nicht minutenlang haengen - die Oberflaeche fragt /api/delete/progress ab.
+    """
+    laufend = DELETES.get(inst.name)
+    if laufend and laufend.get("running"):
+        return {"ok": True, "running": True}
+    zustand = {"running": True, "done": False, "phase": "stop", "files": bool(files),
+               "freed_mb": 0, "freed_gb": 0.0, "hint": "", "error": ""}
+    DELETES[inst.name] = zustand
+    ACTIONS[inst.name] = "delete"          # Oberflaeche sperrt die Knoepfe der Karte
+    plog.write("[%s] loeschen angefordert (%s)"
+               % (inst.name, "mit Dateien" if files else "nur Eintrag"))
+
+    def _arbeit() -> None:
+        try:
+            if runner.is_running(inst):
+                zustand["phase"] = "stop"
+                runner.stop(inst, timeout=90)
+            zustand["phase"] = "files" if files else "config"
+            ergebnis = registry.forget(inst.name, delete_files=files)
+            if not ergebnis.get("ok", True):
+                zustand["error"] = ergebnis.get("error") or "Loeschen fehlgeschlagen"
+            zustand["freed_mb"] = int(ergebnis.get("freed_mb") or 0)
+            zustand["freed_gb"] = ergebnis.get("freed_gb") or 0.0
+            zustand["hint"] = ergebnis.get("hint") or ""
+            plog.write("[%s] geloescht (%s MB frei, Dateien %s)"
+                       % (inst.name, zustand["freed_mb"], "entfernt" if files else "behalten"))
+        except Exception as exc:                     # noqa: BLE001 - Job darf nicht stumm sterben
+            zustand["error"] = str(exc)[:200]
+            plog.write("[%s] loeschen fehlgeschlagen: %s" % (inst.name, exc))
+        finally:
+            zustand["phase"] = "done"
+            zustand["running"] = False
+            zustand["done"] = True
+            ACTIONS.pop(inst.name, None)
+
+    threading.Thread(target=_arbeit, daemon=True, name="delete-%s" % inst.name).start()
+    return {"ok": True, "running": True}
+
+
+def _experimental_wirksam(inst) -> tuple[bool, str]:
+    """Laeuft der Server laut Log experimentell? Der Config-Wert ist nur ein Wunsch."""
+    try:
+        import glob as _glob
+        treffer = sorted(_glob.glob(os.path.join(inst.directory, "SpaceEngineersDedicated_*.log")))
+        if not treffer:
+            return False, ""
+        ja, grund = False, ""
+        with open(treffer[-1], encoding="utf-8", errors="replace") as fh:
+            for zeile in fh:
+                if "Experimental mode: Yes" in zeile:
+                    ja = True
+                elif "Experimental mode reason:" in zeile:
+                    grund = zeile.split("reason:", 1)[1].strip()
+        return ja, grund
+    except OSError:
+        return False, ""
+
+
+
+def _als_schalter(felder: list) -> list:
+    """true/false-Felder als Auswahlliste ausliefern.
+
+    Die Spielprofile beschreiben solche Felder als Freitext; im Formular erschien
+    dann ein Eingabefeld statt einer Auswahl, und ein Tippfehler ("True " / "ja")
+    landete in der Serverkonfiguration.
+    """
+    for feld in felder or []:
+        if not isinstance(feld, dict) or feld.get("choices"):
+            continue
+        wert = str(feld.get("value", "")).strip().lower()
+        if wert in ("true", "false") and feld.get("type") in ("text", "bool", "int"):
+            feld["type"] = "select"
+            feld["choices"] = ["true", "false"]
+    return felder
+
+
+def _uebersetzte_settings(inst) -> list:
+    """Einstellungen mit Label und Hinweis in der aktuellen Sprache.
+
+    Je Spiel kommen die Labels deutsch aus dem Profil (``*_labels.py``); fuer Englisch
+    uebersetzt ``i18n.setting()`` sie (kuratierte Tabelle, sonst lesbarer Schluesselname).
+    """
+    from . import i18n as _i18n
+    if inst.game == "ark":
+        felder = cfgfile.read_values(inst)
+    else:
+        felder = inst.profile.settings(inst)
+    for feld in felder:
+        if not isinstance(feld, dict):
+            continue
+        label, hint = _i18n.setting(feld.get("key", ""), feld.get("label", ""), feld.get("hint", ""))
+        feld["label"], feld["hint"] = label, hint
+    if inst.game == "spaceengineers":
+        # "ExperimentalMode = false" heisst nur "nicht angefordert". Wenn der Server trotzdem
+        # experimentell laeuft, muss das am Feld stehen - sonst wirkt die Anzeige falsch.
+        wirksam, grund = _experimental_wirksam(inst)
+        for feld in felder:
+            if isinstance(feld, dict) and feld.get("key") == "ExperimentalMode":
+                feld["wirksam"] = wirksam
+                feld["hint"] = (feld.get("hint", "") + " - wirksam: "
+                                + ("AN" if wirksam else "aus")
+                                + ((" (erzwungen: %s)" % grund) if wirksam and grund else ""))
+    return felder
+
+
+def _dirs_mb(rel: list, basis: str) -> float:
+    """Groesse mehrerer Unterordner (relativ zu basis) in MB."""
+    total = 0
+    for eintrag in rel or []:
+        for ordner, _dirs, dateien in os.walk(os.path.join(basis, eintrag)):
+            for datei in dateien:
+                try:
+                    total += os.path.getsize(os.path.join(ordner, datei))
+                except OSError:
+                    pass
+    return round(total / 1024 / 1024, 1)
+
+
+def _installed_mods(inst) -> dict:
+    """Installierte Mods einheitlich fuer alle Spiele.
+
+    ARK (ASA) fuehrt seine Mods ueber CurseForge-IDs in der Konfiguration, alle anderen
+    Spiele ueber Ordner im Mod-Verzeichnis. Der Mods-Reiter soll in beiden Faellen oben
+    dieselbe Liste zeigen, deshalb hier ein gemeinsames Format:
+    ``{"path", "entries": [{name, size_mb, source, active}], "workshop_ids"}``.
+    """
+    if inst.game == "ark":
+        ordner = modlib.installed_dirs(inst)
+        daten = modlib.list_all_enriched(inst)
+        basis = modlib.mods_dir(inst)
+        eintraege = []
+        for gruppe, aktiv in (("active", True), ("inactive", False)):
+            for eintrag in daten.get(gruppe) or []:
+                eintraege.append({
+                    "name": eintrag.get("title") or eintrag.get("name") or str(eintrag.get("id")),
+                    "size_mb": _dirs_mb(ordner.get(str(eintrag.get("id")), []), basis),
+                    "source": "curseforge",
+                    "active": aktiv,
+                })
+        return {"path": basis, "entries": eintraege, "workshop_ids": None}
+    lokal = _local_mods(inst)
+    for eintrag in lokal.get("entries", []):
+        eintrag.setdefault("source", "local")
+        eintrag.setdefault("active", True)
+    return lokal
+
+
+def _uninstall_mod(inst, key: str) -> str:
+    """Mod-Ordner entfernen - nur echte Mod-Ordner dieser Instanz.
+
+    ``key`` ist der relative Pfad aus der Liste (``Name`` oder ``GameFeatures/Name``).
+    Alles ausserhalb des Mod-Verzeichnisses wird abgelehnt, damit ein manipulierter
+    Aufruf keine fremden Ordner loeschen kann.
+    """
+    pfad = inst.profile.mods_path(inst)
+    if not pfad:
+        raise RuntimeError("Dieses Spiel hat keinen Mod-Ordner")
+    basis = os.path.realpath(pfad)
+    teile = [t for t in str(key).replace(os.sep, "/").split("/") if t]
+    if not teile or len(teile) > 2 or any(t in (".", "..") for t in teile):
+        raise RuntimeError("ungueltiger Mod-Name")
+    if len(teile) == 2 and teile[0] != "GameFeatures":
+        raise RuntimeError("ungueltiger Pfad")
+    ziel = os.path.realpath(os.path.join(basis, *teile))
+    if not ziel.startswith(basis + os.sep) or not os.path.isdir(ziel):
+        raise RuntimeError("Mod-Ordner nicht gefunden: %s" % key)
+    mb = _dirs_mb([""], ziel)
+    shutil.rmtree(ziel)
+    return "%s entfernt (%s MB frei)" % (teile[-1], mb)
+
+
+def _local_mods(inst) -> dict:
+    """Mods im spieleigenen Ordner auflisten (7D2D, Satisfactory, Space Engineers)."""
+    pfad = inst.profile.mods_path(inst)
+    eintraege = []
+    if pfad and os.path.isdir(pfad):
+        # SML legt GameFeatures-Mods eine Ebene tiefer ab (Mods/GameFeatures/<Name>) -
+        # ohne Aufloesen stuende in der Liste nur ein Eintrag "GameFeatures".
+        kandidaten = []
+        for name in sorted(os.listdir(pfad)):
+            voll = os.path.join(pfad, name)
+            if not os.path.isdir(voll):
+                continue
+            if name == "GameFeatures":
+                for sub in sorted(os.listdir(voll)):
+                    if os.path.isdir(os.path.join(voll, sub)):
+                        kandidaten.append((sub, os.path.join(voll, sub)))
+            else:
+                kandidaten.append((name, voll))
+        for name, voll in kandidaten:
+            schluessel = os.path.relpath(voll, pfad).replace(os.sep, "/")
+            try:
+                mb = sum(os.path.getsize(os.path.join(w, f))
+                         for w, _, fs in os.walk(voll) for f in fs) / 1024 / 1024
+            except OSError:
+                mb = 0
+            eintraege.append({"name": name, "size_mb": round(mb, 1),
+                              "workshop": name.isdigit(), "key": schluessel})
+    hat_key = False
+    if hasattr(inst.profile, "nexus_key"):
+        try:
+            hat_key = bool(inst.profile.nexus_key())
+        except Exception:                       # noqa: BLE001
+            hat_key = False
+    return {"path": pfad, "entries": eintraege,
+            "workshop_ids": ([int(m) for m in inst.mods] if inst.game == "arkse"
+                             else [int(m) for m in inst.profile.workshop_ids(inst)
+                                   if str(m).isdigit()] if inst.game == "spaceengineers" else None),
+            "nexus_key": hat_key if inst.game == "7d2d" else None}
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "PolyPanel"
+
+    def _auth(self) -> bool:
+        q = urllib.parse.urlparse(self.path).query
+        tok = urllib.parse.parse_qs(q).get("token", [""])[0] or self.headers.get("X-Token", "")
+        return hmac.compare_digest(tok, token())
+
+    def end_headers(self) -> None:
+        """Sicherheits-Header auf jeder Antwort."""
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Content-Security-Policy",
+                         "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
+                         "script-src 'self' 'unsafe-inline'; connect-src 'self'")
+        super().end_headers()
+
+    def _datei(self, pfad: str, name: str) -> None:
+        """Datei ausliefern, ohne sie komplett in den Speicher zu laden."""
+        import mimetypes
+
+        try:
+            groesse = os.path.getsize(pfad)
+        except OSError:
+            self._send(404, b"Datei fehlt")
+            return
+        typ = mimetypes.guess_type(name)[0] or "application/octet-stream"
+        self.send_response(200)
+        self.send_header("Content-Type", typ)
+        self.send_header("Content-Length", str(groesse))
+        self.send_header("Content-Disposition", 'attachment; filename="%s"' % name.replace('"', ""))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        with open(pfad, "rb") as fh:
+            while True:
+                block = fh.read(262144)
+                if not block:
+                    break
+                self.wfile.write(block)
+
+    def _send(self, code: int, body: bytes, ctype: str = "text/plain; charset=utf-8") -> None:
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _json(self, data) -> None:
+        self._send(200, json.dumps(data, ensure_ascii=False).encode(), "application/json")
+
+    def _html(self, text: str) -> None:
+        self._send(200, text.encode(), "text/html; charset=utf-8")
+
+    def _inst(self, q: dict) -> Instance | None:
+        name = q.get("name", [""])[0]
+        if not name:
+            parts = urllib.parse.urlparse(self.path).path.strip("/").split("/")
+            if len(parts) == 2 and parts[0] == "i":
+                name = parts[1]
+        if not name:
+            known = registry.names()
+            name = known[0] if known else ""
+        try:
+            return registry.load(name) if name else None
+        except TypeError:
+            return None
+
+    def log_message(self, *_args) -> None:
+        pass
+
+    # ------------------------------------------------------------------ GET
+    def do_GET(self) -> None:  # noqa: N802
+        try:
+            self._do_get()
+        except Exception as exc:  # noqa: BLE001
+            plog.write("FEHLER GET %s: %s: %s" % (self.path.split('?')[0], exc.__class__.__name__, exc))
+            # Dem Browser eine Antwort geben statt die Verbindung stumm abzureissen
+            self._fehler(exc)
+
+    def _do_get(self) -> None:
+        if not self._auth():
+            self._send(401, b"token fehlt")
+            return
+        u = urllib.parse.urlparse(self.path)
+        # keep_blank_values: ein geleertes Feld (z. B. Uhrzeiten) muss auch geleert ankommen
+        path, q = u.path, urllib.parse.parse_qs(u.query, keep_blank_values=True)
+        tok = q.get("token", [""])[0]
+
+        if path == "/":
+            games_opts = "".join('<option value="%s">%s</option>' % (k, v)
+                                 for k, v in games.labels().items())
+            gamemaps = json.dumps({k: [list(m) for m in p.maps]
+                                   for k, p in games.PROFILES.items() if p.maps},
+                                  ensure_ascii=False)
+            self._html(_render(DASH.replace("__GAMES__", games_opts)
+                                  .replace("__GAMEMAPS__", gamemaps)))
+            return
+        if path.startswith("/i/"):
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"Instanz nicht gefunden")
+                return
+            self._html(_render(INST.replace("__NAME__", inst.name).replace("__TOK__", tok)
+                                   .replace("__GAME__", inst.game)))
+            return
+        if path in ("/license", "/lizenz"):
+            self._html(license_page(tok))
+            return
+
+        if path.startswith("/static/maps/"):
+            name = os.path.basename(path)
+            base = os.path.expanduser("~/.config/polypanel/static/maps")
+            full = os.path.join(base, name)
+            if not name.endswith(".jpg") or not os.path.isfile(full):
+                self._send(404, b"kein Bild")
+                return
+            with open(full, "rb") as fh:
+                blob = fh.read()
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Length", str(len(blob)))
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.end_headers()
+            self.wfile.write(blob)
+            return
+        if path == "/api/files/view":
+            from . import files as filesmod
+
+            inst_v = self._inst(q)
+            if not inst_v:
+                self._send(404, b"keine Instanz")
+                return
+            rel = q.get("path", [""])[0]
+            try:
+                ziel = filesmod.lesen(inst_v, rel)
+                groesse = os.path.getsize(ziel)
+                if groesse > 2 * 1024 * 1024:
+                    self._send(413, b"Datei ist groesser als 2 MB - bitte herunterladen")
+                    return
+                with open(ziel, "rb") as fh:
+                    roh = fh.read()
+            except (filesmod.PfadFehler, FileNotFoundError, OSError) as exc:
+                self._send(400, str(exc).encode())
+                return
+            if b"\x00" in roh[:8192]:
+                self._send(415, b"Binaerdatei - bitte herunterladen")
+                return
+            self._json({"ok": True, "pfad": rel, "groesse": groesse,
+                        "text": roh.decode("utf-8", "replace")})
+            return
+        if path in ("/api/files", "/api/files/download"):
+            from . import files as filesmod
+
+            inst_f = self._inst(q)
+            if not inst_f:
+                self._send(404, b"keine Instanz")
+                return
+            rel = q.get("path", [""])[0]
+            try:
+                if path == "/api/files":
+                    self._json(filesmod.liste(inst_f, rel))
+                    return
+                ziel = filesmod.lesen(inst_f, rel)
+            except (filesmod.PfadFehler, FileNotFoundError, OSError) as exc:
+                self._send(400, str(exc).encode())
+                return
+            self._datei(ziel, os.path.basename(ziel))
+            return
+        if path == "/api/host":
+            self._json(metrics.host())
+            return
+        if path == "/api/selfupdate":
+            from . import selfupdate
+            self._json(selfupdate.check())
+            return
+        if path == "/api/changelog":
+            from . import selfupdate
+            self._json(selfupdate.changelog(i18n.lang()))
+            return
+        if path == "/api/selfupdate/notes":
+            from . import selfupdate
+            self._json(selfupdate.notes(q.get("v", [""])[0]))
+            return
+
+        if path == "/api/instances":
+            out = []
+            for name in registry.names():
+                obj = registry.load(name)
+                if obj:
+                    row = registry.info(obj)
+                    # Was macht die Instanz gerade? Die Karte zeigte bisher nur LÄUFT/AUS -
+                    # ein laufendes Update oder eine Installation war unsichtbar.
+                    if obj.name in INSTALLS:
+                        row["action"] = "install"
+                    elif (runner.UPDATE_STATE.get("name") == obj.name
+                          and runner.UPDATE_STATE.get("running")):
+                        row["action"] = "update"
+                    else:
+                        row["action"] = ACTIONS.get(row["name"], "")
+                    # AsaApi (nur ARK): installierte Version und Hinweis auf ein neueres
+                    # Release. asaapi_update() haelt das Ergebnis 30 Minuten im Cache,
+                    # damit die Uebersicht nicht bei jedem Aufruf die GitHub-API fragt.
+                    row["asaapi"] = bool(getattr(obj, "asaapi", False))
+                    if obj.game == "ark":
+                        try:
+                            row["api_version"] = installer.asaapi_tag(obj)
+                            upd = installer.asaapi_update(obj)
+                            row["api_update"] = upd if upd.get("update") else None
+                        except Exception:  # noqa: BLE001 - Anzeige darf nie brechen
+                            row["api_version"] = ""
+                            row["api_update"] = None
+                    else:
+                        row["api_version"] = ""
+                        row["api_update"] = None
+                    out.append(row)
+            self._json(out)
+            return
+
+        # Mods: Suche und Key-Status brauchen keine Instanz
+        if path == "/api/mods/search":
+            term = q.get("q", [""])[0]
+            inst_m = self._inst(q)
+            if inst_m is not None and inst_m.game != "ark":
+                # 7D2D/Satisfactory/SE/ASE: eigener Anbieter je Spielprofil
+                try:
+                    payload = inst_m.profile.mods_search(inst_m, term)
+                    self._json(_translate_hits(payload, "description", limit=30))
+                except Exception as exc:          # noqa: BLE001
+                    self._json({"results": [], "error": str(exc)})
+                return
+            key = modlib._api_key()
+            results = modlib.search(term, limit=50)
+            self._json(_translate_hits({"results": results, "total": modlib.api_total(),
+                                        "needs_key": not bool(key), "has_key": bool(key)},
+                                       "summary"))
+            return
+        if path == "/api/mods/suggest":
+            self._json(_translate_hits(modlib.suggest(q.get("q", [""])[0]), "summary", limit=8))
+            return
+        if path == "/api/update/progress":
+            inst_p = self._inst(q)
+            state = dict(runner.UPDATE_STATE)
+            log = runner.update_log_path(inst_p) if inst_p else ""
+            lines = runner.tail(log, 40) if log and os.path.exists(log) else []
+            state["log"] = lines
+            state["active"] = bool(state.get("running"))
+            self._json(state)
+            return
+
+        if path == "/api/mods/key":
+            key = modlib._api_key()
+            self._json({"has_key": bool(key),
+                        "masked": (key[:3] + "…" + key[-3:]) if len(key) > 8 else ""})
+            return
+
+        if path == "/api/delete/progress":
+            # Nach dem Loeschen liegt die Instanz-Config schon im .trash - deshalb hier ueber den
+            # Namen arbeiten und nicht ueber die geladene Instanz.
+            name = q.get("name", [""])[0]
+            self._json(DELETES.get(name) or {"running": False, "done": True})
+            return
+
+        inst = self._inst(q)
+        if path == "/api/install/cancel":
+            if not inst:
+                self._json({"ok": False, "error": "keine Instanz"})
+                return
+            from . import installer as _inst_mod
+            ergebnis = _inst_mod.cancel(inst.name)
+            INSTALLS.pop(inst.name, None)
+            try:
+                with open(os.path.join(inst.directory, ".install.log"), "a") as fh:
+                    fh.write("\nInstallation abgebrochen durch Benutzer\n")
+            except OSError:
+                pass
+            self._json(ergebnis)
+            return
+        if path == "/api/install/progress":
+            if not inst:
+                self._json({"running": False, "percent": None, "phase": "", "done": False})
+                return
+            self._json(install_progress(inst))
+            return
+        if path == "/api/install/log":
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+            log_path = os.path.join(inst.directory, ".install.log")
+            state = "laeuft" if inst.name in INSTALLS else "fertig"
+            lines = runner.tail(log_path, 40) if os.path.exists(log_path) else []
+            self._send(200, ("[%s]\n" % state + "\n".join(lines)).encode())
+            return
+        # Fehlermeldung: braucht keine Instanz - der Knopf muss auch auf dem Dashboard erscheinen
+        if path == "/api/report":
+            self._json({"webhook": bool(report_mod.webhook()), "version": __version__})
+            return
+
+        if not inst:
+            self._send(404, b"keine Instanz")
+            return
+
+        if path == "/api/asaapi/state":
+            if inst.game != "ark":
+                self._json({"enabled": False, "version": ""})
+                return
+            self._json({"enabled": bool(getattr(inst, "asaapi", False)),
+                        "version": installer.asaapi_tag(inst) or ""})
+            return
+        if path == "/api/status":
+            self._json(runner.status(inst))
+        elif path == "/api/logs":
+            self._send(200, "\n".join(runner.tail(inst.log_path, int(q.get("n", ["30"])[0]))).encode())
+        elif path == "/api/console":
+            self._send(200, "\n".join(runner.tail_console(inst, int(q.get("n", ["40"])[0]))).encode())
+        elif path == "/api/players":
+            self._json(players(inst))
+        elif path == "/api/catalog":
+            spiel, ordner = "", ""
+            if q.get("name", [""])[0]:
+                _i = self._inst(q)
+                if _i:
+                    spiel, ordner = _i.game, _i.directory
+            self._json(catalog.suche_spiel(q.get("q", [""])[0], spiel, inst_dir=ordner))
+        elif path == "/api/bans":
+            self._json(bans.laden(inst))
+        elif path == "/api/playerids/debug":
+            self._json(playerids.pfade(inst))
+        elif path == "/api/update":
+            self._json(runner.check_update(inst, 0 if q.get("refresh") else None))
+        elif path == "/api/lang":
+            self._json({"lang": i18n.lang(), "catalog": i18n.catalog()})
+
+        elif path == "/api/webhook":
+            self._json({"url": inst.webhook_url if inst else "", "log": notify_mod.log_path(inst) if inst else ""})
+        elif path == "/api/commands":
+            self._json([i18n.command(c) for c in cmdreg.COMMANDS])
+        elif path == "/api/mods/local":
+            self._json(_local_mods(inst))
+        elif path == "/api/mods/installed":
+            self._json(_installed_mods(inst))
+        elif path == "/api/mods/search":
+            q = q.get("q", [""])[0].strip()
+            if not q:
+                self._json({"results": [], "search_url": ""})
+            else:
+                try:
+                    self._json(_translate_hits(inst.profile.mods_search(inst, q), "description"))
+                except Exception as exc:      # noqa: BLE001 - Suche darf nie 500en
+                    self._json({"results": [], "error": str(exc)})
+        elif path == "/api/mods":
+            data = modlib.list_all_enriched(inst)
+            data["size_mb"] = modlib.mod_size_mb(inst)
+            self._json(data)
+        elif path == "/api/config":
+            which = q.get("file", ["gus"])[0]
+            self._send(200, cfgfile.read(inst, which).encode())
+        elif path == "/api/mod/meta":
+            self._json(modlib.meta(q.get("id", [""])[0], force=q.get("force", [""])[0] == "1"))
+        elif path == "/api/whitelist":
+            self._json(wl.info(inst))
+        elif path == "/api/snapshots":
+            self._json(snap.listing(inst))
+        elif path == "/api/cluster":
+            self._json({
+                "cluster_id": inst.cluster_id or inst.name,
+                "cluster_id_custom": bool(inst.cluster_id),
+                "cluster_dir": inst.cluster_path,
+                "cluster_dir_custom": bool(inst.cluster_dir),
+                "transfer_filtering": bool(inst.cluster_transfer_filtering),
+            })
+        elif path == "/api/settings":
+            self._json(_als_schalter(_uebersetzte_settings(inst)))
+        elif path == "/api/backups":
+            self._json(bk.listing(inst))
+        elif path == "/api/schedule":
+            self._json({
+                "restart_times": inst.restart_times,
+                "backup_times": inst.backup_times,
+                "warn_minutes": inst.warn_minutes,
+                "backups_keep": inst.backups_keep,
+                "snapshot_keep": inst.snapshot_keep,
+                "snapshot_times": inst.snapshot_times,
+                "tasks": inst.tasks,
+                "actions": list(supervisor.Supervisor.TASK_ACTIONS),
+            })
+        elif path == "/api/config/known":
+            self._json(cfgfile.known_for(q.get("file", ["gus"])[0]))
+        else:
+            self._send(404, b"unbekannt")
+
+    # ------------------------------------------------------------------ POST
+    def do_POST(self) -> None:  # noqa: N802
+        try:
+            self._do_post()
+        except Exception as exc:  # noqa: BLE001
+            plog.write("FEHLER POST %s: %s: %s" % (self.path.split('?')[0], exc.__class__.__name__, exc))
+            self._fehler(exc)
+
+    def _fehler(self, exc: Exception) -> None:
+        """Fehlerantwort senden, falls noch nichts rausgegangen ist."""
+        try:
+            self._json({"ok": False, "error": "%s: %s" % (exc.__class__.__name__, exc)})
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _do_post(self) -> None:
+        if not self._auth():
+            self._send(401, b"token fehlt")
+            return
+        u = urllib.parse.urlparse(self.path)
+        # keep_blank_values: ein geleertes Feld (z. B. Uhrzeiten) muss auch geleert ankommen
+        path, q = u.path, urllib.parse.parse_qs(u.query, keep_blank_values=True)
+
+        name = _POST_ROUTES.get(path)
+        if not name:
+            for praefix, methode in _POST_PREFIXE:
+                if path.startswith(praefix):
+                    name = methode
+                    break
+        if name:
+            getattr(self, name)(path, q)
+            return
+        # unbekannter Pfad: gleiche Antwort wie vorher (ohne Instanz die Instanz-Meldung)
+        self._send(404, b"keine Instanz" if not self._inst(q) else b"unbekannt")
+
+    def _post_asaapi(self, path: str, q: dict) -> None:
+        """AsaApi umschalten und einrichten."""
+        if path == "/api/asaapi":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            if inst.game != "ark":
+                self._send(200, b"AsaApi gibt es nur fuer ARK: Survival Ascended")
+                return
+            if q.get("enabled", [""])[0] in ("0", "1"):
+                an = q.get("enabled", [""])[0] == "1"
+                if an and not os.path.exists(inst.loader_exe):
+                    self._send(200, b"AsaApi ist nicht installiert - Dateien fehlen")
+                    return
+                inst.asaapi = an
+                registry.save(inst)
+                self._send(200, ("AsaApi %s - Server neu starten, damit es greift."
+                                 % ("aktiv" if an else "aus (Start ohne Plugins)")).encode())
+                return
+            if inst.name in ACTIONS:
+                self._send(409, b"Es laeuft bereits eine Aktion fuer diese Instanz")
+                return
+
+            def _asaapi() -> None:
+                _log_step(inst, "asaapi: Installation angefordert")
+                ACTIONS[inst.name] = "asaapi"
+                try:
+                    res = installer.install_asaapi(
+                        inst, log=lambda m: _log_step(inst, "asaapi: %s" % m))
+                    if res.get("ok"):
+                        inst.asaapi = True
+                        registry.save(inst)
+                        _log_step(inst, "asaapi: %s installiert - Start ueber AsaApiLoader.exe "
+                                        "(Neustart noetig)" % res.get("tag", ""))
+                    else:
+                        _log_step(inst, "asaapi fehlgeschlagen: %s" % res.get("error", "?"))
+                except Exception as exc:  # noqa: BLE001 - Grund muss sichtbar werden
+                    _log_step(inst, "asaapi fehlgeschlagen: %s" % exc)
+                finally:
+                    ACTIONS.pop(inst.name, None)
+
+            threading.Thread(target=_asaapi, daemon=True).start()
+            self._json({"ok": True, "info": "AsaApi-Installation gestartet"})
+            return
+        if (path == "/api/start") and runner.is_running(inst):
+            self._json({"ok": True, "info": "laeuft bereits"})
+            return
+
+    def _post_backups(self, path: str, q: dict) -> None:
+        """Backups erstellen, zurückholen, löschen."""
+        if path == "/api/backup":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            try:
+                info = bk.create(inst)
+                self._send(200, ("Backup erstellt: %s (%.1f MB)" % (info["file"], info["size_mb"])).encode())
+            except Exception as exc:  # noqa: BLE001
+                self._send(200, ("Backup-Fehler: %s" % exc).encode())
+            return
+        if path == "/api/backup/restore":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            fname = q.get("file", [""])[0]
+            try:
+                self._send(200, bk.restore(inst, fname).encode())
+            except Exception as exc:  # noqa: BLE001
+                self._send(200, ("Restore-Fehler: %s" % exc).encode())
+            return
+        if path == "/api/backup/delete":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            ok = bk.delete(inst, q.get("file", [""])[0])
+            self._send(200, ("geloescht" if ok else "nicht gefunden").encode())
+            return
+
+    def _post_bans(self, path: str, q: dict) -> None:
+        """Spieler bannen und entbannen."""
+        if path == "/api/ban":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            pid = q.get("id", [""])[0]
+            try:
+                out = rcon_cmd(inst, "BanPlayer %s" % pid)
+                wl.record_ban(inst, pid)
+                try:
+                    name = next((p.get("name", "") for p in players(inst) if p.get("steamid") == pid), "")
+                    bans.merken(inst, pid, name)
+                except Exception:            # noqa: BLE001 - Liste ist Beiwerk
+                    pass
+                self._send(200, ("%s: %s" % (pid, out or "gebannt")).encode())
+            except Exception as exc:  # noqa: BLE001
+                self._send(200, ("RCON-Fehler: %s" % exc).encode())
+            return
+        if path == "/api/unban":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            pid = q.get("id", [""])[0]
+            try:
+                out = rcon_cmd(inst, "UnbanPlayer %s" % pid)
+                wl.forget_ban(inst, pid)
+                self._send(200, ("%s: %s" % (pid, out or "entbannt")).encode())
+            except Exception as exc:  # noqa: BLE001
+                self._send(200, ("RCON-Fehler: %s" % exc).encode())
+            return
+
+    def _post_cluster(self, path: str, q: dict) -> None:
+        """Cluster-Transfer."""
+        if path == "/api/cluster":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            inst.cluster_id = (q.get("cluster_id", [""])[0] or "").strip()[:64]
+            inst.cluster_dir = (q.get("cluster_dir", [""])[0] or "").strip()
+            inst.cluster_transfer_filtering = q.get("transfer_filtering", ["1"])[0] not in ("0", "false", "False")
+            registry.save(inst)
+            self._send(200, ("Cluster gespeichert - ID %s, Verzeichnis %s. Neustart noetig."
+                             % (inst.cluster_name, inst.cluster_path)).encode())
+            return
+
+    def _post_config(self, path: str, q: dict) -> None:
+        """Ini-Werte lesen und schreiben."""
+        if path == "/api/config":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            which = q.get("file", ["gus"])[0]
+            length = int(self.headers.get("Content-Length") or 0)
+            text = self.rfile.read(length).decode("utf-8", "replace") if length else ""
+            try:
+                backup = cfgfile.write(inst, which, text)
+                self._send(200, ("gespeichert%s" % ((" (Sicherung: %s)" % os.path.basename(backup))
+                                                   if backup else "")).encode())
+            except ValueError as exc:
+                self._send(200, ("Fehler: %s" % exc).encode())
+            return
+
+    def _post_files(self, path: str, q: dict) -> None:
+        """Dateiverwaltung: lesen, speichern, hochladen, herunterladen, umbenennen, löschen."""
+        if path.startswith("/api/files/"):
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            from . import files as filesmod
+
+            aktion = path.rsplit("/", 1)[-1]
+            rel = q.get("path", [""])[0]
+            try:
+                if aktion == "upload":
+                    laenge = int(self.headers.get("Content-Length") or 0)
+                    if laenge <= 0:
+                        self._send(400, b"leerer Upload")
+                        return
+                    if laenge > 2 * 1024 * 1024 * 1024:
+                        self._send(413, b"Datei groesser als 2 GB")
+                        return
+                    name = os.path.basename(q.get("file", [""])[0] or "")
+                    if not name:
+                        self._send(400, b"Dateiname fehlt")
+                        return
+                    rest = laenge
+                    teile = []
+                    while rest > 0:
+                        block = self.rfile.read(min(262144, rest))
+                        if not block:
+                            break
+                        teile.append(block)
+                        rest -= len(block)
+                    ziel = filesmod.schreiben(inst, (rel.strip("/") + "/" + name).strip("/"),
+                                              b"".join(teile))
+                    self._json({"ok": True, "pfad": ziel, "groesse": laenge})
+                    return
+                if aktion == "mkdir":
+                    name = (q.get("file", [""])[0] or "").strip("/")
+                    if not name:
+                        self._send(400, b"Ordnername fehlt")
+                        return
+                    self._json({"ok": True,
+                                "pfad": filesmod.ordner(inst, (rel.strip("/") + "/" + name).strip("/"))})
+                    return
+                if aktion == "save":
+                    laenge = int(self.headers.get("Content-Length") or 0)
+                    if laenge > 2 * 1024 * 1024:
+                        self._send(413, b"Datei groesser als 2 MB")
+                        return
+                    roh = self.rfile.read(laenge) if laenge else b""
+                    ziel = filesmod.lesen(inst, rel) if rel else ""
+                    if ziel and os.path.isfile(ziel):
+                        try:
+                            # INIs wandern in den Backup-Ordner, alles andere behaelt .bak daneben
+                            if os.path.basename(ziel) in ("Game.ini", "GameUserSettings.ini", "Engine.ini"):
+                                from . import backups as _bk
+                                _bk.save_config_copy(inst, ziel)
+                            else:
+                                with open(ziel + ".bak", "wb") as fh:
+                                    fh.write(open(ziel, "rb").read())
+                        except OSError:
+                            pass
+                    self._json({"ok": True, "pfad": filesmod.schreiben(inst, rel, roh)})
+                    return
+                if aktion == "delete":
+                    self._json({"ok": True, "entfernt": filesmod.loeschen(inst, rel)})
+                    return
+                if aktion == "rename":
+                    self._json({"ok": True,
+                                "pfad": filesmod.umbenennen(inst, rel, q.get("to", [""])[0])})
+                    return
+                self._send(404, b"unbekannte Dateiaktion")
+                return
+            except (filesmod.PfadFehler, FileNotFoundError, FileExistsError, OSError) as exc:
+                self._send(400, str(exc).encode())
+                return
+
+            return
+
+    def _post_install(self, path: str, q: dict) -> None:
+        """Server-Installation starten."""
+        if path == "/api/install":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            if inst.name in INSTALLS:
+                self._send(200, b"Installation laeuft bereits")
+                return
+            _start_install(inst)
+            hinweis = ("\nAsaApi (Plugins im Spiel) wird am Ende automatisch mitinstalliert."
+                       if inst.game == "ark" else "")
+            self._send(200, ("Installation gestartet: %s\nDauer je nach Leitung 10-30 Minuten.%s"
+                             % (inst.directory, hinweis)).encode())
+            return
+
+    def _post_instance_admin(self, path: str, q: dict) -> None:
+        """Instanz löschen, Test-Benachrichtigung."""
+        if path == "/api/instance/delete":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            files = q.get("files", ["0"])[0] in ("1", "true", "yes")
+            self._json(_delete_start(inst, files))
+            return
+
+    def _post_instance_create(self, path: str, q: dict) -> None:
+        """neue Instanz anlegen."""
+        if path == "/api/instances":
+            port = q.get("port", [""])[0]
+            try:
+                inst = registry.create(
+                    q.get("name", [""])[0].strip(),
+                    q.get("map", ["Ragnarok_WP"])[0],
+                    int(port) if port.isdigit() else None,
+                    q.get("session", [""])[0],
+                    game=q.get("game", ["ark"])[0],
+                )
+            except (ValueError, RuntimeError) as exc:
+                self._send(200, ("Fehler: %s" % exc).encode())
+                return
+            inst.write_ini()
+            self._send(200, ("Instanz '%s' angelegt - Port %d, RCON %d\nJetzt 'Installieren' druecken."
+                             % (inst.name, inst.port, inst.rcon_port)).encode())
+            return
+
+
+    def _post_mods(self, path: str, q: dict) -> None:
+        """Mods: hinzufügen, entfernen, sortieren, anpinnen, Metadaten."""
+        if path == "/api/mods/uninstall":
+            inst_m = self._inst(q)
+            schluessel = q.get("id", [""])[0].strip()
+            if inst_m is None or not schluessel:
+                self._send(400, b"Instanz oder Mod fehlt")
+                return
+            try:
+                self._send(200, _uninstall_mod(inst_m, schluessel).encode())
+            except (RuntimeError, OSError) as exc:
+                self._send(400, str(exc).encode())
+            return
+
+        if path == "/api/mods/nexuskey":
+            key = q.get("key", [""])[0].strip()
+            from .games.sv7dtd import SevenDaysProfile
+            SevenDaysProfile.set_nexus_key(key)
+            self._send(200, ("Nexus-Key gespeichert" if key else "Nexus-Key gelöscht").encode())
+            return
+
+        if path == "/api/mods/install":
+            inst_m = self._inst(q)
+            mid = q.get("id", [""])[0].strip()
+            if inst_m is None or not mid:
+                self._send(400, b"Instanz oder Mod-ID fehlt")
+                return
+            try:
+                msg = inst_m.profile.mods_install(inst_m, mid, log=lambda m: None)
+                if inst_m.game == "arkse":          # Mod-Liste steht in der Instanz-Config
+                    registry.save(inst_m)
+                    inst_m.write_ini()
+                self._send(200, msg.encode())
+            except Exception as exc:              # noqa: BLE001 - Fehler an die UI
+                self._send(400, str(exc).encode())
+            return
+
+        if path == "/api/mods/key":
+            i18n.put("curseforge_key", q.get("key", [""])[0].strip())
+            self._send(200, b"ok")
+            return
+
+        # Fehlermeldung abschicken: ohne Instanzbezug, sonst geht sie vom Dashboard aus nicht raus
+        if path == "/api/mods/refresh":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            ids = [m["id"] for m in modlib.list_all(inst)["active"] + modlib.list_all(inst)["inactive"]]
+            self._json(modlib.refresh_meta(ids))
+            return
+        if path == "/api/mods/add":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            try:
+                modlib.add_mod(inst, q.get("id", [""])[0])
+                self._send(200, ("Mod %s eingetragen. Server neu starten, damit er sie laedt."
+                                 % q.get("id", [""])[0]).encode())
+            except ValueError as exc:
+                self._send(200, ("Fehler: %s" % exc).encode())
+            return
+        if path == "/api/mods/set":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            if inst.game != "ark":
+                self._send(200, b"Mod-IDs gibt es nur fuer ARK: Survival Ascended")
+                return
+            roh = q.get("ids", [""])[0]
+            ids = [t for t in re.split(r"[,;\s]+", roh) if t]
+            falsch = [t for t in ids if not t.isdigit()]
+            if falsch:
+                self._send(200, ("Fehler: keine Mod-ID: %s" % ", ".join(falsch[:5])).encode())
+                return
+            modlib.set_mods(inst, ids)
+            self._send(200, ("%d Mod-ID(s) eingetragen - Server neu starten, damit er sie laedt."
+                             % len({int(i) for i in ids})).encode())
+            return
+        if path == "/api/mods/move":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            if inst.game != "ark":
+                self._send(200, b"Mod-Reihenfolge gibt es nur fuer ARK: Survival Ascended")
+                return
+            try:
+                modlib.move(inst, q.get("id", [""])[0], int(q.get("delta", ["0"])[0] or 0))
+                self._send(200, b"ok")
+            except (ValueError, TypeError) as exc:
+                self._send(400, ("Fehler: %s" % exc).encode())
+            return
+        if path == "/api/mods/order":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            if inst.game != "ark":
+                self._send(200, b"Mod-Reihenfolge gibt es nur fuer ARK: Survival Ascended")
+                return
+            roh = q.get("ids", [""])[0]
+            ids = [t for t in re.split(r"[,;\s]+", roh) if t]
+            try:
+                modlib.reorder(inst, ids)
+                self._send(200, b"ok")
+            except (ValueError, TypeError) as exc:
+                self._send(400, ("Fehler: %s" % exc).encode())
+            return
+        if path == "/api/mods/pin":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            if inst.game != "ark":
+                self._send(200, b"Mod-Reihenfolge gibt es nur fuer ARK: Survival Ascended")
+                return
+            on = q.get("on", ["1"])[0] in ("1", "true", "yes")
+            try:
+                modlib.set_pinned(inst, q.get("id", [""])[0], on)
+                self._send(200, ("Mod %s %s." % (q.get("id", [""])[0],
+                                                 "bleibt jetzt oben" if on else "wieder frei")).encode())
+            except (ValueError, TypeError) as exc:
+                self._send(400, ("Fehler: %s" % exc).encode())
+            return
+        if path == "/api/mods/remove":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            modlib.remove_mod(inst, q.get("id", [""])[0])
+            self._send(200, ("Mod %s aus der Liste entfernt." % q.get("id", [""])[0]).encode())
+            return
+        if path == "/api/mods/delete-files":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            ok = modlib.remove_folder(inst, q.get("id", [""])[0])
+            self._send(200, ("Dateien geloescht." if ok else "Keine Dateien gefunden.").encode())
+            return
+
+    def _post_notify(self, path: str, q: dict) -> None:
+        """Benachrichtigungen: Webhook, Testnachricht."""
+        if path == "/api/webhook":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            url = q.get("url", [""])[0].strip()
+            if url and not url.startswith("https://"):
+                self._send(400, b"Webhook muss mit https:// beginnen")
+                return
+            inst.webhook_url = url
+            registry.save(inst)
+            self._send(200, (b"ok"))
+            return
+        if path == "/api/notify/test":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            url = q.get("url", [""])[0].strip() or inst.webhook_url
+            result = notify_mod.test(inst, url)
+            self._json(result)
+            return
+
+    def _post_panel(self, path: str, q: dict) -> None:
+        """Panel selbst: Neustart, Sprache."""
+        if path == "/api/panel/restart":
+            from . import selfupdate
+
+            # Auftrag an systemd, nicht selbst neu starten: der Timer-Thread gehoert zu diesem
+            # Prozess und wuerde mit ihm beendet - systemd fuehrt den Job trotzdem aus.
+            threading.Timer(1.0, lambda: selfupdate.restart_service(no_block=True)).start()
+            self._json({"ok": True, "info": "Neustart ausgeloest"})
+            return
+
+        if path == "/api/lang":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            value = q.get("set", [""])[0].lower()
+            try:
+                i18n.set_lang(value)
+                self._send(200, ("lang=%s" % value).encode())
+            except ValueError:
+                self._send(400, b"unbekannte Sprache")
+            return
+
+    def _post_players(self, path: str, q: dict) -> None:
+        """Spieleraktionen: Kick, Ban, Item geben."""
+        if path == "/api/player/action":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            steamid = q.get("steamid", [""])[0]
+            action = q.get("action", [""])[0]
+            pname = q.get("pname", [""])[0]
+            # Spiele mit eigenem Befehlssatz (7D2D: kick/ban add/ban remove) bringen ihn im Profil mit
+            befehle = getattr(inst.profile, "player_commands", None) or PLAYER_ACTIONS
+            tpl = befehle.get(action)
+            if not steamid or not tpl:
+                self._send(400, b"steamid/action fehlt")
+                return
+            ziel = pname if (pname and getattr(inst.profile, "player_action_by_name", False)) else steamid
+            try:
+                antwort = rcon_cmd(inst, tpl % ziel) or "ok"
+            except Exception as exc:  # noqa: BLE001
+                self._send(200, ("RCON-Fehler: %s" % exc).encode())
+                return
+            # Eigene Liste pflegen: ARK gibt die Ban-Liste nicht ueber RCON her.
+            try:
+                if action == "ban":
+                    bans.merken(inst, steamid, pname)
+                elif action == "unban":
+                    bans.vergessen(inst, steamid)
+            except OSError as exc:
+                self._send(200, ("%s (Liste nicht gespeichert: %s)" % (antwort, exc)).encode())
+                return
+            self._send(200, antwort.encode())
+            return
+        if path == "/api/player/give":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            steamid = q.get("steamid", [""])[0]
+            bp = q.get("bp", [""])[0]
+            qty = q.get("qty", ["1"])[0]
+            pname = q.get("pname", [""])[0]
+            if not steamid or not bp:
+                self._send(400, b"steamid/bp fehlt")
+                return
+            # Spiele mit eigenem Befehl (7D2D: `give <Name> <Item> <Anzahl>`) - kein Blueprint-Pfad
+            gabe = getattr(inst.profile, "give_command", "")
+            if gabe:
+                # Nur an Spieler geben, die wirklich in der Welt sind: ein `give` an einen
+                # Spieler im Ladebildschirm reisst dessen Client mit (7D2D trennt die Verbindung,
+                # im Log steht dann "persistent player disconnect").
+                try:
+                    drin = players(inst)
+                except Exception:                 # noqa: BLE001
+                    drin = []
+                namen = {str(p.get("name", "")).lower() for p in drin} | {str(p.get("id", "")) for p in drin}
+                # 7D2D adressiert Spieler am zuverlaessigsten per Entity-ID aus `lp`
+                for eintrag in drin:
+                    if pname and str(eintrag.get("name", "")).lower() == pname.lower():
+                        steamid = str(eintrag.get("id") or steamid)
+                        break
+                if pname and pname.lower() not in namen and steamid not in namen:
+                    self._send(200, ("%s ist gerade nicht in der Welt - Gegenstand nicht geschickt "
+                                     "(erst geben, wenn der Spieler gespawnt ist)." % pname).encode())
+                    return
+                ziel = pname if getattr(inst.profile, "player_action_by_name", False) and pname else steamid
+                try:
+                    antwort = rcon_cmd(inst, gabe % (ziel, bp, qty)) or "ok"
+                except Exception as exc:      # noqa: BLE001
+                    self._send(200, ("Telnet-Fehler: %s" % exc).encode())
+                    return
+                self._send(200, antwort.encode())
+                return
+            # GiveItemToPlayer braucht die dauerhafte Spieler-ID, nicht die EOS-ID aus ListPlayers.
+            try:
+                dauerhaft = playerids.aufloesen(inst, eos=steamid, name=pname)
+            except Exception:                 # noqa: BLE001
+                dauerhaft = ""
+            if not dauerhaft:
+                # PlayerCache.sav wird nur beim Welt-Speichern geschrieben. Ohne diesen Anstoss
+                # fehlt ein frisch gejointer Spieler bis zum naechsten Autosave (Standard 15 min).
+                try:
+                    rcon_cmd(inst, "SaveWorld")
+                    import time as _time
+                    _time.sleep(2)
+                    dauerhaft = playerids.aufloesen(inst, eos=steamid, name=pname)
+                except Exception:             # noqa: BLE001 - Anstoss ist nur eine Hilfe
+                    pass
+            if dauerhaft:
+                steamid = dauerhaft
+            else:
+                self._send(200, ("Keine dauerhafte Spieler-ID gefunden - Gegenstand nicht "
+                                 "geschickt (%s). Der Spieler muss einmal gespeichert sein "
+                                 "(Join + Autosave)." % playerids.diagnose(inst)).encode())
+                return
+            try:
+                self._send(200, rcon_cmd(inst, "GiveItemToPlayer %s %s %s 0 0" % (steamid, bp, qty)).encode())
+            except Exception as exc:  # noqa: BLE001
+                self._send(200, ("RCON-Fehler: %s" % exc).encode())
+            return
+
+    def _post_report(self, path: str, q: dict) -> None:
+        """Fehlerbericht."""
+        if path == "/api/report":
+            laenge = int(self.headers.get("Content-Length") or 0)
+            roh = self.rfile.read(laenge).decode("utf-8", "replace") if laenge else "{}"
+            try:
+                daten = json.loads(roh) if roh.strip() else {}
+            except ValueError:
+                daten = {}
+            ergebnis = report_mod.senden(None, str(daten.get("text", "")),
+                                         str(daten.get("steps", "")))
+            plog.write("Fehlermeldung: " + ("gesendet" if ergebnis.get("ok")
+                                             else "nicht gesendet (%s)" % ergebnis.get("fehler")))
+            self._json(ergebnis)
+            return
+
+
+    def _post_schedule(self, path: str, q: dict) -> None:
+        """Zeitplan und wiederkehrende Aufgaben."""
+        if path == "/api/tasks":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8", "replace") if length else "{}"
+            try:
+                payload = json.loads(raw)
+            except ValueError:
+                self._send(400, b"ungueltiges JSON")
+                return
+            tasks = payload.get("tasks") if isinstance(payload, dict) else None
+            if not isinstance(tasks, list):
+                self._send(400, b"tasks fehlt")
+                return
+            clean = []
+            for item in tasks[:50]:
+                if not isinstance(item, dict):
+                    continue
+                action = str(item.get("action") or "").strip()
+                if action not in supervisor.Supervisor.TASK_ACTIONS:
+                    continue
+                tm = str(item.get("time") or "").strip()
+                if not re.match(r"^([01]\d|2[0-3]):[0-5]\d$", tm):
+                    continue
+                days = [int(d) for d in (item.get("days") or []) if str(d).isdigit() and 1 <= int(d) <= 7]
+                clean.append({
+                    "id": str(item.get("id") or "")[:32] or "t%d-%d" % (int(time.time() * 1000), len(clean)),
+                    "action": action,
+                    "time": tm,
+                    "days": sorted(set(days)),
+                    "arg": str(item.get("arg") or "")[:300],
+                    "on": bool(item.get("on", True)),
+                })
+            inst.tasks = clean
+            registry.save(inst)
+            self._json({"ok": True, "tasks": clean})
+            return
+        if path == "/api/schedule":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            def _times(key: str) -> list[str]:
+                raw = q.get(key, [""])[0]
+                return [t.strip() for t in raw.split(",") if t.strip()]
+            if "restart" in q:
+                inst.restart_times = _times("restart")
+            if "warn" in q and q["warn"][0].isdigit():
+                inst.warn_minutes = int(q["warn"][0])
+            if "keep" in q and q["keep"][0].isdigit():
+                inst.backups_keep = int(q["keep"][0])
+            if "snaptimes" in q:
+                inst.snapshot_times = _times("snaptimes")
+            if "snapkeep" in q and q["snapkeep"][0].isdigit():
+                inst.snapshot_keep = max(1, min(20, int(q["snapkeep"][0])))
+            registry.save(inst)
+            self._send(200, ("Zeitplan gespeichert: Neustart %s | Backup %s | Vorwarnung %d min"
+                             % (", ".join(inst.restart_times) or "-",
+                                ", ".join(inst.backup_times) or "-", inst.warn_minutes)).encode())
+            return
+
+    def _post_selfupdate(self, path: str, q: dict) -> None:
+        """Selbst-Update einspielen."""
+        if path == "/api/selfupdate":
+            from . import selfupdate
+
+            # synchron einspielen, damit die Oberflaeche Erfolg oder Fehler zeigen kann
+            result = selfupdate.apply()
+            if result.get("ok"):
+                threading.Timer(1.0, selfupdate.restart_service).start()
+            self._json(result)
+            return
+
+
+    def _post_server(self, path: str, q: dict) -> None:
+        """Start, Stopp, Neustart, Update, RCON, freie Befehle."""
+        if path in ("/api/start", "/api/restart", "/api/update"):
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            def _act() -> None:
+                _log_step(inst, "%s angefordert" % path.split("/")[-1])
+                ACTIONS[inst.name] = path.rsplit("/", 1)[-1]
+                try:
+                    if path == "/api/start":
+                        _log_step(inst, "start: PID %s" % runner.start(inst))
+                    elif path == "/api/restart":
+                        _log_step(inst, "restart: %s" % runner.restart(inst))
+                    else:
+                        _log_step(inst, "update: %s" % runner.update_installed(inst))
+                except Exception as exc:  # noqa: BLE001 - der Grund muss sichtbar werden
+                    _log_step(inst, "%s fehlgeschlagen: %s" % (path.split("/")[-1], exc))
+                    supervisor.notify(inst, "%s fehlgeschlagen: %s" % (path.split("/")[-1], exc))
+                    supervisor.notify_event(inst, "Aktion fehlgeschlagen", str(exc)[:500], "error",
+                                            {"Instanz": inst.name})
+                finally:
+                    ACTIONS.pop(inst.name, None)
+            threading.Thread(target=_act, daemon=True).start()
+            self._json({"ok": True, "info": "%s ausgeloest" % path.split("/")[-1]})
+            return
+        if path == "/api/stop":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            def _stop() -> None:
+                _log_step(inst, "stop angefordert")
+                ACTIONS[inst.name] = "stop"
+                try:
+                    _log_step(inst, "stop: %s" % runner.stop(inst))
+                except Exception as exc:  # noqa: BLE001
+                    _log_step(inst, "stop fehlgeschlagen: %s" % exc)
+                finally:
+                    ACTIONS.pop(inst.name, None)
+            threading.Thread(target=_stop, daemon=True).start()
+            self._json({"ok": True, "info": "stop ausgeloest"})
+            return
+        if path == "/api/rcon":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            cmd = q.get("cmd", [""])[0]
+            try:
+                self._send(200, (rcon_cmd(inst, cmd) or "(keine Antwort)").encode())
+            except Exception as exc:  # noqa: BLE001
+                self._send(200, ("RCON-Fehler: %s" % exc).encode())
+            return
+        if path == "/api/command":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            entry = cmdreg.by_id(q.get("id", [""])[0])
+            if not entry:
+                self._send(400, b"unbekannter Befehl")
+                return
+            values = {name: q.get(name, [""])[0] for name, _qq, _dd in entry["args"]}
+            cmd = cmdreg.build(entry["id"], values) or ""
+            try:
+                out = rcon_cmd(inst, cmd)
+                self._send(200, ("$ %s\n%s" % (cmd, out or "(keine Antwort)")).encode())
+            except Exception as exc:  # noqa: BLE001
+                self._send(200, ("$ %s\nRCON-Fehler: %s" % (cmd, exc)).encode())
+            return
+
+    def _post_settings(self, path: str, q: dict) -> None:
+        """Instanz-Einstellungen: Ports, Passwörter, Automatik."""
+        if path == "/api/settings":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length).decode("utf-8", "replace") if length else "[]"
+            try:
+                items = json.loads(raw)
+            except ValueError:
+                items = []
+            if inst.game != "ark":
+                changed = inst.profile.apply_settings(inst, items)
+                inst.save(os.path.expanduser("~/.config/polypanel/%s.json" % inst.name))
+                inst.write_ini()
+            else:
+                changed = 0
+                for item in items:
+                    try:
+                        cfgfile.set_value(inst, item["file"], item["section"], item["key"],
+                                          str(item.get("value", "")))
+                        changed += 1
+                    except (KeyError, TypeError):
+                        continue
+            plog.write("EINSTELLUNGEN %s: %d Werte empfangen, %d uebernommen"
+                       % (inst.name, len(items), changed))
+            live = [i for i in items if isinstance(i, dict) and i.get("file") == "live"]
+            if live:
+                text = ("%d Live-Regel(n) sofort gesetzt, %d Einstellung(en) in der Datei - "
+                        "wirksam nach Neustart" % (len(live), max(0, changed - len(live))))
+            else:
+                text = "%d Einstellung(en) gespeichert - wirksam nach Neustart" % changed
+            if changed < len(items):
+                # Nicht jede Zeile landet in der Datei (unbekannter Schluessel, ungueltiger
+                # Wert). Ohne Hinweis wirkt das wie "nichts passiert".
+                text += " · %d nicht uebernommen (Wert ungueltig oder Feld unbekannt)" % (len(items) - changed)
+            self._send(200, text.encode())
+            return
+
+    def _post_sftp(self, path: str, q: dict) -> None:
+        """SFTP-Zugang."""
+        if path == "/api/sftp":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            from . import sftp as sftpmod
+
+            aktion = q.get("action", ["status"])[0]
+            if aktion in ("an", "neu"):
+                if aktion == "neu":
+                    inst.sftp_password = sftpmod.generate_password()
+                daten = sftpmod.setze_zugang(inst)
+                registry.save(inst)
+                ok, meldung = sftpmod.ensure_service()
+                self._json({"ok": True,
+                            "info": ("SFTP aktiviert - " if ok else "SFTP eingetragen, Dienst nicht gestartet: ") + meldung,
+                            **daten})
+                return
+            if aktion == "aus":
+                inst.sftp_enabled = False
+                registry.save(inst)
+                self._json({"ok": True, "info": "SFTP deaktiviert"})
+                return
+            self._json({
+                "ok": True,
+                "enabled": bool(inst.sftp_enabled),
+                "verfuegbar": sftpmod.verfuegbar(),
+                "user": inst.sftp_user or sftpmod.default_user(inst),
+                "port": inst.sftp_port or sftpmod.port_for(inst),
+                # Anzeige im Reiter "Dateien": die Oberflaeche ist ohnehin token-geschuetzt
+                "password": inst.sftp_password or "",
+            })
+            return
+
+
+    def _post_snapshots(self, path: str, q: dict) -> None:
+        """Snapshots erstellen, zurückholen, löschen."""
+        if path == "/api/snapshot":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            try:
+                info = snap.create(inst)
+                self._send(200, ("Snapshot erstellt: %s (%.1f GB)" % (info["name"], info["size_gb"])).encode())
+            except Exception as exc:  # noqa: BLE001
+                self._send(200, ("Snapshot-Fehler: %s" % exc).encode())
+            return
+        if path == "/api/snapshot/restore":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            try:
+                snapname = q.get("file", [""])[0] or q.get("snap", [""])[0]
+                self._send(200, snap.restore(inst, snapname).encode())
+            except Exception as exc:  # noqa: BLE001
+                self._send(200, ("Restore-Fehler: %s" % exc).encode())
+            return
+        if path == "/api/snapshot/delete":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            ok = snap.delete(inst, q.get("file", [""])[0] or q.get("snap", [""])[0])
+            self._send(200, ("geloescht" if ok else "nicht gefunden").encode())
+            return
+
+    def _post_whitelist(self, path: str, q: dict) -> None:
+        """Whitelist pflegen."""
+        if path == "/api/whitelist/add":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            try:
+                wl.add_to_whitelist(inst, q.get("id", [""])[0])
+                self._send(200, ("%s auf die Whitelist gesetzt" % q.get("id", [""])[0]).encode())
+            except ValueError as exc:
+                self._send(200, ("Fehler: %s" % exc).encode())
+            return
+        if path == "/api/whitelist/remove":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            try:
+                wl.remove_from_whitelist(inst, q.get("id", [""])[0])
+                self._send(200, ("%s von der Whitelist entfernt" % q.get("id", [""])[0]).encode())
+            except ValueError as exc:
+                self._send(200, ("Fehler: %s" % exc).encode())
+            return
+        if path == "/api/whitelist/enable":
+            inst = self._inst(q)
+            if not inst:
+                self._send(404, b"keine Instanz")
+                return
+
+            on = q.get("on", ["0"])[0] == "1"
+            wl.set_enabled(inst, on)
+            self._send(200, ("Whitelist %s - Neustart noetig" % ("AN" if on else "AUS")).encode())
+            return
+def serve(host: str = "127.0.0.1", port: int = 8790,
+          cert: str = "", key: str = "") -> None:
+    srv = ThreadingHTTPServer((host, port), Handler)
+    scheme = "http"
+    if cert and key:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(cert, key)
+        srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
+        scheme = "https"
+    # 0.0.0.0 ist keine Adresse, die man im Browser aufruft - dort die echte IP einsetzen
+    anzeige_host = host
+    if host in ("0.0.0.0", "::", ""):
+        try:
+            _s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                _s.connect(("1.1.1.1", 80))
+                anzeige_host = _s.getsockname()[0]
+            finally:
+                _s.close()
+        except OSError:
+            anzeige_host = "127.0.0.1"
+    adresse = "%s://%s:%d/?token=%s" % (scheme, anzeige_host, port, token())
+    print("PolyPanel UI: %s://%s:%d/?token=%s" % (scheme, host, port, token()), flush=True)
+    # Adresse mitschreiben: `cat ~/.config/polypanel/url` liefert sie spaeter unveraendert
+    try:
+        from .paths import URL_PATH
+        os.makedirs(os.path.dirname(URL_PATH), exist_ok=True)
+        with open(os.open(URL_PATH, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600), "w") as fh:
+            fh.write(adresse + "\n")
+    except OSError:
+        pass
+    srv.serve_forever()
