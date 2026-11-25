@@ -1,3 +1,9 @@
+## [0.71] - 2026-11-25
+
+- Neuer Schalter unter Mods: startet den Server ohne AsaApi, wenn der Loader nach einem ARK-Update
+  nicht mehr passt. Der Server bleibt damit erreichbar; im Spiel fehlen dann Quests, Startpaket und
+  Kill-Zaehlung. Zurueckstellen, sobald der Loader wieder laeuft.
+
 ## [0.70] - 2026-11-25
 
 - Vor jedem Löschen kommt jetzt eine Rückfrage: Datei, Mod, Mod-Dateien, Snapshot, Backup und

@@ -121,6 +121,8 @@ class Instance:
     webhook_url: str = ""
     headless: bool = True
     asaapi: bool = False                 # ARK: Start ueber ArkApi/AsaApiLoader.exe (Plugins im Spiel)
+    # Gesetzt, wenn der Loader nach einem ARK-Update nicht passt: Start dann ohne Plugins.
+    asaapi_fallback: bool = False
     cluster_id: str = ""                 # leer = Name der Instanz
     cluster_dir: str = ""                # leer = <instanz>/clusters (gemeinsam nutzbar)
     cluster_transfer_filtering: bool = True   # True = -NoTransferFromFiltering setzen

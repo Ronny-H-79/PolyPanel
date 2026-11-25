@@ -36,7 +36,8 @@ class ArkProfile(GameProfile):
     # reicht sie nur durch, damit der Kern spielunabhaengig aufrufen kann.
     def exe(self, inst) -> str:
         # Mit AsaApi startet der Lader; der reicht die Argumente an den Server weiter.
-        if getattr(inst, "asaapi", False) and os.path.exists(inst.loader_exe):
+        if (getattr(inst, "asaapi", False) and not getattr(inst, "asaapi_fallback", False)
+                and os.path.exists(inst.loader_exe)):
             return inst.loader_exe
         return inst.ark_exe
 

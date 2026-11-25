@@ -1357,6 +1357,13 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
       <label><input type="checkbox" id="asaapion" onchange="setAsaApi(this.checked)" style="width:auto;margin-right:6px">
         <b data-t="mods.asaapi">AsaApi aktiv (Plugins im Spiel)</b>
         <small><span data-t="mods.asaapi_state" id="asaapistate"></span></small></label>
+    <div class="setrow" style="margin:6px 0 0">
+      <label><input type="checkbox" id="asaapifallback" onchange="setAsaApiFallback(this.checked)"
+                    style="width:auto;margin-right:6px">
+        <b data-t="mods.asaapi_fallback">Start ohne AsaApi, wenn der Loader nicht passt</b>
+        <small data-t="mods.asaapi_fallback_hint">Nach einem ARK-Update laeuft der Server dann ohne
+          Plugins weiter, statt gar nicht zu starten.</small></label>
+    </div>
     </div>
     <div class="setrow ark-only" style="margin:10px 0 0">
       <label><b data-t="mods.ids">Mod-IDs (Komma-getrennt)</b></label>
@@ -2536,14 +2543,24 @@ async function setAsaApi(an){
     loadAsaApiState();
   }catch(e){ if(msg) msg.textContent='Fehler: '+e; }
 }
+async function setAsaApiFallback(aus){
+  const msg=document.getElementById('modidsmsg');
+  try{
+    const r=await api('/api/asaapi?name='+encodeURIComponent(NAME)+'&fallback='+(aus?'1':'0'),{method:'POST'});
+    if(msg) msg.textContent=r;
+    loadAsaApiState();
+  }catch(e){ if(msg) msg.textContent='Fehler: '+e; }
+}
 async function loadAsaApiState(){
   if(document.body.dataset.game!=='ark') return;
   try{
     const s=JSON.parse(await api('/api/asaapi/state?name='+encodeURIComponent(NAME)));
     const cb=document.getElementById('asaapion');
     if(cb) cb.checked=!!s.enabled;
+    const fb=document.getElementById('asaapifallback');
+    if(fb) fb.checked=!!s.fallback;
     const st=document.getElementById('asaapistate');
-    if(st) st.textContent = s.version ? ('v'+s.version+(s.enabled?'':' · aus')) : (s.enabled?'':'nicht installiert');
+    if(st) st.textContent = s.version ? ('v'+s.version+(s.enabled?'':' · aus')+(s.fallback?' · ohne Plugins':'')) : (s.enabled?'':'nicht installiert');
   }catch(e){}
 }
 async function saveModIds(){
@@ -3687,6 +3704,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"enabled": False, "version": ""})
                 return
             self._json({"enabled": bool(getattr(inst, "asaapi", False)),
+                        "fallback": bool(getattr(inst, "asaapi_fallback", False)),
                         "version": installer.asaapi_tag(inst) or ""})
             return
         if path == "/api/status":
@@ -3816,6 +3834,22 @@ class Handler(BaseHTTPRequestHandler):
 
             if inst.game != "ark":
                 self._send(200, b"AsaApi gibt es nur fuer ARK: Survival Ascended")
+                return
+            if q.get("fallback", [""])[0] in ("0", "1"):
+                an = q.get("fallback", [""])[0] == "1"
+                inst.asaapi_fallback = an
+                registry.save(inst)
+                laeuft = runner.is_running(inst)
+                if laeuft:
+                    try:
+                        runner.restart(inst)
+                    except Exception as exc:  # noqa: BLE001
+                        self._send(200, ("gespeichert, Neustart fehlgeschlagen: %s" % exc).encode())
+                        return
+                self._send(200, ("Start %s Plugins%s"
+                                 % ("mit" if not an else "ohne",
+                                    ", Server wird neu gestartet" if laeuft else
+                                    ", wirkt beim naechsten Start")).encode())
                 return
             if q.get("enabled", [""])[0] in ("0", "1"):
                 an = q.get("enabled", [""])[0] == "1"

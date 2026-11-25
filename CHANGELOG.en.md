@@ -1,3 +1,9 @@
+## [0.71] - 2026-11-25
+
+- New switch under Mods: start the server without AsaApi when the loader does not match after an
+  ARK update. The server stays reachable; quests, starter kit and kill counting are missing in game.
+  Switch it back once the loader works again.
+
 ## [0.70] - 2026-11-25
 
 - Every delete now asks first: file, mod, mod files, snapshot, backup and whitelist entry. The texts
