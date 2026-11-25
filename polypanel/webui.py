@@ -3701,7 +3701,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/asaapi/state":
             if inst.game != "ark":
-                self._json({"enabled": False, "version": ""})
+                self._json({"enabled": False, "fallback": False, "version": ""})
                 return
             self._json({"enabled": bool(getattr(inst, "asaapi", False)),
                         "fallback": bool(getattr(inst, "asaapi_fallback", False)),

@@ -1,3 +1,8 @@
+## [0.72] - 2026-11-25
+
+- Der Zustand der AsaApi-Abfrage liefert den Rückfall-Schalter jetzt auch bei Spielen ohne ARK,
+  sonst blieb die neue Checkbox leer.
+
 ## [0.71] - 2026-11-25
 
 - Neuer Schalter unter Mods: startet den Server ohne AsaApi, wenn der Loader nach einem ARK-Update

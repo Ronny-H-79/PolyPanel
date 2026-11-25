@@ -1,3 +1,8 @@
+## [0.72] - 2026-11-25
+
+- The AsaApi state endpoint now reports the fallback switch for non-ARK games too; otherwise the
+  new checkbox stayed empty.
+
 ## [0.71] - 2026-11-25
 
 - New switch under Mods: start the server without AsaApi when the loader does not match after an
