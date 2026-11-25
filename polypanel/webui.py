@@ -528,6 +528,8 @@ MOBILE_CSS = """
   table{font-size:12.5px}
   .mbox{padding:12px;width:96vw;max-height:90vh;overflow:auto}
   #dateiFull{padding:8px}
+  /* lange Ini-Zeilen seitlich scrollen statt umbrechen */
+  textarea{white-space:pre;overflow-wrap:normal;overflow-x:auto}
   #dateiFull textarea{font-size:13px}
   h2{font-size:10px}
   /* Grid-Elemente duerfen schrumpfen, sonst schiebt die Tabelle die Seite breit */
@@ -1256,7 +1258,7 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
           <button onclick="dClose()" data-t="files.close">Schliessen</button>
         </span>
       </div>
-      <textarea id="dateiInhalt" spellcheck="false"
+      <textarea id="dateiInhalt" spellcheck="false" wrap="off"
         style="width:100%;height:340px;margin-top:8px;font-family:ui-monospace,monospace;font-size:12px;
                background:rgba(0,0,0,.35);color:inherit;border:1px solid rgba(64,255,199,.2);border-radius:8px;padding:10px"></textarea>
     </div>
@@ -1492,7 +1494,7 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
           <button onclick="dFullClose()" data-t="files.close">Schliessen</button>
         </span>
       </div>
-      <textarea id="dateiFullText" spellcheck="false"></textarea>
+      <textarea id="dateiFullText" spellcheck="false" wrap="off"></textarea>
       <div class="meta" id="dateiFullMsg"></div>
     </div>
 <script>""" + BG_JS + """

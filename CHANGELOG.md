@@ -1,3 +1,7 @@
+## [0.69] - 2026-11-24
+
+- Dateien im Editor: lange Zeilen werden nicht mehr umbrochen, sondern seitlich gescrollt.
+
 ## [0.68] - 2026-11-24
 
 - Fußzeile auch auf dem Dashboard. Version, Lizenz-Link, PayPal und Discord standen bisher nur auf

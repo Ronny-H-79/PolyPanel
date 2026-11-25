@@ -1,3 +1,7 @@
+## [0.69] - 2026-11-24
+
+- File editor: long lines are no longer wrapped but scroll sideways.
+
 ## [0.68] - 2026-11-24
 
 - Footer on the dashboard too. Version, licence link, PayPal and Discord only appeared on the
