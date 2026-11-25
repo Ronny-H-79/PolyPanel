@@ -1751,7 +1751,7 @@ async function dMkdir(){
 }
 
 async function dDelete(pfad, name){
-  if(!confirm(name+' wirklich loeschen?')) return;
+  if(!confirm(L['msg.confirm_file'].replace('{n}', name))) return;
   try{
     const r = await api('/api/files/delete?path='+encodeURIComponent(pfad), {method:'POST'});
     const d = JSON.parse(r); if(d.ok) toast('geloescht: '+name); else toast(r);
@@ -2491,6 +2491,7 @@ async function addWl(){
   document.getElementById('pid').value=''; loadWl();
 }
 async function delWl(id){
+  if(!confirm(L['msg.confirm_whitelist'].replace('{n}', id)))return;
   document.getElementById('wlmsg').textContent=await api('/api/whitelist/remove?id='+encodeURIComponent(id),{method:'POST'});
   loadWl();
 }
@@ -2644,12 +2645,12 @@ async function addMod(){
   document.getElementById('modid').value=''; loadMods();
 }
 async function delMod(id){
-  if(!confirm('Mod '+id+' aus der Liste entfernen?'))return;
+  if(!confirm(L['msg.confirm_mod_remove'].replace('{n}', id)))return;
   document.getElementById('modout').textContent=await api('/api/mods/remove?id='+id,{method:'POST'});
   loadMods();
 }
 async function delModFiles(id){
-  if(!confirm('Heruntergeladene Dateien von Mod '+id+' loeschen?'))return;
+  if(!confirm(L['msg.confirm_mod_files'].replace('{n}', id)))return;
   document.getElementById('modout').textContent=await api('/api/mods/delete-files?id='+id,{method:'POST'});
   loadMods();
 }
@@ -2688,7 +2689,7 @@ async function restoreSnap(name){
   setTimeout(refresh,3000);
 }
 async function delSnap(name){
-  if(!confirm('Snapshot '+name+' löschen?'))return;
+  if(!confirm(L['msg.confirm_snapshot_delete'].replace('{n}', name)))return;
   document.getElementById('snapmsg').textContent=await api('/api/snapshot/delete?file='+encodeURIComponent(name),{method:'POST'});
   loadSnaps();
 }
@@ -2719,7 +2720,7 @@ async function restoreBk(f){
   setTimeout(refresh,3000);
 }
 async function delBk(f){
-  if(!confirm('Backup '+f+' löschen?'))return;
+  if(!confirm(L['msg.confirm_backup'].replace('{n}', f)))return;
   document.getElementById('bkmsg').textContent=await api('/api/backup/delete?file='+encodeURIComponent(f),{method:'POST'});
   loadBackups();
 }

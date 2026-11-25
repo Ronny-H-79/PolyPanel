@@ -1,3 +1,8 @@
+## [0.70] - 2026-11-25
+
+- Vor jedem Löschen kommt jetzt eine Rückfrage: Datei, Mod, Mod-Dateien, Snapshot, Backup und
+  Whitelist-Eintrag. Die Texte stehen in beiden Sprachen, bisher waren sie fest auf Deutsch.
+
 ## [0.69] - 2026-11-24
 
 - Dateien im Editor: lange Zeilen werden nicht mehr umbrochen, sondern seitlich gescrollt.

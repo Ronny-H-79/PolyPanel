@@ -1,3 +1,8 @@
+## [0.70] - 2026-11-25
+
+- Every delete now asks first: file, mod, mod files, snapshot, backup and whitelist entry. The texts
+  exist in both languages; they used to be hard-coded German.
+
 ## [0.69] - 2026-11-24
 
 - File editor: long lines are no longer wrapped but scroll sideways.
