@@ -1258,9 +1258,11 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
           <button onclick="dClose()" data-t="files.close">Schliessen</button>
         </span>
       </div>
-      <textarea id="dateiInhalt" spellcheck="false" wrap="off"
-        style="width:100%;height:340px;margin-top:8px;font-family:ui-monospace,monospace;font-size:12px;
-               background:rgba(0,0,0,.35);color:inherit;border:1px solid rgba(64,255,199,.2);border-radius:8px;padding:10px"></textarea>
+      <div class="lnrwrap">
+        <div class="lnr" id="dateiInhalt_ln">1</div>
+        <textarea id="dateiInhalt" spellcheck="false" wrap="off"
+          style="height:340px;color:inherit"></textarea>
+      </div>
     </div>
 
     <h2 style="margin-top:26px" data-t="sftp.title">SFTP-Zugang</h2>
@@ -1501,7 +1503,10 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
           <button onclick="dFullClose()" data-t="files.close">Schliessen</button>
         </span>
       </div>
-      <textarea id="dateiFullText" spellcheck="false" wrap="off"></textarea>
+      <div class="lnrwrap">
+        <div class="lnr" id="dateiFullText_ln">1</div>
+        <textarea id="dateiFullText" spellcheck="false" wrap="off"></textarea>
+      </div>
       <div class="meta" id="dateiFullMsg"></div>
     </div>
 <script>""" + BG_JS + """
@@ -1601,6 +1606,33 @@ function dGroesse(n){
   return (i? v.toFixed(1):v)+' '+u[i];
 }
 function dEsc(t){ return String(t).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+
+// ---- Zeilennummern für Datei-Ansicht ---------------------------------
+function lnrSync(id){
+  const ta=document.getElementById(id), g=document.getElementById(id+'_ln');
+  if(!ta||!g) return;
+  const n=ta.value.split(String.fromCharCode(10)).length;
+  if(g.dataset.n!==String(n)){
+    let s='';
+    for(let i=1;i<=n;i++) s+=i+String.fromCharCode(10);
+    g.textContent=s;
+    g.dataset.n=String(n);
+  }
+  g.scrollTop=ta.scrollTop;
+}
+function lnrInit(){
+  ['dateiInhalt','dateiFullText'].forEach(function(id){
+    const ta=document.getElementById(id);
+    if(!ta||ta.dataset.lnr) return;
+    ta.dataset.lnr='1';
+    ta.addEventListener('input',function(){lnrSync(id);});
+    ta.addEventListener('scroll',function(){lnrSync(id);});
+    lnrSync(id);
+  });
+}
+document.addEventListener('DOMContentLoaded',lnrInit);
+setTimeout(lnrInit,1500);
 
 async function dateien(pfad){
   try{ dClose(); }catch(e){}
@@ -1786,7 +1818,7 @@ async function dOpen(pfad){
     const d = await r.json();
     DATEI_OFFEN = d.pfad;
     document.getElementById('dateiViewerName').textContent = d.pfad+' ('+dGroesse(d.groesse)+')';
-    document.getElementById('dateiInhalt').value = d.text;
+    document.getElementById('dateiInhalt').value = d.text; lnrSync('dateiInhalt');
     document.getElementById('dateiViewer').style.display='';
     if(st) st.textContent='';
   }catch(e){ if(st) st.textContent='Nicht lesbar: '+e; }
@@ -1808,7 +1840,7 @@ async function dSave(){
 function dClose(){
   DATEI_OFFEN='';
   document.getElementById('dateiViewer').style.display='none';
-  document.getElementById('dateiInhalt').value='';
+  document.getElementById('dateiInhalt').value=''; lnrSync('dateiInhalt');
 }
 
 // ---- Vollansicht ------------------------------------------------------
@@ -1822,7 +1854,7 @@ async function dFull(pfad){
     const d = await r.json();
     DATEI_FULL = d.pfad;
     document.getElementById('dateiFullName').textContent = d.pfad+' ('+dGroesse(d.groesse)+')';
-    document.getElementById('dateiFullText').value = d.text;
+    document.getElementById('dateiFullText').value = d.text; lnrSync('dateiFullText');
     document.getElementById('dateiFullMsg').textContent='';
     document.getElementById('dateiFull').classList.add('on');
     document.getElementById('dateiFullText').focus();
@@ -1830,7 +1862,7 @@ async function dFull(pfad){
 }
 function dFullClose(){
   document.getElementById('dateiFull').classList.remove('on');
-  document.getElementById('dateiFullText').value='';
+  document.getElementById('dateiFullText').value=''; lnrSync('dateiFullText');
   DATEI_FULL='';
 }
 async function dSaveFull(){
@@ -2957,7 +2989,20 @@ document.addEventListener('click', function(ev){
 
 LICENSE_PAGE = """<!doctype html><html lang="__LANG__"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>PolyPanel · __TITLE__</title>
-<style>""" + SHARED_CSS + MOBILE_CSS + """</style></head><body>
+<style>""" + SHARED_CSS + MOBILE_CSS + """
+/* Zeilennummern in der Datei-Ansicht */
+.lnrwrap{display:flex;align-items:stretch;border:1px solid rgba(64,255,199,.2);border-radius:8px;
+  background:rgba(0,0,0,.35);overflow:hidden;margin-top:8px}
+.lnrwrap textarea{margin:0;border:0;border-radius:0;background:transparent;flex:1;min-width:0;
+  padding:10px 10px 10px 8px;font:12px/18px ui-monospace,SFMono-Regular,Menlo,monospace;
+  tab-size:4;white-space:pre;overflow:auto;resize:vertical}
+.lnr{flex:0 0 auto;padding:10px 6px 10px 8px;text-align:right;color:#54706b;
+  background:rgba(255,255,255,.035);border-right:1px solid rgba(64,255,199,.12);
+  font:12px/18px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;overflow:hidden;
+  user-select:none;-webkit-user-select:none;min-width:2.6em}
+#dateiFull .lnrwrap{flex:1;min-height:0;margin:6px 0 0}
+#dateiFull .lnrwrap textarea{resize:none;height:auto}
+</style></head><body>
 <canvas id="bg"></canvas>
 <header><h1>PolyPanel</h1><span class="badge" data-t="license.title">__TITLE__</span>
 <span class="hostbar"><a href="/?token=__TOK__"><button>← Dashboard</button></a></span>""" + HEADER_ICONS + """</header>

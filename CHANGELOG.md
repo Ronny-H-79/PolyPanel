@@ -1,3 +1,9 @@
+## [0.73] - 2026-11-26
+
+- Zeilennummern in der Datei-Ansicht: links am Rand, mitlaufend beim Scrollen und Tippen. Gilt im
+  Editor des Instanz-Reiters und in der Vollansicht. Zeilenumbrueche sind dort abgeschaltet, damit
+  Nummer und Zeile exakt auf einer Hoehe stehen.
+
 ## [0.72] - 2026-11-25
 
 - Der Zustand der AsaApi-Abfrage liefert den Rückfall-Schalter jetzt auch bei Spielen ohne ARK,

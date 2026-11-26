@@ -1,3 +1,9 @@
+## [0.73] - 2026-11-26
+
+- Line numbers in the file view: on the left margin, following scroll and typing. Applies to the
+  editor in the instance tab and to the full-screen view. Line wrapping is off there so numbers and
+  lines stay exactly aligned.
+
 ## [0.72] - 2026-11-25
 
 - The AsaApi state endpoint now reports the fallback switch for non-ARK games too; otherwise the
