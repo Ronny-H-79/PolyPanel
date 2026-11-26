@@ -1258,10 +1258,10 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
           <button onclick="dClose()" data-t="files.close">Schliessen</button>
         </span>
       </div>
-      <div class="lnrwrap">
-        <div class="lnr" id="dateiInhalt_ln">1</div>
+      <div style="display:flex;align-items:stretch;border:1px solid rgba(64,255,199,.2);border-radius:8px;background:rgba(0,0,0,.35);overflow:hidden;margin-top:8px">
+        <div id="dateiInhalt_ln" style="flex:0 0 auto;padding:10px 6px 10px 8px;text-align:right;color:#54706b;background:rgba(255,255,255,.035);border-right:1px solid rgba(64,255,199,.12);font:12px/18px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;overflow:hidden;user-select:none;-webkit-user-select:none;min-width:2.6em">1</div>
         <textarea id="dateiInhalt" spellcheck="false" wrap="off"
-          style="height:340px;color:inherit"></textarea>
+          style="flex:1 1 auto;min-width:0;margin:0;border:0;border-radius:0;background:transparent;color:inherit;padding:10px 10px 10px 8px;font:12px/18px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;overflow:auto;height:340px;resize:vertical"></textarea>
       </div>
     </div>
 
@@ -1503,9 +1503,10 @@ body[data-game="ark"] #mods-installed,body[data-game="arkse"] #mods-installed{di
           <button onclick="dFullClose()" data-t="files.close">Schliessen</button>
         </span>
       </div>
-      <div class="lnrwrap">
-        <div class="lnr" id="dateiFullText_ln">1</div>
-        <textarea id="dateiFullText" spellcheck="false" wrap="off"></textarea>
+      <div style="display:flex;align-items:stretch;border:1px solid rgba(64,255,199,.2);border-radius:8px;background:rgba(0,0,0,.35);overflow:hidden;margin-top:8px;flex:1;min-height:0;margin:6px 0 0">
+        <div id="dateiFullText_ln" style="flex:0 0 auto;padding:10px 6px 10px 8px;text-align:right;color:#54706b;background:rgba(255,255,255,.035);border-right:1px solid rgba(64,255,199,.12);font:12px/18px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;overflow:hidden;user-select:none;-webkit-user-select:none;min-width:2.6em">1</div>
+        <textarea id="dateiFullText" spellcheck="false" wrap="off"
+          style="flex:1 1 auto;min-width:0;margin:0;border:0;border-radius:0;background:transparent;color:inherit;padding:10px 10px 10px 8px;font:12px/18px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;overflow:auto;min-height:0;resize:none"></textarea>
       </div>
       <div class="meta" id="dateiFullMsg"></div>
     </div>

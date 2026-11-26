@@ -1,3 +1,9 @@
+## [0.74] - 2026-11-26
+
+- Line numbers now form a column to the left of the text. The first attempt rendered them as a row of
+  digits above the file because the CSS block was not loaded on the instance page; the dimensions are
+  now set inline on the elements, so they apply on every page.
+
 ## [0.73] - 2026-11-26
 
 - Line numbers in the file view: on the left margin, following scroll and typing. Applies to the

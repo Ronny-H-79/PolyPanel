@@ -1,3 +1,9 @@
+## [0.74] - 2026-11-26
+
+- Zeilennummern stehen jetzt als eigene Spalte links neben dem Text. Beim ersten Anlauf wurden sie
+  als Zahlenreihe ueber der Datei angezeigt, weil der CSS-Block auf der Instanzseite nicht geladen
+  wurde — die Abmessungen stehen jetzt direkt am Element und greifen damit auf jeder Seite.
+
 ## [0.73] - 2026-11-26
 
 - Zeilennummern in der Datei-Ansicht: links am Rand, mitlaufend beim Scrollen und Tippen. Gilt im
